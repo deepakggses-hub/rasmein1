@@ -13,7 +13,8 @@ Built on CodeIgniter 4.7 · PHP 8.2+ · MySQL 8 / MariaDB 10.4+ · Tailwind CSS 
 | Phase | Scope | State |
 |---|---|---|
 | **1** | Foundation, database schema, design system, homepage | **Complete** |
-| 2 | Catalogue, product pages, cart, checkout | Not started |
+| **2a** | Catalogue, filters, search, product pages, collections | **Complete** |
+| 2b | Cart, checkout, order creation | Not started |
 | 3 | Gift-box builder, Buy/Enquire switch | Not started |
 | 4 | Admin panel | Not started |
 | 5 | Customer accounts | Not started |
@@ -84,7 +85,9 @@ php spark migrate                    # apply new migrations
 php spark migrate:rollback -b 0      # drop everything (destructive)
 php spark db:seed DatabaseSeeder     # idempotent — safe to re-run
 php spark routes                     # every reachable route + its filters
-php spark rasmein:diag               # smoke-test the storefront queries
+php spark rasmein:diag               # preflight: PHP, extensions, .env, DB
+php spark rasmein:diag-catalogue     # filters, sorting, pagination, related
+php spark rasmein:diag-search        # hostile + awkward search input
 ```
 
 `rasmein:diag` runs every storefront query and reports OK/FAIL per query. It is

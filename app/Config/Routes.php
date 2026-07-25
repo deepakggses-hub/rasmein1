@@ -27,6 +27,17 @@ $routes->group('', ['namespace' => 'App\Controllers\Storefront'], static functio
 
     // CMS pages (about, shipping, returns…)
     $routes->match(['GET', 'HEAD'], 'page/(:segment)', 'Pages::show/$1', ['as' => 'page']);
+
+    // ---- Catalogue (Phase 2) ----
+    $routes->match(['GET', 'HEAD'], 'shop', 'Shop::index', ['as' => 'shop']);
+    $routes->match(['GET', 'HEAD'], 'search', 'Shop::search', ['as' => 'search']);
+    $routes->match(['GET', 'HEAD'], 'collections', 'Collections::index', ['as' => 'collections']);
+    $routes->match(['GET', 'HEAD'], 'collections/(:segment)', 'Shop::collection/$1', ['as' => 'collection']);
+    $routes->match(['GET', 'HEAD'], 'product/(:segment)', 'Products::show/$1', ['as' => 'product']);
+
+    // Must come last in this group: a bare segment would otherwise swallow
+    // 'shop/anything' before the more specific routes above are reached.
+    $routes->match(['GET', 'HEAD'], 'shop/(:segment)', 'Shop::category/$1', ['as' => 'category']);
 });
 
 // =====================================================================
@@ -38,12 +49,6 @@ $routes->group('', ['namespace' => 'App\Controllers\Storefront'], static functio
 // =====================================================================
 $routes->group('', ['namespace' => 'App\Controllers\Storefront'], static function (RouteCollection $routes): void {
     // --- Phase 2: catalogue, cart, checkout ---
-    $routes->match(['GET', 'HEAD'], 'shop', 'Roadmap::show/2/the-shop');
-    $routes->match(['GET', 'HEAD'], 'shop/(:segment)', 'Roadmap::show/2/category');
-    $routes->match(['GET', 'HEAD'], 'product/(:segment)', 'Roadmap::show/2/product-pages');
-    $routes->match(['GET', 'HEAD'], 'collections', 'Roadmap::show/2/collections');
-    $routes->match(['GET', 'HEAD'], 'collections/(:segment)', 'Roadmap::show/2/collections');
-    $routes->match(['GET', 'HEAD'], 'search', 'Roadmap::show/2/search');
     $routes->match(['GET', 'HEAD'], 'cart', 'Roadmap::show/2/your-cart');
     $routes->match(['GET', 'HEAD'], 'checkout', 'Roadmap::show/2/checkout');
 

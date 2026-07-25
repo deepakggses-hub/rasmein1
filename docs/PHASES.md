@@ -28,20 +28,53 @@ something runnable and reviewable, not a half-wired layer.
 
 ---
 
-## Phase 2 — Catalogue, cart & checkout
+## Phase 2a — Catalogue & product pages · **complete**
 
-- Shop index with filtering (category, price band, availability) and sorting
-- Category and collection pages, paginated
-- Product detail: gallery, description, related products, stock state
-- Search backed by the FULLTEXT index
+- Shop listing with one template serving four contexts: everything, a category,
+  a collection, and a search
+- Filters: category, price range, in stock, gift-box eligible — a plain GET form
+  that works with JavaScript disabled
+- Whitelisted sorting (Featured / Newest / Price / Name). An unrecognised `sort`
+  value falls back to Featured rather than reaching ORDER BY
+- Pagination that carries active filters across pages, with a sliding page window
+- Product detail: gallery with thumbnail switching, price and discount, stock
+  state, box-slot cost, related products, per-product Buy/Enquire badge
+- Collections index
+- Search over the FULLTEXT index, OR'd with a LIKE on SKU and name
+- Empty state that offers a way forward instead of apologising
+- Roadmap placeholders removed for `/shop`, `/product/*`, `/collections*`, `/search`
+
+**Verified:** 21 catalogue checks (filters, sorting, pagination, price range,
+related products) and 23 search inputs including hostile ones. `php spark
+rasmein:diag-catalogue` and `rasmein:diag-search`.
+
+**Two bugs this phase caught and fixed:**
+
+- `Pager` has no `hasPrevious()` / `getPrevious()` — those live on
+  `PagerRenderer`. The real API is `getPreviousPageURI()` / `getNextPageURI()`,
+  which return null rather than throwing. `/shop` 500'd whenever there was more
+  than one page.
+- **MySQL FULLTEXT boolean mode treats `+ - > < ( ) ~ * " @` as operators, and a
+  malformed expression is a hard SQL error.** Searching `tea (loose)` — or
+  anything with a bracket — returned a 500. Every token is now reduced to
+  letters and digits before it reaches the query.
+
+**Deliberately not pretending to work:** the product page's add-to-cart button is
+present but disabled, with a line saying the cart arrives next. Better than a
+button that leads nowhere.
+
+---
+
+## Phase 2b — Cart & checkout
+
 - Server-side cart: add / update quantity / remove, as JSON endpoints
 - Coupon application — validated and recomputed server-side
 - Checkout: contact, shipping, billing, guest or signed-in
 - Order creation inside a transaction, with stock reservation and the
   idempotency key doing its job
 - Order confirmation page and email
-- **Replaces roadmap routes:** `/shop`, `/product/*`, `/collections*`,
-  `/search`, `/cart`, `/checkout`
+- Enable the add-to-cart button on the product page
+- **Replaces roadmap routes:** `/cart`, `/checkout`
 
 New models: Cart, CartItem, Order, OrderItem, Coupon, plus a `CartService`,
 `PricingService` and `OrderService`.

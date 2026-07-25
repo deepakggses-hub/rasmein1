@@ -70,7 +70,7 @@ $cartLabel = rs_cta_label(null, 'cart');
                             <ul class="border border-shell-line bg-white py-2 shadow-[var(--shadow-lift)]">
                                 <?php foreach ($navCategories as $category): ?>
                                     <li>
-                                        <a href="<?= esc($category->url(), 'attr') ?>"
+                                        <a href="<?= $category->url() ?>"
                                            class="block px-4 py-2 text-sm hover:bg-shell-deep hover:text-mulberry">
                                             <?= esc($category->name) ?>
                                         </a>
@@ -139,7 +139,7 @@ $cartLabel = rs_cta_label(null, 'cart');
             <a href="<?= site_url('build') ?>" class="border-b border-shell-line py-3 font-medium">Build a box</a>
             <a href="<?= site_url('gift-boxes') ?>" class="border-b border-shell-line py-3 font-medium">Ready hampers</a>
             <?php foreach ($navCategories as $category): ?>
-                <a href="<?= esc($category->url(), 'attr') ?>" class="border-b border-shell-line py-3 text-ink-soft">
+                <a href="<?= $category->url() ?>" class="border-b border-shell-line py-3 text-ink-soft">
                     <?= esc($category->name) ?>
                 </a>
             <?php endforeach; ?>

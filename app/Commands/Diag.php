@@ -208,9 +208,79 @@ class Diag extends BaseCommand
         }
     }
 
+    /**
+     * Connect with mysqli directly before letting CodeIgniter try.
+     *
+     * CI4 reports every connection problem as the same "Unable to connect to
+     * the database." — the real reason (wrong password vs. missing database vs.
+     * server not running) only reaches writable/logs. This probe reads the
+     * driver's own error and prints it, which is the difference between a
+     * five-second fix and an afternoon.
+     */
+    private function probeMysql(array $config): bool
+    {
+        if (! extension_loaded('mysqli')) {
+            return true; // already reported by checkExtensions()
+        }
+
+        $host = (string) ($config['hostname'] ?: 'localhost');
+        $port = (int) ($config['port'] ?: 3306);
+        $user = (string) $config['username'];
+        $name = (string) $config['database'];
+        $pass = (string) $config['password'];
+
+        mysqli_report(MYSQLI_REPORT_OFF);
+
+        // Step 1 — reach the server at all, without naming a database.
+        $conn = @new \mysqli($host, $user, $pass, '', $port);
+
+        if ($conn->connect_errno !== 0) {
+            $reason = $conn->connect_error;
+
+            $fix = match (true) {
+                str_contains($reason, 'Access denied') => 'Wrong username or password. XAMPP\'s default is username "root" with an EMPTY password: set database.default.username = root and database.default.password = \'\' in .env',
+                str_contains($reason, 'No such file')
+                || str_contains($reason, 'Connection refused')
+                || str_contains($reason, "Can't connect") => 'MySQL is not reachable on ' . $host . ':' . $port . '. Start MySQL in the XAMPP Control Panel, and check the port there — XAMPP sometimes uses 3307 if 3306 was taken.',
+                default => 'Check database.default.hostname / port / username / password in .env. On Windows, try 127.0.0.1 instead of localhost.',
+            };
+
+            $this->fail('MySQL server', $reason, $fix);
+
+            return false;
+        }
+
+        $this->pass('MySQL server', $user . '@' . $host . ':' . $port . ' (' . $conn->server_info . ')');
+
+        // Step 2 — does the database exist, and can this user see it?
+        $result = $conn->query('SHOW DATABASES LIKE ' . "'" . $conn->real_escape_string($name) . "'");
+        $exists = $result !== false && $result->num_rows > 0;
+
+        if (! $exists) {
+            $this->fail(
+                'database "' . $name . '"',
+                'does not exist, or this user cannot see it',
+                'Create it — in phpMyAdmin, or: mysql -u root -e "CREATE DATABASE '
+                . $name . ' CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"'
+            );
+            $conn->close();
+
+            return false;
+        }
+
+        $this->pass('database "' . $name . '"', 'exists');
+        $conn->close();
+
+        return true;
+    }
+
     private function checkDatabase(): bool
     {
         $config = config(Database::class)->default;
+
+        if (! $this->probeMysql($config)) {
+            return false;
+        }
 
         try {
             $db = \Config\Database::connect();

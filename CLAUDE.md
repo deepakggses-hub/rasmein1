@@ -388,6 +388,23 @@ existing design instead of inventing a parallel one.
   now returns false for `is_cli()` and for anything that is not an
   `IncomingRequest`. Never let a handler swallow CLI output — it makes
   migrations, seeders and cron jobs undebuggable.
+- **`Pager` has no `hasPrevious()` / `hasNext()` / `getPrevious()`.** Those are
+  `PagerRenderer` methods. On the `Pager` instance the API is
+  `getPreviousPageURI()` and `getNextPageURI()`, both nullable. Calling the
+  wrong ones 500s the listing page the moment there is a second page — and a
+  single-page result set hides it, so it passes a casual test.
+- **MySQL FULLTEXT boolean mode is a parser, not a string match.** `+ - > < ( )
+  ~ * " @` are operators, and a malformed expression raises a SQL error rather
+  than returning nothing. A customer searching `tea (loose)` crashed the page.
+  `ProductModel::applySearch()` now reduces every token to `\p{L}\p{N}` before
+  building the expression, caps the term length, and OR's the match with a LIKE
+  on SKU and name — FULLTEXT indexes name/description only, so SKU lookups
+  ("RSM-CH-001") would otherwise silently return nothing.
+- **`esc($url, 'attr')` entity-encodes `:` `/` `=` `&`.** Browsers decode it, so
+  it works, but view-source becomes unreadable. Internal URLs built by
+  `site_url()` from slugs the models validate as `^[a-z0-9-]+$` are output raw.
+  Anything a user can influence — pagination query strings, the clear-filters
+  link — stays escaped.
 - **Error views are rendered by a plain `include`**, not through the View
   service — no `$this`, no layouts, no partials. Keep them self-contained so
   they still render when the database is down.

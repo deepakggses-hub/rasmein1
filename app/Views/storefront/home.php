@@ -146,7 +146,7 @@
             <div class="mt-10 grid gap-6 md:grid-cols-3">
                 <?php foreach ($giftBoxes as $box): ?>
                     <article class="rs-card flex flex-col overflow-hidden bg-white">
-                        <a href="<?= esc($box->builderUrl(), 'attr') ?>" class="block aspect-[3/2] overflow-hidden bg-shell-deep">
+                        <a href="<?= $box->builderUrl() ?>" class="block aspect-[3/2] overflow-hidden bg-shell-deep">
                             <img src="<?= esc($box->imageUrl(), 'attr') ?>"
                                  alt="<?= esc($box->name, 'attr') ?>"
                                  loading="lazy" decoding="async"
@@ -162,7 +162,7 @@
                             </div>
 
                             <h3 class="mt-3 font-display text-xl font-semibold">
-                                <a href="<?= esc($box->builderUrl(), 'attr') ?>" class="rs-link"><?= esc($box->name) ?></a>
+                                <a href="<?= $box->builderUrl() ?>" class="rs-link"><?= esc($box->name) ?></a>
                             </h3>
 
                             <p class="mt-2 text-sm leading-relaxed text-ink-muted">
@@ -175,7 +175,7 @@
                                     <span class="num font-semibold text-ink"><?= esc($box->formattedBasePrice()) ?></span>
                                     <span class="text-ink-muted">+ contents</span>
                                 </p>
-                                <a href="<?= esc($box->builderUrl(), 'attr') ?>" class="rs-btn rs-btn--primary rs-btn--sm">
+                                <a href="<?= $box->builderUrl() ?>" class="rs-btn rs-btn--primary rs-btn--sm">
                                     Fill it
                                 </a>
                             </div>
@@ -198,7 +198,7 @@
         <ul class="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <?php foreach ($categories as $category): ?>
                 <li>
-                    <a href="<?= esc($category->url(), 'attr') ?>"
+                    <a href="<?= $category->url() ?>"
                        class="rs-card flex items-center gap-5 bg-white p-4">
                         <span class="block h-20 w-20 shrink-0 overflow-hidden bg-shell-deep">
                             <img src="<?= esc($category->imageUrl(), 'attr') ?>"

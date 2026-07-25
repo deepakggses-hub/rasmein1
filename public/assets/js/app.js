@@ -108,10 +108,47 @@
     trays.forEach(function (tray) { observer.observe(tray); });
   }
 
+
+  /* ------------------------------------------------- product gallery
+   * Thumbnails swap the main image. The markup already shows a valid image
+   * before this runs, so nothing is broken without JS.
+   */
+  function initGallery() {
+    var main = document.getElementById('product-image');
+    var thumbs = document.querySelectorAll('[data-gallery-thumb]');
+    if (!main || thumbs.length === 0) return;
+
+    thumbs.forEach(function (thumb) {
+      thumb.addEventListener('click', function () {
+        var src = thumb.getAttribute('data-src');
+        if (!src) return;
+        main.src = src;
+        main.alt = thumb.getAttribute('data-alt') || '';
+        thumbs.forEach(function (t) { t.removeAttribute('aria-current'); });
+        thumb.setAttribute('aria-current', 'true');
+      });
+    });
+  }
+
+  /* --------------------------------------------- auto-submitting selects
+   * The sort dropdown submits on change. A <noscript> button covers the
+   * case where this file never runs.
+   */
+  function initAutoSubmit() {
+    document.querySelectorAll('[data-auto-submit]').forEach(function (control) {
+      control.addEventListener('change', function () {
+        var form = control.closest('form');
+        if (form) form.submit();
+      });
+    });
+  }
+
   function init() {
     initDropdowns();
     initMobileMenu();
     initTrayReveal();
+    initGallery();
+    initAutoSubmit();
   }
 
   document.readyState === 'loading'

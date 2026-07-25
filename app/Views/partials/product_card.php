@@ -4,7 +4,7 @@
  */
 ?>
 <article class="rs-card group flex flex-col overflow-hidden">
-    <a href="<?= esc($product->url(), 'attr') ?>" class="relative block aspect-[4/5] overflow-hidden bg-shell-deep">
+    <a href="<?= $product->url() ?>" class="relative block aspect-[4/5] overflow-hidden bg-shell-deep">
         <img src="<?= esc($product->imageUrl(), 'attr') ?>"
              alt="<?= esc($product->name, 'attr') ?>"
              loading="lazy"
@@ -32,7 +32,7 @@
         <?php endif; ?>
 
         <h3 class="mt-1 text-base leading-snug font-semibold">
-            <a href="<?= esc($product->url(), 'attr') ?>" class="rs-link"><?= esc($product->name) ?></a>
+            <a href="<?= $product->url() ?>" class="rs-link"><?= esc($product->name) ?></a>
         </h3>
 
         <?php if ($product->short_description !== null && $product->short_description !== ''): ?>
@@ -50,7 +50,7 @@
             </p>
 
             <?php if ($product->inStock()): ?>
-                <a href="<?= esc($product->url(), 'attr') ?>" class="rs-btn rs-btn--outline rs-btn--sm">
+                <a href="<?= $product->url() ?>" class="rs-btn rs-btn--outline rs-btn--sm">
                     <?= esc($product->ctaLabel('short')) ?>
                 </a>
             <?php else: ?>
