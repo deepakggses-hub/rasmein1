@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Controllers\Admin;
 
-use App\Controllers\BaseController;
 use App\Models\AdminUserModel;
 use App\Models\LoginAttemptModel;
 use Config\Rasmein;
@@ -20,8 +19,12 @@ use Config\Rasmein;
  *  - rehash on login when the cost factor has moved on.
  *
  * This controller is NOT behind AdminAuthFilter — it is how you get past it.
+ * It still extends AdminController, because the password screen renders inside
+ * the admin layout and that layout needs the chrome (nav, current user, journey
+ * mode) that only adminPage() assembles. AdminController tolerates a null user,
+ * so the sign-in actions are unaffected.
  */
-class Auth extends BaseController
+class Auth extends AdminController
 {
     public function showLogin()
     {
@@ -128,10 +131,11 @@ class Auth extends BaseController
 
     public function showPassword(): string
     {
-        return view('admin/auth/password', [
-            'brand' => $this->brand,
-            'forced' => (int) (model(AdminUserModel::class)->find((int) session('admin_id'))['must_change_password'] ?? 0) === 1,
-        ]);
+        $user = model(AdminUserModel::class)->find((int) session('admin_id'));
+
+        return $this->adminPage('admin/auth/password', [
+            'forced' => (int) ($user['must_change_password'] ?? 0) === 1,
+        ], 'Change password');
     }
 
     public function updatePassword()
@@ -161,14 +165,26 @@ class Auth extends BaseController
 
         $new = (string) $this->request->getPost('new_password');
 
-        // A short blocklist of the passwords that actually get used. Not a
-        // substitute for a real one, but it catches the obvious.
-        $common = ['password', 'admin', 'rasmein', '1234567890', 'qwertyuiop', 'letmein123'];
+        // A short blocklist of the passwords that actually get used.
+        //
+        // Compared by EQUALITY against a letters-only, lowercased form — not by
+        // substring. A substring test rejected "ANewLongerPassword2026", which
+        // is a perfectly good password that merely contains the word; that was
+        // reported from the field. Reducing to letters still catches the real
+        // pattern, which is "password123" and "Rasmein2026".
+        $blocked = [
+            'password', 'passwords', 'admin', 'administrator', 'rasmein',
+            'letmein', 'welcome', 'qwerty', 'qwertyuiop', 'iloveyou',
+            'changeme', 'secret', 'login', 'abc',
+        ];
 
-        foreach ($common as $bad) {
-            if (stripos($new, $bad) !== false) {
-                return redirect()->back()->with('error', 'Choose something less guessable.');
-            }
+        $reduced = strtolower((string) preg_replace('/[^a-z]/i', '', $new));
+
+        if ($reduced === '' || in_array($reduced, $blocked, true)) {
+            return redirect()->back()->with(
+                'error',
+                'That is too close to a password everyone tries. Add some words of your own.'
+            );
         }
 
         $users->update($user['id'], [

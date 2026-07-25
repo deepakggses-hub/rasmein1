@@ -9,6 +9,18 @@
  * @var array<string, mixed>|null $admin
  * @var array<int, array<string, mixed>> $nav
  */
+
+/*
+ * Every admin screen should reach this layout through
+ * AdminController::adminPage(), which supplies the four variables below. These
+ * fallbacks exist so that forgetting to do so renders a usable page with an
+ * empty nav instead of a white screen — which is exactly what happened on the
+ * forced password-change screen, reported from the field.
+ */
+$pageTitle   = $pageTitle   ?? 'Admin';
+$admin       = $admin       ?? null;
+$nav         = $nav         ?? [];
+$journeyMode = $journeyMode ?? \Config\Rasmein::MODE_BUY;
 ?>
 <!DOCTYPE html>
 <html lang="en">

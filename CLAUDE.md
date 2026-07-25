@@ -476,6 +476,21 @@ existing design instead of inventing a parallel one.
   IP+email, `session()->regenerate(true)` on success, rehash when the cost
   factor moves.
 
+### Two field-reported bugs and their lessons
+
+- **Every admin view must render through `AdminController::adminPage()`.**
+  `admin/layouts/admin.php` needs `pageTitle`, `admin`, `nav` and
+  `journeyMode`, and only `adminPage()` assembles them. `Auth::showPassword()`
+  used a bare `view()` call, so the forced password-change screen — the very
+  first page a new admin sees — died with "Undefined variable $pageTitle". The
+  layout now has fallbacks so the failure mode is an empty nav rather than a
+  white screen, but the rule stands: go through `adminPage()`.
+- **A password blocklist must compare by equality, not substring.**
+  `stripos($new, 'password')` rejected "ANewLongerPassword2026", which is a good
+  password that merely contains the word. The check now reduces the candidate to
+  lowercase letters and compares for equality, which still catches
+  "Password123" and "rasmein2026" while allowing real passphrases.
+
 ### Outstanding security work (tracked, not yet done)
 
 - [ ] **CSP is written but not enabled.** `Config/ContentSecurityPolicy.php`
