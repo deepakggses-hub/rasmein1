@@ -456,6 +456,26 @@ existing design instead of inventing a parallel one.
   truncates to `gift_message_max_chars`. A posted value cannot bypass a field the
   admin turned off.
 
+### Admin panel rules now implemented (do not re-litigate)
+
+- Authorisation is checked in the CONTROLLER (`AdminController::deny()`), and the
+  route group also names the permission. Nav filtering is cosmetic on top of
+  both — never the only check.
+- Order status changes go through `Orders::TRANSITIONS`, a whitelist keyed by
+  current status. Terminal statuses have no exits. Do not replace this with a
+  free dropdown.
+- The Buy/Enquire switch lives behind `settings.journey_mode`, separate from
+  `settings.manage`, and requires the typed phrase SWITCH. It is audited with
+  before and after, and also written to the framework log.
+- `settings.is_locked = 1` rows are skipped by the bulk settings form entirely.
+  They change only through their own endpoints.
+- Boolean settings absent from a POST are written to 0 — an unchecked checkbox
+  posts nothing, so relying on presence would make flags impossible to turn off.
+- Login: generic failure message for every cause, `password_verify` runs even
+  when the account does not exist (so timing does not leak), throttled on
+  IP+email, `session()->regenerate(true)` on success, rehash when the cost
+  factor moves.
+
 ### Outstanding security work (tracked, not yet done)
 
 - [ ] **CSP is written but not enabled.** `Config/ContentSecurityPolicy.php`

@@ -87,10 +87,50 @@ $routes->group('', ['namespace' => 'App\Controllers\Storefront'], static functio
 });
 
 // =====================================================================
-// ADMIN — every route behind the adminAuth filter except the login screen.
-// Built out in Phase 4.
+// ADMIN
+//
+// Sign-in and the password screen sit outside the auth filter — they are how
+// you get past it. Everything else is behind `adminAuth`, and the routes that
+// change something also name the permission they require, so authorisation is
+// declared at the route AND re-checked in the controller.
 // =====================================================================
-$routes->group('admin', ['namespace' => 'App\Controllers\Storefront'], static function (RouteCollection $routes): void {
-    $routes->match(['GET', 'HEAD'], '/', 'Roadmap::show/4/the-admin-panel');
-    $routes->match(['GET', 'HEAD'], 'login', 'Roadmap::show/4/admin-sign-in');
+$routes->group('admin', ['namespace' => 'App\Controllers\Admin'], static function (RouteCollection $routes): void {
+    $routes->match(['GET', 'HEAD'], 'login', 'Auth::showLogin', ['as' => 'adminLogin']);
+    $routes->post('login', 'Auth::login');
+    $routes->post('logout', 'Auth::logout', ['filter' => 'adminAuth']);
+
+    // Reachable while must_change_password is set, so it cannot lock anyone out.
+    $routes->match(['GET', 'HEAD'], 'password', 'Auth::showPassword', ['filter' => 'adminAuth']);
+    $routes->post('password', 'Auth::updatePassword', ['filter' => 'adminAuth']);
+});
+
+$routes->group('admin', [
+    'namespace' => 'App\Controllers\Admin',
+    'filter'    => 'adminAuth',
+], static function (RouteCollection $routes): void {
+
+    $routes->match(['GET', 'HEAD'], '/', 'Dashboard::index', ['as' => 'adminHome']);
+
+    // ---- Orders ----
+    $routes->match(['GET', 'HEAD'], 'orders', 'Orders::index');
+    $routes->match(['GET', 'HEAD'], 'orders/(:num)', 'Orders::show/$1');
+    $routes->post('orders/(:num)/status', 'Orders::updateStatus/$1');
+    $routes->post('orders/(:num)/payment', 'Orders::updatePayment/$1');
+    $routes->post('orders/(:num)/dispatch', 'Orders::dispatch/$1');
+    $routes->post('orders/(:num)/note', 'Orders::addNote/$1');
+
+    // ---- Enquiries ----
+    $routes->match(['GET', 'HEAD'], 'enquiries', 'Enquiries::index');
+    $routes->match(['GET', 'HEAD'], 'enquiries/(:num)', 'Enquiries::show/$1');
+    $routes->post('enquiries/(:num)', 'Enquiries::update/$1');
+    $routes->post('enquiries/(:num)/note', 'Enquiries::addNote/$1');
+
+    // ---- Settings ----
+    $routes->match(['GET', 'HEAD'], 'settings', 'Settings::index');
+    $routes->post('settings', 'Settings::update', ['filter' => 'adminAuth:settings.manage']);
+    // The master switch names its own permission, separate from settings.manage.
+    $routes->post('settings/journey', 'Settings::switchJourney', ['filter' => 'adminAuth:settings.journey_mode']);
+
+    // ---- Audit ----
+    $routes->match(['GET', 'HEAD'], 'audit', 'Audit::index', ['filter' => 'adminAuth:audit.view']);
 });

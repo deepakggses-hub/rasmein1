@@ -173,7 +173,67 @@ now lets the name stand alone.
 
 ---
 
-## Phase 4 — Admin panel
+## Phase 4a — Admin: auth, dashboard, fulfilment · **complete**
+
+- Sign-in: rate limited per IP+email, one generic failure message, session
+  regenerated on success, rehash-on-login, forced password change on first use
+- Admin shell with permission-filtered navigation and the store's journey mode
+  permanently visible in the sidebar
+- Dashboard led by **what needs doing** — orders to confirm, awaiting payment,
+  ready to dispatch, new enquiries, overdue follow-ups — then revenue for
+  today / 7 days / 30 days, recent activity and low stock
+- Orders: filterable list, full detail with snapshots, **status transitions
+  through a whitelist**, payment recording, manual dispatch with courier and
+  tracking, internal notes
+- Enquiries: pipeline list with overdue highlighting, detail with the customer's
+  brief and basket, stage/owner/quote/follow-up editing, typed follow-up log
+- Settings: grouped editor, with the **Buy/Enquire master switch behind its own
+  permission and a typed confirmation**
+- Audit log: append-only, filterable, with before/after diffs
+
+**Verified over HTTP:**
+
+- Every admin route 302s to login when anonymous
+- Wrong password and unknown email produce the *same* message — no user
+  enumeration
+- Six wrong attempts → "Too many attempts. Try again in 12 seconds"
+- A Support Staff role reaches Orders and Enquiries but is refused Settings and
+  Audit, and the nav hides what it cannot reach
+- `pending → delivered` is refused ("An order that is pending cannot move to
+  delivered"); `pending → confirmed` applies, stamps `confirmed_at`, and writes
+  history
+- The journey switch does nothing without the typed phrase, then works, and the
+  change is audited with before and after
+
+**Deliberate design choices:**
+
+- **Status transitions are a whitelist, not a dropdown.** A terminal status has
+  no exits. This stops a stale tab moving a delivered order back to pending and
+  makes the history trustworthy.
+- **The journey switch has its own permission and a typed confirmation.** It
+  changes every product page, cart and checkout at once; a mis-click is
+  expensive.
+- **Locked settings cannot be written by the bulk form** — they have their own
+  guarded endpoints.
+- **Unchecked checkboxes are written to 0 explicitly**, because an unchecked box
+  posts nothing and would otherwise silently keep its old value.
+
+---
+
+## Phase 4b — Admin: catalogue & content (next)
+
+- Products and categories CRUD with image upload — real MIME verification, not
+  extension; renamed on save; size-capped; no execution in the upload directory
+- Gift-box configuration: capacity, allowed categories/products, pricing rules
+- Coupons, customers, banners, pages
+- Reports and CSV export
+- Staff and role management
+- **Blocker before the page editor ships:** `pages.content` renders unescaped.
+  An allowlist HTML sanitiser must run on save first.
+
+---
+
+## Phase 4 — Admin panel (original outline)
 
 - Sign-in with throttling, generic failure message, forced password change
 - Dashboard: sales, orders, enquiries, low stock

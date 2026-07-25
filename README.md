@@ -16,7 +16,8 @@ Built on CodeIgniter 4.7 · PHP 8.2+ · MySQL 8 / MariaDB 10.4+ · Tailwind CSS 
 | **2a** | Catalogue, filters, search, product pages, collections | **Complete** |
 | **2b** | Cart, checkout, coupons, order creation | **Complete** |
 | **3** | Gift-box builder, live Tray, Buy/Enquire switch | **Complete** |
-| 4 | Admin panel | Not started |
+| **4a** | Admin auth, dashboard, orders, enquiries, settings | **Complete** |
+| 4b | Admin catalogue CRUD, uploads, coupons, reports | Not started |
 | 5 | Customer accounts | Not started |
 | 6 | Payment gateway (Razorpay) | Deferred by request |
 
