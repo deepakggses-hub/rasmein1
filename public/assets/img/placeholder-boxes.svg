@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 400" role="img" aria-label="Gift box image coming soon">
+  <rect width="600" height="400" fill="#401026"/>
+  <g fill="none" stroke="#A98146" stroke-width="1.5" opacity="0.6">
+    <rect x="210" y="130" width="180" height="140" rx="2"/>
+    <path d="M210 176h180M300 130v140"/>
+    <path d="M255 176v94M345 176v94" opacity="0.5"/>
+  </g>
+  <circle cx="300" cy="176" r="5" fill="#C9A05C"/>
+  <text x="300" y="312" text-anchor="middle" fill="#E4D3B2"
+        font-family="DM Mono, ui-monospace, monospace" font-size="11" letter-spacing="2.4">GIFT BOX</text>
+</svg>

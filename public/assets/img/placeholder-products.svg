@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 500" role="img" aria-label="Product image coming soon">
+  <rect width="400" height="500" fill="#F1E7E1"/>
+  <g fill="none" stroke="#A98146" stroke-width="1.5" opacity="0.55">
+    <rect x="130" y="196" width="140" height="108" rx="2"/>
+    <path d="M130 226h140"/>
+    <path d="M200 196v108"/>
+  </g>
+  <circle cx="200" cy="226" r="4" fill="#A98146" opacity="0.7"/>
+  <text x="200" y="344" text-anchor="middle" fill="#6B6070"
+        font-family="DM Mono, ui-monospace, monospace" font-size="11" letter-spacing="2.4">IMAGE TO COME</text>
+</svg>

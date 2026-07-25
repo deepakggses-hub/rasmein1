@@ -1,0 +1,42 @@
+# Environment / secrets
+.env
+.env.*
+!.env.example
+
+# Dependencies
+/vendor/
+/node_modules/
+
+# CI4 runtime
+/writable/cache/*
+!/writable/cache/index.html
+/writable/logs/*
+!/writable/logs/index.html
+/writable/session/*
+!/writable/session/index.html
+/writable/debugbar/*
+!/writable/debugbar/index.html
+/writable/uploads/*
+!/writable/uploads/index.html
+
+# User-uploaded media (keep folder structure only)
+/public/uploads/*
+!/public/uploads/.gitkeep
+!/public/uploads/*/
+/public/uploads/*/*
+!/public/uploads/*/.gitkeep
+
+# Build artefacts — compiled CSS IS committed so the server needs no Node
+/resources/**/*.map
+
+# Editor / OS
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+
+# Tooling caches
+.php-cs-fixer.cache
+.phpunit.cache/
+/phpunit.xml

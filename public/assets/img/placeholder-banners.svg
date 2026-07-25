@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 700" role="img" aria-label="Banner image coming soon">
+  <rect width="1600" height="700" fill="#401026"/>
+  <path d="M0 699.5h1600" stroke="#A98146" stroke-width="1" opacity="0.5"/>
+  <text x="800" y="360" text-anchor="middle" fill="#E4D3B2"
+        font-family="DM Mono, ui-monospace, monospace" font-size="14" letter-spacing="4">BANNER</text>
+</svg>

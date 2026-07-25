@@ -1,0 +1,66 @@
+# =====================================================================
+# RASMEIN — public/ web server rules (Apache)
+#
+# The document root MUST point at this directory. That alone keeps
+# app/, writable/, vendor/ and .env unreachable. The rules below are a
+# second line of defence for the case where it does not.
+# =====================================================================
+
+# Never list a directory.
+Options -Indexes +FollowSymLinks
+
+# ---------------------------------------------------------------- rewrite
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # Send everything that is not a real file or directory to CI4.
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^([\s\S]*)$ index.php/$1 [L,NC,QSA]
+
+    # Block requests for framework internals, in case the doc root is wrong.
+    RewriteRule ^(app|system|writable|vendor|tests|resources|docs|node_modules)(/|$) - [F,L]
+
+    # Block dotfiles and sensitive filenames outright.
+    RewriteRule (^|/)\.(?!well-known/) - [F,L]
+    RewriteRule ^(\.env|\.env\..*|composer\.(json|lock)|package(-lock)?\.json|spark|preload\.php|phpunit.*|CLAUDE\.md)$ - [F,L]
+
+    # Authorization header is not passed to PHP by default under CGI/FastCGI.
+    RewriteCond %{HTTP:Authorization} .
+    RewriteRule ^(.*)$ - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+</IfModule>
+
+<IfModule !mod_rewrite.c>
+    ErrorDocument 404 index.php
+</IfModule>
+
+# ------------------------------------------------------------ signatures
+# Do not advertise the stack.
+<IfModule mod_headers.c>
+    Header always unset X-Powered-By
+    Header always unset Server
+    Header unset X-AspNet-Version
+</IfModule>
+<IfModule mod_php.c>
+    php_flag expose_php off
+</IfModule>
+ServerSignature Off
+
+# ------------------------------------------------------- static caching
+<IfModule mod_expires.c>
+    ExpiresActive On
+    # Assets are cache-busted by mtime (see rs_asset()), so a long TTL is safe.
+    ExpiresByType text/css              "access plus 1 year"
+    ExpiresByType application/javascript "access plus 1 year"
+    ExpiresByType image/svg+xml         "access plus 1 year"
+    ExpiresByType image/webp            "access plus 6 months"
+    ExpiresByType image/jpeg            "access plus 6 months"
+    ExpiresByType image/png             "access plus 6 months"
+    ExpiresByType font/woff2            "access plus 1 year"
+    ExpiresDefault                      "access plus 1 hour"
+</IfModule>
+
+<IfModule mod_deflate.c>
+    AddOutputFilterByType DEFLATE text/html text/css text/plain text/xml \
+        application/javascript application/json image/svg+xml
+</IfModule>
