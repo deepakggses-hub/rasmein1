@@ -18,6 +18,10 @@ $columns  = (int) ($columns  ?? 3);
 $animate  = (bool) ($animate ?? false);
 $filledCount = min(count($filled), $capacity);
 
+// Live mode (the builder): each occupied compartment names what is in it and
+// how many compartments that item takes, so the cost of a choice is visible.
+$live = (bool) ($live ?? false);
+
 $gridClass = match ($columns) {
     2       => 'grid-cols-2',
     4       => 'grid-cols-4',
@@ -30,12 +34,15 @@ $gridClass = match ($columns) {
     <?php for ($i = 0; $i < $capacity; $i++): ?>
         <?php $product = $filled[$i] ?? null; ?>
         <?php if ($product !== null): ?>
-            <div class="rs-slot rs-slot--filled">
-                <img src="<?= esc($product->imageUrl(), 'attr') ?>"
-                     alt=""
-                     loading="lazy"
-                     decoding="async"
-                     width="200" height="200">
+            <div class="rs-slot rs-slot--filled" <?= $live ? 'title="' . esc($product['label'] ?? '', 'attr') . '"' : '' ?>>
+                <?php if ($live): ?>
+                    <img src="<?= esc($product['image'] ?? '', 'attr') ?>"
+                         alt="<?= esc($product['label'] ?? '', 'attr') ?>"
+                         loading="lazy" decoding="async" width="200" height="200">
+                <?php else: ?>
+                    <img src="<?= esc($product->imageUrl(), 'attr') ?>"
+                         alt="" loading="lazy" decoding="async" width="200" height="200">
+                <?php endif; ?>
             </div>
         <?php elseif ($i === $filledCount): ?>
             <div class="rs-slot rs-slot--next">

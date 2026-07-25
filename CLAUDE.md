@@ -436,6 +436,26 @@ existing design instead of inventing a parallel one.
 - Order confirmation pages check `session('viewable_orders')` or customer
   ownership. An unguessable UUID is not treated as access control on its own.
 
+### Gift-box builder rules now implemented (do not re-litigate)
+
+- **The box under construction is a cart line.** `cart_items.item_type =
+  'gift_box'` plus `cart_item_components`. There is no draft table. Do not add
+  one — see docs/PHASES.md Phase 3 for why.
+- `GiftBoxBuilderService::state()` and every mutator scope the line to the
+  current visitor's cart. A guessed line id resolves to null rather than being
+  editable. That scoping IS the access control.
+- `GiftBoxModel::allowedProductIds()` is the single source of truth for what may
+  go in a box. The builder calls it to render choices and the validator calls it
+  again to check what was submitted. A test asserts the two agree.
+- Capacity is counted in slots: `gift_boxes.capacity_slots` versus
+  `products.giftbox_slots` per unit. Re-checked server-side on every add.
+- `gift_boxes.min_slots` is enforced in `PricingService`, not just the builder —
+  a box below its minimum is a BLOCKING cart issue, so a half-built box cannot
+  reach checkout by any route.
+- Personalisation honours `allow_gift_message` / `allow_special_note` per box and
+  truncates to `gift_message_max_chars`. A posted value cannot bypass a field the
+  admin turned off.
+
 ### Outstanding security work (tracked, not yet done)
 
 - [ ] **CSP is written but not enabled.** `Config/ContentSecurityPolicy.php`

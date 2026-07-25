@@ -170,8 +170,10 @@ class CartService
         $priced = $this->pricing->priceCart(
             $lines,
             $components,
-            $couponCode ?? $cart['coupon_code'],
-            $cart['customer_id'] !== null ? (int) $cart['customer_id'] : null,
+            // ?? null so a database that has not had migration 011 applied
+            // degrades to "no coupon" instead of throwing. Reported in the field.
+            $couponCode ?? ($cart['coupon_code'] ?? null),
+            isset($cart['customer_id']) && $cart['customer_id'] !== null ? (int) $cart['customer_id'] : null,
             session('customer_email')
         );
 

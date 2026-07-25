@@ -35,6 +35,19 @@ $routes->group('', ['namespace' => 'App\Controllers\Storefront'], static functio
     $routes->match(['GET', 'HEAD'], 'collections/(:segment)', 'Shop::collection/$1', ['as' => 'collection']);
     $routes->match(['GET', 'HEAD'], 'product/(:segment)', 'Products::show/$1', ['as' => 'product']);
 
+    // ---- Gift-box builder (Phase 3) ----
+    $routes->match(['GET', 'HEAD'], 'gift-boxes', 'GiftBoxes::index', ['as' => 'giftboxes']);
+    $routes->match(['GET', 'HEAD'], 'build', 'Builder::index');
+    $routes->match(['GET', 'HEAD'], 'build/box/(:num)', 'Builder::show/$1', ['as' => 'builder']);
+    $routes->match(['GET', 'HEAD'], 'build/(:segment)', 'Builder::start/$1');
+    $routes->post('build/box/(:num)/add', 'Builder::add/$1');
+    $routes->post('build/box/(:num)/quantity', 'Builder::setQuantity/$1');
+    $routes->post('build/box/(:num)/remove', 'Builder::remove/$1');
+    $routes->post('build/box/(:num)/clear', 'Builder::clear/$1');
+    $routes->post('build/box/(:num)/discard', 'Builder::discard/$1');
+    $routes->post('build/box/(:num)/personalise', 'Builder::personalise/$1');
+    $routes->post('build/box/(:num)/finish', 'Builder::finish/$1');
+
     // ---- Cart & checkout (Phase 2b) ----
     $routes->match(['GET', 'HEAD'], 'cart', 'Cart::show', ['as' => 'cart']);
     // In Enquire mode the same page is the enquiry list.
@@ -65,10 +78,6 @@ $routes->group('', ['namespace' => 'App\Controllers\Storefront'], static functio
     // --- Phase 2: catalogue, cart, checkout ---
 
     // --- Phase 3: gift-box builder ---
-    $routes->match(['GET', 'HEAD'], 'gift-boxes', 'Roadmap::show/3/gift-boxes');
-    $routes->match(['GET', 'HEAD'], 'gift-box/(:segment)', 'Roadmap::show/3/gift-boxes');
-    $routes->match(['GET', 'HEAD'], 'build', 'Roadmap::show/3/the-gift-box-builder');
-    $routes->match(['GET', 'HEAD'], 'build/(:segment)', 'Roadmap::show/3/the-gift-box-builder');
 
     // --- Phase 5: customer accounts ---
     $routes->match(['GET', 'HEAD'], 'wishlist', 'Roadmap::show/5/wishlist');

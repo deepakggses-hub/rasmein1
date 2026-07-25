@@ -118,7 +118,7 @@ crashed. Now behind `rs_user_agent()`.
 
 ---
 
-## Phase 3 — Gift-box builder & the dual journey
+## Phase 3 — Gift-box builder & the dual journey · **complete**
 
 - Box selection: size, theme, price tier
 - The builder: the Tray becomes live — pick products, watch slots fill,
@@ -130,8 +130,46 @@ crashed. Now behind `rs_user_agent()`.
   enquiry form, submissions land as leads with staff notification
 - Honeypot + rate limiting on the enquiry form
 - Server-side re-validation of capacity, eligibility and price at submit
-- **Replaces roadmap routes:** `/gift-boxes`, `/gift-box/*`, `/build*`,
-  `/enquiry`
+- **Replaced roadmap routes:** `/gift-boxes`, `/build*`
+
+**Where the builder keeps its state — the decision everything else follows from.**
+The box under construction IS a cart line (`cart_items` with
+`item_type = 'gift_box'`) and its contents ARE that line's
+`cart_item_components`. No draft table, no client-side basket. That buys four
+things at once: the server owns the contents so capacity and eligibility are
+enforced where it matters rather than in JavaScript; a half-built box survives a
+refresh, a dead phone, or a return the next day; "edit this box" from the cart is
+not a feature, it is the same URL; and the box needs no conversion step when it
+is ordered. The cost — an abandoned box sitting in the cart looking unfinished —
+is handled honestly: `PricingService` flags any box below its minimum as
+blocking, and the cart says "fill it to continue" rather than letting it reach
+checkout.
+
+**The Tray is now live.** It renders one cell per compartment from the actual
+contents, so a 2-slot candle visibly occupies two cells and a 3-slot platter
+three. Confirmed over HTTP: adding one candle to a 6-slot tray produced exactly
+two filled cells.
+
+**Verified — 31 automated checks, all passing** (`php spark
+rasmein:diag-builder`), plus a full HTTP walk-through:
+
+- Resuming: starting the same design twice returns the same line, never a duplicate
+- Eligibility: a notebook is refused from the Classic Tray, and the offer list is
+  asserted equal to the accept list — both come from
+  `GiftBoxModel::allowedProductIds()`, so what is shown and what is accepted
+  cannot drift
+- Capacity: 1-slot and 2-slot items counted correctly; an over-capacity add is
+  refused AND leaves the box unchanged; a full box refuses everything
+- Personalisation: message truncated to the box's own limit, blank input stored
+  as null rather than an empty string, and a field the admin disabled cannot be
+  written by a posted value
+- Checkout gate: empty box blocks, below-minimum blocks, at-minimum releases
+- Pricing: box charge + contents, verified against a hand-computed figure
+- IDOR: a line id from another cart resolves to null; `/build/box/999999` is 404
+
+**Copy bug caught in testing:** box names already carry their article, so
+"Fill the " + "The Classic Tray" read as "Fill the The Classic Tray". The heading
+now lets the name stand alone.
 
 ---
 

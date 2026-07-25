@@ -192,6 +192,60 @@ class Diag extends BaseCommand
             : $this->fail('compiled CSS', 'public/assets/css/app.css missing', 'Run: npm install && npm run build');
     }
 
+    /**
+     * Compare migration files on disk with the migrations table.
+     *
+     * Pulling new code without running `spark migrate` leaves the application
+     * expecting columns the database does not have. The symptom is an
+     * "Undefined array key" deep in a service, which tells you nothing. This
+     * turns it into one line naming the command to run.
+     */
+    private function checkMigrations(): void
+    {
+        $directory = APPPATH . 'Database/Migrations';
+
+        if (! is_dir($directory)) {
+            return;
+        }
+
+        $onDisk = [];
+
+        foreach (glob($directory . '/*.php') ?: [] as $file) {
+            if (preg_match('/^(\d{4}-\d{2}-\d{2}-\d{6})_/', basename($file), $m) === 1) {
+                $onDisk[] = $m[1];
+            }
+        }
+
+        if ($onDisk === []) {
+            return;
+        }
+
+        try {
+            $applied = array_column(
+                db_connect()->table('migrations')->select('version')->get()->getResultArray(),
+                'version'
+            );
+        } catch (Throwable) {
+            $this->fail('migrations', 'the migrations table is missing', 'Run: php spark migrate');
+
+            return;
+        }
+
+        $pending = array_values(array_diff($onDisk, $applied));
+
+        if ($pending === []) {
+            $this->pass('migrations', count($onDisk) . ' applied, none pending');
+
+            return;
+        }
+
+        $this->fail(
+            'migrations',
+            count($pending) . ' pending — the code expects columns your database does not have',
+            'Run: php spark migrate   (pending: ' . implode(', ', $pending) . ')'
+        );
+    }
+
     private function checkWritablePaths(): void
     {
         foreach (['writable', 'writable/cache', 'writable/logs', 'writable/session', 'writable/uploads'] as $relative) {
@@ -308,6 +362,7 @@ class Diag extends BaseCommand
             }
 
             $this->pass('schema', $tables . ' tables');
+            $this->checkMigrations();
 
             $products = $db->table('products')->countAllResults();
             $settings = $db->table('settings')->countAllResults();

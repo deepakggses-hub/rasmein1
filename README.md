@@ -15,7 +15,7 @@ Built on CodeIgniter 4.7 · PHP 8.2+ · MySQL 8 / MariaDB 10.4+ · Tailwind CSS 
 | **1** | Foundation, database schema, design system, homepage | **Complete** |
 | **2a** | Catalogue, filters, search, product pages, collections | **Complete** |
 | **2b** | Cart, checkout, coupons, order creation | **Complete** |
-| 3 | Gift-box builder, Buy/Enquire switch | Not started |
+| **3** | Gift-box builder, live Tray, Buy/Enquire switch | **Complete** |
 | 4 | Admin panel | Not started |
 | 5 | Customer accounts | Not started |
 | 6 | Payment gateway (Razorpay) | Deferred by request |
@@ -89,6 +89,7 @@ php spark rasmein:diag               # preflight: PHP, extensions, .env, DB
 php spark rasmein:diag-catalogue     # filters, sorting, pagination, related
 php spark rasmein:diag-search        # hostile + awkward search input
 php spark rasmein:diag-checkout      # cart, pricing, coupons, orders (39 checks)
+php spark rasmein:diag-builder       # gift-box capacity & eligibility (31 checks)
 ```
 
 `rasmein:diag` runs every storefront query and reports OK/FAIL per query. It is

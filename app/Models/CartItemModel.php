@@ -56,6 +56,8 @@ class CartItemModel extends Model
             . ' products.sale_mode AS product_sale_mode, products.unit_label,'
             . ' gift_boxes.name AS box_name, gift_boxes.slug AS box_slug,'
             . ' gift_boxes.base_price AS box_base_price, gift_boxes.capacity_slots,'
+            . ' gift_boxes.min_slots AS box_min_slots, gift_boxes.image AS box_image,'
+            . ' gift_boxes.allow_gift_message, gift_boxes.gift_message_max_chars,'
             . ' gift_boxes.sale_mode AS box_sale_mode, gift_boxes.is_active AS box_active,'
             . ' (SELECT pi.path FROM product_images pi WHERE pi.product_id = products.id'
             . '  ORDER BY pi.is_primary DESC, pi.sort_order ASC LIMIT 1) AS product_image',

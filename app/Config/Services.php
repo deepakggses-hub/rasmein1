@@ -7,6 +7,7 @@ namespace Config;
 use App\Models\SettingModel;
 use App\Services\AuditService;
 use App\Services\CartService;
+use App\Services\GiftBoxBuilderService;
 use App\Services\OrderService;
 use App\Services\PricingService;
 use App\Services\SettingsService;
@@ -48,6 +49,16 @@ class Services extends BaseService
         }
 
         return new CartService(static::settings(), static::pricing());
+    }
+
+    /** The Build-Your-Own-Gift-Box flow. */
+    public static function builder(bool $getShared = true): GiftBoxBuilderService
+    {
+        if ($getShared) {
+            return static::getSharedInstance('builder');
+        }
+
+        return new GiftBoxBuilderService(static::cart());
     }
 
     /** Turns a cart into an order, transactionally. */

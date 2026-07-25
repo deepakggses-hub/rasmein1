@@ -268,6 +268,22 @@ class PricingService
 
         $contentsTotal = $this->round($contentsTotal);
 
+        $minimum = (int) ($line['box_min_slots'] ?? 0);
+
+        // A box that has been started but not filled to its minimum is not
+        // ready to ship. This is checked here, not only in the builder UI, so
+        // a half-built box cannot reach checkout by any route.
+        if ($minimum > 0 && $slotsUsed < $minimum) {
+            $issues[] = [
+                'line_id'  => (int) $line['id'],
+                'severity' => 'blocking',
+                'message'  => $slotsUsed === 0
+                    ? $name . ' is still empty. Fill it to continue.'
+                    : $name . ' needs at least ' . $minimum . ' compartments filled — '
+                        . 'currently ' . $slotsUsed . '.',
+            ];
+        }
+
         if ($capacity > 0 && $slotsUsed > $capacity) {
             $issues[] = [
                 'line_id'  => (int) $line['id'],
@@ -349,6 +365,9 @@ class PricingService
             'line_total'     => $lineTotal,
             'slots_used'     => $slotsUsed,
             'capacity'       => $capacity,
+            'min_slots'      => $minimum,
+            'slots_free'     => max(0, $capacity - $slotsUsed),
+            'is_complete'    => $slotsUsed >= $minimum && ($capacity === 0 || $slotsUsed <= $capacity),
             'contents_total' => $contentsTotal,
             'box_charge'     => $this->round($boxCharge),
             'adjustment'     => $this->round($adjust),
