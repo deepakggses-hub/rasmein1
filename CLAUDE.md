@@ -379,6 +379,15 @@ existing design instead of inventing a parallel one.
   object. `Response::removeHeader()` cannot reach it; `header_remove()` in
   `SecurityHeadersFilter::after()` does. Also set `expose_php = Off` in
   `php.ini`.
+- **A custom exception handler must exempt the CLI.** `Config\Exceptions::handler()`
+  is called for `spark` commands too, and a `CLIRequest` has no `accept` header —
+  so an "is it HTML?" test sends every command's error to the JSON branch.
+  Result: `php spark migrate` printed
+  `{"status":"error","message":"Something went wrong on our side."}` instead of
+  the actual failure, in *both* environments. `ApiExceptionHandler::wantsJson()`
+  now returns false for `is_cli()` and for anything that is not an
+  `IncomingRequest`. Never let a handler swallow CLI output — it makes
+  migrations, seeders and cron jobs undebuggable.
 - **Error views are rendered by a plain `include`**, not through the View
   service — no `$this`, no layouts, no partials. Keep them self-contained so
   they still render when the database is down.

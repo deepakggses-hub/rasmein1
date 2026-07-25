@@ -1,39 +1,290 @@
 <?php
+
 declare(strict_types=1);
+
 namespace App\Commands;
+
 use CodeIgniter\CLI\BaseCommand;
 use CodeIgniter\CLI\CLI;
+use Config\Database;
+use Throwable;
 
+/**
+ * Preflight and smoke test.
+ *
+ *   php spark rasmein:diag
+ *
+ * Checks the environment first (PHP version, extensions, .env, writable paths,
+ * database connection), then runs every storefront query. Run it after any
+ * install or deploy — it turns "the site is broken" into a specific line.
+ *
+ * CLI only. Not reachable over HTTP.
+ */
 class Diag extends BaseCommand
 {
-    protected $group = 'Rasmein';
-    protected $name = 'rasmein:diag';
-    protected $description = 'Smoke-test the storefront queries.';
+    protected $group       = 'Rasmein';
+    protected $name        = 'rasmein:diag';
+    protected $description = 'Check the environment and smoke-test every storefront query.';
+
+    private int $failures = 0;
 
     public function run(array $params)
     {
+        CLI::newLine();
+        CLI::write('Rasmein — environment check', 'white');
+        CLI::write(str_repeat('-', 58), 'dark_gray');
+
+        $this->checkPhp();
+        $this->checkExtensions();
+        $this->checkEnvironment();
+        $this->checkWritablePaths();
+
+        $dbUp = $this->checkDatabase();
+
+        if ($dbUp) {
+            CLI::newLine();
+            CLI::write('Storefront queries', 'white');
+            CLI::write(str_repeat('-', 58), 'dark_gray');
+            $this->checkQueries();
+        }
+
+        CLI::newLine();
+
+        if ($this->failures === 0) {
+            CLI::write('  All checks passed.', 'green');
+        } else {
+            CLI::write(sprintf('  %d check(s) failed — see the notes above.', $this->failures), 'red');
+        }
+
+        CLI::newLine();
+
+        return $this->failures === 0 ? EXIT_SUCCESS : EXIT_ERROR;
+    }
+
+    // ------------------------------------------------------------ reporting
+
+    private function pass(string $label, string $detail = ''): void
+    {
+        CLI::write(sprintf('  [ ok ] %-30s %s', $label, $detail), 'green');
+    }
+
+    private function fail(string $label, string $detail, string $fix = ''): void
+    {
+        $this->failures++;
+        CLI::write(sprintf('  [FAIL] %-30s %s', $label, $detail), 'red');
+
+        if ($fix !== '') {
+            CLI::write('         → ' . $fix, 'yellow');
+        }
+    }
+
+    private function warn(string $label, string $detail, string $fix = ''): void
+    {
+        CLI::write(sprintf('  [warn] %-30s %s', $label, $detail), 'yellow');
+
+        if ($fix !== '') {
+            CLI::write('         → ' . $fix, 'dark_gray');
+        }
+    }
+
+    // -------------------------------------------------------------- checks
+
+    private function checkPhp(): void
+    {
+        // CodeIgniter 4.7 requires 8.2. XAMPP often ships an older build, and
+        // the resulting failures are obscure, so this is checked first.
+        if (version_compare(PHP_VERSION, '8.2.0', '>=')) {
+            $this->pass('PHP version', PHP_VERSION);
+
+            return;
+        }
+
+        $this->fail(
+            'PHP version',
+            PHP_VERSION . ' — CodeIgniter 4.7 needs 8.2 or newer',
+            'On XAMPP, install a build with PHP 8.2+, or point your CLI at a newer php.exe.'
+        );
+    }
+
+    private function checkExtensions(): void
+    {
+        $required = [
+            'intl'      => 'Required by CodeIgniter itself, and by Indian-format currency output.',
+            'mbstring'  => 'Required by CodeIgniter for multibyte string handling.',
+            'json'      => 'Required for settings and API responses.',
+            'mysqli'    => 'Required to reach MySQL/MariaDB.',
+            'fileinfo'  => 'Needed to verify uploaded image types by content, not extension.',
+        ];
+
+        $optional = [
+            'curl'    => 'Needed later for the payment gateway and SMS provider.',
+            'gd'      => 'Needed later for product image resizing.',
+            'openssl' => 'Needed for SMTP over TLS.',
+            'zip'     => 'Used by Composer and by data exports.',
+        ];
+
+        foreach ($required as $extension => $why) {
+            if (extension_loaded($extension)) {
+                $this->pass('ext-' . $extension, 'loaded');
+                continue;
+            }
+
+            $this->fail(
+                'ext-' . $extension,
+                'MISSING — ' . $why,
+                'Open php.ini, remove the ";" before "extension=' . $extension . '", then restart Apache and your terminal.'
+            );
+        }
+
+        foreach ($optional as $extension => $why) {
+            extension_loaded($extension)
+                ? $this->pass('ext-' . $extension, 'loaded')
+                : $this->warn('ext-' . $extension, 'not loaded — ' . $why, 'Enable it in php.ini before that phase.');
+        }
+    }
+
+    private function checkEnvironment(): void
+    {
+        $envFile = ROOTPATH . '.env';
+
+        if (! is_file($envFile)) {
+            $this->fail(
+                '.env file',
+                'not found at project root',
+                'Copy .env.example to .env, then run: php spark key:generate'
+            );
+        } elseif (! is_writable($envFile)) {
+            $this->warn('.env file', 'present but not writable', 'key:generate needs to write to it.');
+        } else {
+            $this->pass('.env file', 'present and writable');
+        }
+
+        $this->pass('CI_ENVIRONMENT', ENVIRONMENT);
+
+        $key = env('encryption.key', '');
+
+        if ($key === '' || $key === null) {
+            $this->fail(
+                'encryption.key',
+                'not set',
+                'Run: php spark key:generate'
+            );
+        } else {
+            $this->pass('encryption.key', 'set (' . strlen((string) $key) . ' chars)');
+        }
+
+        $baseUrl = (string) config('App')->baseURL;
+
+        if ($baseUrl === '' || $baseUrl === 'http://localhost:8080/') {
+            $this->warn(
+                'app.baseURL',
+                $baseUrl === '' ? 'empty' : $baseUrl,
+                'Set it in .env to the URL you actually browse, e.g. http://localhost/rasmein/public/'
+            );
+        } else {
+            $this->pass('app.baseURL', $baseUrl);
+        }
+
+        $css = FCPATH . 'assets/css/app.css';
+
+        is_file($css)
+            ? $this->pass('compiled CSS', number_format((float) filesize($css) / 1024, 1) . ' KB')
+            : $this->fail('compiled CSS', 'public/assets/css/app.css missing', 'Run: npm install && npm run build');
+    }
+
+    private function checkWritablePaths(): void
+    {
+        foreach (['writable', 'writable/cache', 'writable/logs', 'writable/session', 'writable/uploads'] as $relative) {
+            $path = ROOTPATH . $relative;
+
+            if (! is_dir($path)) {
+                $this->fail($relative . '/', 'missing', 'Recreate the directory.');
+                continue;
+            }
+
+            is_writable($path)
+                ? $this->pass($relative . '/', 'writable')
+                : $this->fail($relative . '/', 'not writable', 'Grant the web server write access (775 on Linux).');
+        }
+    }
+
+    private function checkDatabase(): bool
+    {
+        $config = config(Database::class)->default;
+
+        try {
+            $db = \Config\Database::connect();
+            $db->initialize();
+
+            $version = $db->getVersion();
+            $this->pass('database connection', $config['database'] . ' @ ' . $config['hostname'] . ' (' . $version . ')');
+        } catch (Throwable $e) {
+            $this->fail(
+                'database connection',
+                $e->getMessage(),
+                'Check database.default.* in .env, and that MySQL is running in the XAMPP control panel.'
+            );
+
+            return false;
+        }
+
+        try {
+            $tables = count($db->listTables());
+
+            if ($tables === 0) {
+                $this->fail('schema', 'no tables found', 'Run: php spark migrate');
+
+                return false;
+            }
+
+            $this->pass('schema', $tables . ' tables');
+
+            $products = $db->table('products')->countAllResults();
+            $settings = $db->table('settings')->countAllResults();
+
+            if ($settings === 0) {
+                $this->fail('seed data', 'settings table is empty', 'Run: php spark db:seed DatabaseSeeder');
+
+                return false;
+            }
+
+            $this->pass('seed data', $products . ' products, ' . $settings . ' settings');
+        } catch (Throwable $e) {
+            $this->fail('schema', $e->getMessage(), 'Run: php spark migrate');
+
+            return false;
+        }
+
+        return true;
+    }
+
+    private function checkQueries(): void
+    {
         $checks = [
-            'categories.activeTopLevel'  => fn () => count(model(\App\Models\CategoryModel::class)->activeTopLevel()),
-            'categories.withCounts'      => fn () => count(model(\App\Models\CategoryModel::class)->withProductCounts(true, 6)),
-            'products.featured'          => fn () => count(model(\App\Models\ProductModel::class)->featured(8)),
-            'products.latest'            => fn () => count(model(\App\Models\ProductModel::class)->latest(4)),
-            'products.giftBoxEligible'   => fn () => count(model(\App\Models\ProductModel::class)->giftBoxEligible(6)),
-            'giftboxes.featured'         => fn () => count(model(\App\Models\GiftBoxModel::class)->featured(3)),
-            'giftboxes.count'            => fn () => model(\App\Models\GiftBoxModel::class)->where('is_active', 1)->countAllResults(),
-            'giftboxes.allowedProducts'  => fn () => count(model(\App\Models\GiftBoxModel::class)->allowedProductIds(2)),
-            'collections.featured'       => fn () => count(model(\App\Models\CollectionModel::class)->featured(3)),
-            'banners.hero'               => fn () => count(model(\App\Models\BannerModel::class)->liveFor('home_hero', 1)),
-            'pages.footerLinks'          => fn () => count(model(\App\Models\PageModel::class)->footerLinks()),
-            'settings.journeyMode'       => fn () => service('settings')->journeyMode(),
+            'categories.activeTopLevel' => static fn (): int => count(model(\App\Models\CategoryModel::class)->activeTopLevel()),
+            'categories.withCounts'     => static fn (): int => count(model(\App\Models\CategoryModel::class)->withProductCounts(true, 6)),
+            'products.featured'         => static fn (): int => count(model(\App\Models\ProductModel::class)->featured(8)),
+            'products.latest'           => static fn (): int => count(model(\App\Models\ProductModel::class)->latest(4)),
+            'products.giftBoxEligible'  => static fn (): int => count(model(\App\Models\ProductModel::class)->giftBoxEligible(6)),
+            'giftboxes.featured'        => static fn (): int => count(model(\App\Models\GiftBoxModel::class)->featured(3)),
+            'giftboxes.allowedProducts' => static fn (): int => count(model(\App\Models\GiftBoxModel::class)->allowedProductIds(1)),
+            'collections.featured'      => static fn (): int => count(model(\App\Models\CollectionModel::class)->featured(3)),
+            'banners.hero'              => static fn (): int => count(model(\App\Models\BannerModel::class)->liveFor('home_hero', 1)),
+            'pages.footerLinks'         => static fn (): int => count(model(\App\Models\PageModel::class)->footerLinks()),
         ];
 
         foreach ($checks as $label => $check) {
             try {
-                CLI::write(sprintf('  %-28s OK  %s', $label, (string) $check()), 'green');
-            } catch (\Throwable $e) {
-                CLI::write(sprintf('  %-28s FAIL', $label), 'red');
-                CLI::write('      ' . $e->getMessage(), 'yellow');
+                $this->pass($label, (string) $check() . ' rows');
+            } catch (Throwable $e) {
+                $this->fail($label, $e->getMessage());
             }
+        }
+
+        try {
+            $this->pass('settings.journeyMode', service('settings')->journeyMode());
+        } catch (Throwable $e) {
+            $this->fail('settings.journeyMode', $e->getMessage());
         }
     }
 }

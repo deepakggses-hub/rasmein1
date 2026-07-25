@@ -6,6 +6,7 @@ namespace App\Libraries;
 
 use CodeIgniter\Debug\ExceptionHandler;
 use CodeIgniter\Debug\ExceptionHandlerInterface;
+use CodeIgniter\HTTP\IncomingRequest;
 use CodeIgniter\HTTP\RequestInterface;
 use CodeIgniter\HTTP\ResponseInterface;
 use Config\Exceptions as ExceptionsConfig;
@@ -47,6 +48,25 @@ class ApiExceptionHandler implements ExceptionHandlerInterface
     ) {
     }
 
+    /**
+     * Should this failure be answered with JSON?
+     *
+     * Only for a real HTTP request that did not ask for HTML. Everything else —
+     * and the command line above all — goes to the framework handler.
+     *
+     * The CLI check is not a nicety. A `spark` command that throws must print
+     * the actual error; if it prints a JSON envelope instead, migrations,
+     * seeders and cron jobs become undebuggable.
+     */
+    private function wantsJson(RequestInterface $request): bool
+    {
+        if (is_cli() || ! $request instanceof IncomingRequest) {
+            return false;
+        }
+
+        return ! str_contains($request->getHeaderLine('accept'), 'text/html');
+    }
+
     public function handle(
         Throwable $exception,
         RequestInterface $request,
@@ -54,7 +74,7 @@ class ApiExceptionHandler implements ExceptionHandlerInterface
         int $statusCode,
         int $exitCode,
     ): void {
-        if (str_contains($request->getHeaderLine('accept'), 'text/html')) {
+        if (! $this->wantsJson($request)) {
             (new ExceptionHandler($this->config))
                 ->handle($exception, $request, $response, $statusCode, $exitCode);
 
