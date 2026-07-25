@@ -48,6 +48,7 @@
 <?= $this->include('partials/header') ?>
 
 <main id="main">
+    <?= $this->include('partials/flash') ?>
     <?= $this->renderSection('content') ?>
 </main>
 

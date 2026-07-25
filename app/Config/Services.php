@@ -6,6 +6,9 @@ namespace Config;
 
 use App\Models\SettingModel;
 use App\Services\AuditService;
+use App\Services\CartService;
+use App\Services\OrderService;
+use App\Services\PricingService;
 use App\Services\SettingsService;
 use CodeIgniter\Config\BaseService;
 
@@ -25,6 +28,36 @@ class Services extends BaseService
         }
 
         return new SettingsService(model(SettingModel::class));
+    }
+
+    /** Recomputes every total from the database. Never trusts the client. */
+    public static function pricing(bool $getShared = true): PricingService
+    {
+        if ($getShared) {
+            return static::getSharedInstance('pricing');
+        }
+
+        return new PricingService(static::settings());
+    }
+
+    /** Owns the database-backed cart. */
+    public static function cart(bool $getShared = true): CartService
+    {
+        if ($getShared) {
+            return static::getSharedInstance('cart');
+        }
+
+        return new CartService(static::settings(), static::pricing());
+    }
+
+    /** Turns a cart into an order, transactionally. */
+    public static function orders(bool $getShared = true): OrderService
+    {
+        if ($getShared) {
+            return static::getSharedInstance('orders');
+        }
+
+        return new OrderService(static::settings(), static::pricing(), static::cart());
     }
 
     /** Writes the admin audit trail. */

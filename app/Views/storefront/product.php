@@ -100,20 +100,25 @@ $gallery = $images !== [] ? $images : [['path' => null, 'alt_text' => $product->
 
             <hr class="rs-rule my-8">
 
-            <!-- Primary action. The cart itself lands in the next step, so this
-                 states plainly what it will do rather than pretending to work. -->
+            <!-- Primary action. A real form: works without JavaScript, and the
+                 quantity is re-clamped server-side against live stock. -->
             <div class="space-y-3">
                 <?php if (! $product->inStock()): ?>
                     <span class="rs-btn rs-btn--outline w-full" aria-disabled="true">Sold out</span>
                 <?php else: ?>
-                    <span class="rs-btn rs-btn--primary w-full" aria-disabled="true">
-                        <?= esc($product->ctaLabel('add')) ?>
-                    </span>
-                    <p class="rs-help text-center">
-                        <?= $isEnquireItem
-                            ? 'Enquiry lists arrive with the gift-box builder in the next step.'
-                            : 'The cart arrives in the next step of the build.' ?>
-                    </p>
+                    <form method="post" action="<?= site_url('cart/add') ?>" class="flex gap-3">
+                        <?= csrf_field() ?>
+                        <input type="hidden" name="product_id" value="<?= (int) $product->id ?>">
+                        <input type="hidden" name="return_to" value="cart">
+                        <label>
+                            <span class="sr-only">Quantity</span>
+                            <input type="number" name="quantity" class="rs-input num w-20 text-center"
+                                   value="1" min="1" max="99" inputmode="numeric">
+                        </label>
+                        <button type="submit" class="rs-btn rs-btn--primary flex-1">
+                            <?= esc($product->ctaLabel('add')) ?>
+                        </button>
+                    </form>
                 <?php endif; ?>
 
                 <a href="<?= site_url('build') ?>" class="rs-btn rs-btn--outline w-full">

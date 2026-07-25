@@ -65,7 +65,7 @@ button that leads nowhere.
 
 ---
 
-## Phase 2b — Cart & checkout
+## Phase 2b — Cart & checkout · **complete**
 
 - Server-side cart: add / update quantity / remove, as JSON endpoints
 - Coupon application — validated and recomputed server-side
@@ -73,11 +73,48 @@ button that leads nowhere.
 - Order creation inside a transaction, with stock reservation and the
   idempotency key doing its job
 - Order confirmation page and email
-- Enable the add-to-cart button on the product page
-- **Replaces roadmap routes:** `/cart`, `/checkout`
+- Add-to-cart enabled on the product page — a real form, works without JS
+- **Replaced roadmap routes:** `/cart`, `/checkout`, `/enquiry`
 
-New models: Cart, CartItem, Order, OrderItem, Coupon, plus a `CartService`,
-`PricingService` and `OrderService`.
+New: `CartModel`, `CartItemModel`, `CartItemComponentModel`, `CouponModel`,
+`OrderModel`, `OrderItemModel`, `OrderItemComponentModel`,
+`OrderStatusHistoryModel`, `EnquiryModel`, plus `CartService`,
+`PricingService` and `OrderService`. Migration 011 adds `carts.coupon_code`.
+
+**Verified — 39 automated checks, all passing** (`php spark
+rasmein:diag-checkout`), plus a full HTTP walk-through of both journeys.
+Highlights:
+
+- Tampering with a cart's `unit_price_snapshot` in the database does not change
+  the total — pricing re-reads the products table
+- Coupon branches: unknown, expired, below minimum, percent cap, free shipping,
+  case-insensitive codes
+- Site in Buy mode + one item pinned to `enquire_now` → the whole basket becomes
+  an enquiry
+- Order: reference format, UUID, snapshots, stock reserved, status history,
+  notifications queued, coupon redemption logged, cart emptied
+- Same idempotency key submitted twice → one order, second call returns the first
+- Sold-out product refused; over-quantity clamped to live stock
+- Confirmation URL returns 404 to a stranger even with the correct UUID
+
+**One bug this phase caught:** `CLIRequest` has no `getUserAgent()` — only
+`IncomingRequest` does. Three files called it unguarded, so any order, audit
+entry or login record written from a cron job or `spark` command would have
+crashed. Now behind `rs_user_agent()`.
+
+**Decisions worth knowing:**
+
+- **Mixed baskets become enquiries.** If any line must be quoted, the whole
+  order is an enquiry. We cannot take payment for a basket containing something
+  with no price yet, and splitting one basket into two orders would be worse for
+  the customer and for fulfilment.
+- **An enquiry does not reserve stock.** It is a request, not a sale; holding
+  inventory for it would starve real orders.
+- **An enquiry is not asked for a delivery address.** That is settled when the
+  quote is agreed; asking up front loses leads.
+- **With no gateway live, a purchase is recorded `unpaid`** and the checkout says
+  plainly that we will make contact to arrange payment — rather than implying a
+  card was charged.
 
 ---
 

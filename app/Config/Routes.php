@@ -35,6 +35,20 @@ $routes->group('', ['namespace' => 'App\Controllers\Storefront'], static functio
     $routes->match(['GET', 'HEAD'], 'collections/(:segment)', 'Shop::collection/$1', ['as' => 'collection']);
     $routes->match(['GET', 'HEAD'], 'product/(:segment)', 'Products::show/$1', ['as' => 'product']);
 
+    // ---- Cart & checkout (Phase 2b) ----
+    $routes->match(['GET', 'HEAD'], 'cart', 'Cart::show', ['as' => 'cart']);
+    // In Enquire mode the same page is the enquiry list.
+    $routes->match(['GET', 'HEAD'], 'enquiry', 'Cart::show');
+    $routes->post('cart/add', 'Cart::add');
+    $routes->post('cart/update', 'Cart::update');
+    $routes->post('cart/remove', 'Cart::remove');
+    $routes->post('cart/coupon', 'Cart::applyCoupon');
+    $routes->post('cart/coupon/remove', 'Cart::removeCoupon');
+
+    $routes->match(['GET', 'HEAD'], 'checkout', 'Checkout::show', ['as' => 'checkout']);
+    $routes->post('checkout', 'Checkout::place');
+    $routes->match(['GET', 'HEAD'], 'order/(:segment)', 'Checkout::confirmation/$1', ['as' => 'order']);
+
     // Must come last in this group: a bare segment would otherwise swallow
     // 'shop/anything' before the more specific routes above are reached.
     $routes->match(['GET', 'HEAD'], 'shop/(:segment)', 'Shop::category/$1', ['as' => 'category']);
@@ -49,15 +63,12 @@ $routes->group('', ['namespace' => 'App\Controllers\Storefront'], static functio
 // =====================================================================
 $routes->group('', ['namespace' => 'App\Controllers\Storefront'], static function (RouteCollection $routes): void {
     // --- Phase 2: catalogue, cart, checkout ---
-    $routes->match(['GET', 'HEAD'], 'cart', 'Roadmap::show/2/your-cart');
-    $routes->match(['GET', 'HEAD'], 'checkout', 'Roadmap::show/2/checkout');
 
     // --- Phase 3: gift-box builder ---
     $routes->match(['GET', 'HEAD'], 'gift-boxes', 'Roadmap::show/3/gift-boxes');
     $routes->match(['GET', 'HEAD'], 'gift-box/(:segment)', 'Roadmap::show/3/gift-boxes');
     $routes->match(['GET', 'HEAD'], 'build', 'Roadmap::show/3/the-gift-box-builder');
     $routes->match(['GET', 'HEAD'], 'build/(:segment)', 'Roadmap::show/3/the-gift-box-builder');
-    $routes->match(['GET', 'HEAD'], 'enquiry', 'Roadmap::show/3/your-enquiry-list');
 
     // --- Phase 5: customer accounts ---
     $routes->match(['GET', 'HEAD'], 'wishlist', 'Roadmap::show/5/wishlist');

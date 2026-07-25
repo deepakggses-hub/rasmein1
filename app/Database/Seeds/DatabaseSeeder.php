@@ -24,6 +24,7 @@ class DatabaseSeeder extends Seeder
         $this->call(AdminSeeder::class);
         $this->call(CatalogueSeeder::class);
         $this->call(GiftBoxSeeder::class);
+        $this->call(CouponSeeder::class);
         $this->call(ContentSeeder::class);
 
         echo "\nDone.\n";

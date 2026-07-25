@@ -34,7 +34,7 @@ class LoginAttemptModel extends Model
             'identifier'     => mb_substr($identifier, 0, 191),
             'was_successful' => $successful ? 1 : 0,
             'ip_address'     => $request->getIPAddress(),
-            'user_agent'     => mb_substr((string) $request->getUserAgent(), 0, 255),
+            'user_agent'     => rs_user_agent(),
         ]);
     }
 

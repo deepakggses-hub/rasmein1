@@ -44,7 +44,7 @@ class AuditService
                 'old_values'    => $this->encode($oldValues),
                 'new_values'    => $this->encode($newValues),
                 'ip_address'    => $request->getIPAddress(),
-                'user_agent'    => mb_substr((string) $request->getUserAgent(), 0, 255),
+                'user_agent'    => rs_user_agent(),
             ]);
         } catch (\Throwable $e) {
             log_message('error', 'Audit write failed for {action}/{module}: {msg}', [

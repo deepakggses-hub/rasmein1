@@ -153,3 +153,26 @@ if (! function_exists('rs_active')) {
         return ($current === $pattern || str_starts_with($current, $pattern . '/')) ? $class : '';
     }
 }
+
+if (! function_exists('rs_user_agent')) {
+    /**
+     * The user agent string, or null when there is not one.
+     *
+     * getUserAgent() exists on IncomingRequest but NOT on CLIRequest, so
+     * calling it unguarded crashes any code that also runs from `spark` — a
+     * cron job placing an order, a queue worker, an import. Length-capped to
+     * fit the varchar(255) columns that store it.
+     */
+    function rs_user_agent(int $maxLength = 255): ?string
+    {
+        $request = service('request');
+
+        if (! method_exists($request, 'getUserAgent')) {
+            return null;
+        }
+
+        $agent = (string) $request->getUserAgent();
+
+        return $agent === '' ? null : mb_substr($agent, 0, $maxLength);
+    }
+}

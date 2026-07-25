@@ -405,9 +405,36 @@ existing design instead of inventing a parallel one.
   `site_url()` from slugs the models validate as `^[a-z0-9-]+$` are output raw.
   Anything a user can influence — pagination query strings, the clear-filters
   link — stays escaped.
+- **`CLIRequest` has no `getUserAgent()`.** Only `IncomingRequest` does. Any
+  shared code that records a request fingerprint — order creation, the audit
+  log, login attempts — crashes when reached from `spark` or cron. Use
+  `rs_user_agent()`, which returns null when the method is absent.
+- **`getIPAddress()` IS on the base `Request`**, so that one is safe from CLI.
+  Do not "fix" it by guarding it too.
 - **Error views are rendered by a plain `include`**, not through the View
   service — no `$this`, no layouts, no partials. Keep them self-contained so
   they still render when the database is down.
+
+### Money and order rules now implemented (do not re-litigate)
+
+- `PricingService` is the ONLY place a total is decided. It reads products,
+  gift-box rules, settings and coupons from the database. Cart `*_snapshot`
+  columns are display values; a test asserts that tampering with them changes
+  nothing.
+- `PricingService::resolveJourney()` decides Buy vs Enquire for a whole basket:
+  site setting first, then any line pinned to `enquire_now` forces the basket to
+  Enquire. One order, one journey.
+- `OrderService::placeFromCart()` re-prices from source, then does everything in
+  ONE transaction: order row, line snapshots, stock reservation, coupon
+  redemption, status history, enquiry row, cart conversion, queued
+  notifications. Any failure rolls the lot back.
+- Idempotency is a per-visit key rendered on the checkout form and stored in the
+  session, backed by a unique index on `orders.idempotency_key`. A repeat submit
+  returns the existing order.
+- Stock is taken by conditional UPDATE (`ProductModel::reserveStock()`), so
+  concurrent checkouts cannot oversell. Enquiries deliberately reserve nothing.
+- Order confirmation pages check `session('viewable_orders')` or customer
+  ownership. An unguessable UUID is not treated as access control on its own.
 
 ### Outstanding security work (tracked, not yet done)
 
