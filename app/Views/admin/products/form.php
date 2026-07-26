@@ -248,7 +248,7 @@ $checked = static fn (string $field, bool $fallback): string => (old($field) !==
 
     <div class="px-5 pb-8 lg:px-8">
         <form method="post" action="<?= site_url('admin/products/' . $product->id . '/delete') ?>"
-              onsubmit="return confirm('Remove this product? Past orders keep their record of it.');">
+              data-confirm="Remove this product? Past orders keep their record of it." data-confirm-action="Yes, do it">
             <?= csrf_field() ?>
             <button type="submit" class="rs-link text-sm text-ink-muted hover:text-bad">Remove this product</button>
         </form>

@@ -125,7 +125,7 @@ $dt = static fn (?string $value): string => $value !== null ? date('Y-m-d\TH:i',
 <?php if (! $isNew): ?>
     <div class="px-5 pb-8 lg:px-8">
         <form method="post" action="<?= site_url('admin/coupons/' . $coupon['id'] . '/delete') ?>"
-              onsubmit="return confirm('Remove this coupon? Orders that used it keep their record.');">
+              data-confirm="Remove this coupon? Orders that used it keep their record." data-confirm-action="Yes, do it">
             <?= csrf_field() ?>
             <button type="submit" class="rs-link text-sm text-ink-muted hover:text-bad">Remove this coupon</button>
         </form>

@@ -47,6 +47,10 @@ $isEnquire = $journeyMode === \Config\Rasmein::MODE_ENQUIRE;
             </p>
         <?php else: ?>
             <form method="post" action="<?= site_url('admin/settings/journey') ?>"
+                  data-confirm-phrase="SWITCH"
+                  data-confirm="Change how the whole store sells?"
+                  data-confirm-detail="Every product page, cart and checkout changes immediately. Type SWITCH to confirm."
+                  data-confirm-action="Change it"
                   class="mt-5 flex flex-wrap items-end gap-3 border-t border-shell-line pt-5">
                 <?= csrf_field() ?>
                 <label>

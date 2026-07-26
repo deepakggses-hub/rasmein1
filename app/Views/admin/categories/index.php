@@ -120,7 +120,7 @@ $v = static fn (string $f, $fb = '') => esc((string) (old($f) ?? $fb), 'attr');
 
             <?php if ($editing !== null): ?>
                 <form method="post" action="<?= site_url('admin/categories/' . $editing->id . '/delete') ?>" class="mt-3"
-                      onsubmit="return confirm('Remove this category? Its products stay, uncategorised.');">
+                      data-confirm="Remove this category? Its products stay, uncategorised." data-confirm-action="Yes, do it">
                     <?= csrf_field() ?>
                     <button type="submit" class="rs-link text-sm text-ink-muted hover:text-bad">Remove this category</button>
                 </form>

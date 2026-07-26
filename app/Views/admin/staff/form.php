@@ -102,7 +102,7 @@ $v = static fn (string $f, $fb = '') => esc((string) (old($f) ?? $fb), 'attr');
 <?php if (! $isNew && ! $isSelf): ?>
     <div class="px-5 pb-8 lg:px-8">
         <form method="post" action="<?= site_url('admin/staff/' . $user['id'] . '/delete') ?>"
-              onsubmit="return confirm('Remove this account? Their audit history stays.');">
+              data-confirm="Remove this account? Their audit history stays." data-confirm-action="Yes, do it">
             <?= csrf_field() ?>
             <button type="submit" class="rs-link text-sm text-ink-muted hover:text-bad">Remove this account</button>
         </form>

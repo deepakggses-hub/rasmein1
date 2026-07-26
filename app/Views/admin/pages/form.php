@@ -90,7 +90,7 @@ $v = static fn (string $f, $fb = '') => esc((string) (old($f) ?? $fb), 'attr');
 <?php if (! $isNew): ?>
     <div class="px-5 pb-8 lg:px-8">
         <form method="post" action="<?= site_url('admin/pages/' . $page['id'] . '/delete') ?>"
-              onsubmit="return confirm('Remove this page?');">
+              data-confirm="Remove this page?" data-confirm-action="Yes, do it">
             <?= csrf_field() ?>
             <button type="submit" class="rs-link text-sm text-ink-muted hover:text-bad">Remove this page</button>
         </form>

@@ -332,7 +332,7 @@ $ruleTypes = [
         </form>
 
         <form method="post" action="<?= site_url('admin/gift-boxes/' . $id . '/delete') ?>"
-              onsubmit="return confirm('Remove this gift box? Past orders keep their record of it.');">
+              data-confirm="Remove this gift box? Past orders keep their record of it." data-confirm-action="Yes, do it">
             <?= csrf_field() ?>
             <button type="submit" class="rs-link text-sm text-ink-muted hover:text-bad">Remove this gift box</button>
         </form>

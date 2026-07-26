@@ -152,6 +152,7 @@ abstract class AdminController extends BaseController
                 'items' => [
                     ['label' => 'Customers', 'url' => 'admin/customers', 'match' => 'admin/customers', 'permission' => 'customers.view'],
                     ['label' => 'Staff', 'url' => 'admin/staff', 'match' => 'admin/staff', 'permission' => 'staff.manage'],
+                    ['label' => 'Roles', 'url' => 'admin/roles', 'match' => 'admin/roles', 'permission' => 'roles.manage'],
                 ],
             ],
             [

@@ -214,6 +214,13 @@ $routes->group('admin', [
     $routes->match(['GET', 'HEAD'], 'reports', 'Reports::index', ['filter' => 'adminAuth:reports.view']);
     $routes->match(['GET', 'HEAD'], 'reports/export/(:segment)', 'Reports::export/$1', ['filter' => 'adminAuth:reports.view']);
 
+    $routes->match(['GET', 'HEAD'], 'roles', 'Roles::index', ['filter' => 'adminAuth:roles.manage']);
+    $routes->match(['GET', 'HEAD'], 'roles/new', 'Roles::create', ['filter' => 'adminAuth:roles.manage']);
+    $routes->post('roles', 'Roles::store', ['filter' => 'adminAuth:roles.manage']);
+    $routes->match(['GET', 'HEAD'], 'roles/(:num)/edit', 'Roles::edit/$1', ['filter' => 'adminAuth:roles.manage']);
+    $routes->post('roles/(:num)', 'Roles::update/$1', ['filter' => 'adminAuth:roles.manage']);
+    $routes->post('roles/(:num)/delete', 'Roles::delete/$1', ['filter' => 'adminAuth:roles.manage']);
+
     $routes->match(['GET', 'HEAD'], 'staff', 'Staff::index', ['filter' => 'adminAuth:staff.manage']);
     $routes->match(['GET', 'HEAD'], 'staff/new', 'Staff::create', ['filter' => 'adminAuth:staff.manage']);
     $routes->post('staff', 'Staff::store', ['filter' => 'adminAuth:staff.manage']);

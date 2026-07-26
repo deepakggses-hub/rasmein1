@@ -112,7 +112,7 @@ $dt = static fn (?string $x): string => $x !== null ? date('Y-m-d\TH:i', strtoti
 <?php if (! $isNew): ?>
     <div class="px-5 pb-8 lg:px-8">
         <form method="post" action="<?= site_url('admin/banners/' . $banner['id'] . '/delete') ?>"
-              onsubmit="return confirm('Remove this banner?');">
+              data-confirm="Remove this banner?" data-confirm-action="Yes, do it">
             <?= csrf_field() ?>
             <button type="submit" class="rs-link text-sm text-ink-muted hover:text-bad">Remove this banner</button>
         </form>

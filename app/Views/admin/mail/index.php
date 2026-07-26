@@ -95,7 +95,7 @@ $sel = old('mail_protocol') ?? $protocol;
                 </div>
                 <?php if ($canManage): ?>
                     <form method="post" action="<?= site_url('admin/mail/google/disconnect') ?>" class="mt-3"
-                          onsubmit="return confirm('Disconnect this Google account? Mail will stop sending until you reconnect or switch method.');">
+                          data-confirm="Disconnect this Google account? Mail will stop sending until you reconnect or switch method." data-confirm-action="Yes, do it">
                         <?= csrf_field() ?>
                         <button type="submit" class="rs-link text-sm text-ink-muted hover:text-bad">Disconnect this account</button>
                     </form>

@@ -734,6 +734,32 @@ Rules that follow:
   credentials and a browser and is NOT covered — verify it with the authorise
   button and a test send.
 
+### Roles, permissions and the admin UI
+
+- **`Config\Permissions` is the single catalogue.** A permission not listed there
+  is not assignable from the panel, and `exists()` rejects a posted string that
+  is not in it. Adding a permission means adding it there too.
+- **No escalation, enforced twice.** `Roles::grantable()` limits the picker to
+  permissions the current administrator holds, AND `save()` refuses a posted
+  permission outside that set. Verified: a Store Manager with roles.manage was
+  refused `settings.manage` and `staff.manage`, and no role was created.
+- The wildcard `*` is offered and accepted only for an administrator who already
+  holds it.
+- **`admin_roles` has no soft delete**, so removal is permanent — which is why
+  deletion is blocked for `is_system` roles and for any role still held by an
+  account. Do not relax either check.
+- Ungrantable permissions are rendered DISABLED rather than hidden, with a note
+  saying why. Transparency about what exists is worth more than a shorter list,
+  and the server refuses them regardless.
+- **SweetAlert2 (MIT, vendored) with a native `confirm()` fallback.** A
+  destructive action must keep its guard when a script fails to load, so
+  `admin.js` falls back rather than submitting silently. Confirmations are
+  declared with `data-confirm` / `data-confirm-detail` / `data-confirm-action`;
+  the journey switch uses `data-confirm-phrase` for the typed word.
+- Flash messages are rendered into the page AND marked with `data-flash-item` so
+  they can be lifted into toasts. The server-rendered block stays visible when JS
+  is unavailable — neither path loses the message.
+
 ### Outstanding security work (tracked, not yet done)
 
 - [ ] **CSP is written but not enabled.** `Config/ContentSecurityPolicy.php`
