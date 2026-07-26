@@ -141,6 +141,32 @@ $routes->group('admin', [
     $routes->post('categories/(:num)', 'Categories::update/$1', ['filter' => 'adminAuth:categories.manage']);
     $routes->post('categories/(:num)/delete', 'Categories::delete/$1', ['filter' => 'adminAuth:categories.manage']);
 
+    // ---- Gift boxes (Phase 4c) ----
+    $routes->match(['GET', 'HEAD'], 'gift-boxes', 'GiftBoxes::index');
+    $routes->match(['GET', 'HEAD'], 'gift-boxes/new', 'GiftBoxes::create', ['filter' => 'adminAuth:giftboxes.manage']);
+    $routes->post('gift-boxes', 'GiftBoxes::store', ['filter' => 'adminAuth:giftboxes.manage']);
+    $routes->match(['GET', 'HEAD'], 'gift-boxes/(:num)/edit', 'GiftBoxes::edit/$1', ['filter' => 'adminAuth:giftboxes.manage']);
+    $routes->post('gift-boxes/(:num)', 'GiftBoxes::update/$1', ['filter' => 'adminAuth:giftboxes.manage']);
+    $routes->post('gift-boxes/(:num)/contents', 'GiftBoxes::saveContents/$1', ['filter' => 'adminAuth:giftboxes.manage']);
+    $routes->post('gift-boxes/(:num)/rules', 'GiftBoxes::saveRules/$1', ['filter' => 'adminAuth:giftboxes.manage']);
+    $routes->post('gift-boxes/(:num)/delete', 'GiftBoxes::delete/$1', ['filter' => 'adminAuth:giftboxes.manage']);
+
+    // ---- Coupons (Phase 4c) ----
+    $routes->match(['GET', 'HEAD'], 'coupons', 'Coupons::index', ['filter' => 'adminAuth:coupons.manage']);
+    $routes->match(['GET', 'HEAD'], 'coupons/new', 'Coupons::create', ['filter' => 'adminAuth:coupons.manage']);
+    $routes->post('coupons', 'Coupons::store', ['filter' => 'adminAuth:coupons.manage']);
+    $routes->match(['GET', 'HEAD'], 'coupons/(:num)/edit', 'Coupons::edit/$1', ['filter' => 'adminAuth:coupons.manage']);
+    $routes->post('coupons/(:num)', 'Coupons::update/$1', ['filter' => 'adminAuth:coupons.manage']);
+    $routes->post('coupons/(:num)/delete', 'Coupons::delete/$1', ['filter' => 'adminAuth:coupons.manage']);
+
+    // ---- Pages (Phase 4c) ----
+    $routes->match(['GET', 'HEAD'], 'pages', 'Pages::index', ['filter' => 'adminAuth:content.manage']);
+    $routes->match(['GET', 'HEAD'], 'pages/new', 'Pages::create', ['filter' => 'adminAuth:content.manage']);
+    $routes->post('pages', 'Pages::store', ['filter' => 'adminAuth:content.manage']);
+    $routes->match(['GET', 'HEAD'], 'pages/(:num)/edit', 'Pages::edit/$1', ['filter' => 'adminAuth:content.manage']);
+    $routes->post('pages/(:num)', 'Pages::update/$1', ['filter' => 'adminAuth:content.manage']);
+    $routes->post('pages/(:num)/delete', 'Pages::delete/$1', ['filter' => 'adminAuth:content.manage']);
+
     // ---- Settings ----
     $routes->match(['GET', 'HEAD'], 'settings', 'Settings::index');
     $routes->post('settings', 'Settings::update', ['filter' => 'adminAuth:settings.manage']);

@@ -18,7 +18,8 @@ Built on CodeIgniter 4.7 · PHP 8.2+ · MySQL 8 / MariaDB 10.4+ · Tailwind CSS 
 | **3** | Gift-box builder, live Tray, Buy/Enquire switch | **Complete** |
 | **4a** | Admin auth, dashboard, orders, enquiries, settings | **Complete** |
 | **4b** | HTML sanitiser, image uploads, products & categories CRUD | **Complete** |
-| 4c | Gift-box config, coupons, customers, content, reports, staff | Not started |
+| **4c** | Gift-box config, pages editor, coupons | **Complete** |
+| 4d | Customers, banners, reports, staff management | Not started |
 | 5 | Customer accounts | Not started |
 | 6 | Payment gateway (Razorpay) | Deferred by request |
 

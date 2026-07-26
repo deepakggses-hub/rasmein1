@@ -92,6 +92,7 @@ abstract class AdminController extends BaseController
                 'items' => [
                     ['label' => 'Orders', 'url' => 'admin/orders', 'match' => 'admin/orders', 'permission' => 'orders.view'],
                     ['label' => 'Enquiries', 'url' => 'admin/enquiries', 'match' => 'admin/enquiries', 'permission' => 'enquiries.view'],
+                    ['label' => 'Coupons', 'url' => 'admin/coupons', 'match' => 'admin/coupons', 'permission' => 'coupons.manage'],
                 ],
             ],
             [
@@ -100,6 +101,12 @@ abstract class AdminController extends BaseController
                     ['label' => 'Products', 'url' => 'admin/products', 'match' => 'admin/products', 'permission' => 'products.view'],
                     ['label' => 'Categories', 'url' => 'admin/categories', 'match' => 'admin/categories', 'permission' => 'products.view'],
                     ['label' => 'Gift boxes', 'url' => 'admin/gift-boxes', 'match' => 'admin/gift-boxes', 'permission' => 'giftboxes.view'],
+                ],
+            ],
+            [
+                'group' => 'Content',
+                'items' => [
+                    ['label' => 'Pages', 'url' => 'admin/pages', 'match' => 'admin/pages', 'permission' => 'content.manage'],
                 ],
             ],
             [

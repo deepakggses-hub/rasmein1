@@ -220,7 +220,44 @@ now lets the name stand alone.
 
 ---
 
-## Phase 4b — Admin: catalogue & content (next)
+## Phase 4c — Gift-box config, pages editor, coupons · **complete**
+
+- **Gift-box configuration** — capacity, minimum fill, box price, personalisation
+  switches, journey pin, and the two things the builder actually runs on:
+  *what may go in* (categories, plus per-product allow/exclude with caps) and
+  *pricing rules* (flat, waived, markup, slot discounts, with slot and subtotal
+  bands). Split into three independent forms so a mistake in the rules cannot
+  lose the description someone just wrote.
+- **Pages editor** — its blocker cleared by the 4b sanitiser. Content is passed
+  raw to the model, which sanitises in `beforeInsert`/`beforeUpdate`, and the
+  editor tells the author when markup was stripped.
+- **Coupons** — full CRUD with guards on the combinations that silently do
+  nothing.
+
+**Verified through the real forms:**
+
+- Restricting a box to one category and excluding one product took its reach
+  from 26 giftable products to 3 — and the save reports that number back, so a
+  box configured into an empty builder announces itself
+- A pricing rule with `min_slots` above `max_slots` is refused ("the slot range
+  is back to front") rather than stored as a rule that can never fire
+- A coupon over 100%, and one whose window closes before it opens, are both
+  refused — and **zero rows were created** by either attempt
+- **End-to-end XSS:** a page authored through the editor containing
+  `<script>`, `onerror`, `javascript:` and `<iframe>` stores as clean HTML and
+  renders on the storefront with **zero occurrences** of any of them, while the
+  heading, copy and internal link survive intact
+
+---
+
+## Phase 4d — Remaining admin (next)
+
+- Customers, banners, reports and CSV export
+- Staff and role management (currently a second user needs SQL)
+
+---
+
+## Phase 4b — Admin: catalogue & content
 
 - Products and categories CRUD with image upload — real MIME verification, not
   extension; renamed on save; size-capped; no execution in the upload directory

@@ -519,6 +519,25 @@ existing design instead of inventing a parallel one.
   every read path is safe by construction. 24 XSS payloads are covered by
   `rasmein:diag-sanitiser`; add to that list rather than loosening the allowlist.
 
+### Phase 4c rules
+
+- Gift-box config is THREE independent forms (basics / contents / pricing).
+  Keep it that way — one giant form means a rejected pricing rule discards the
+  prose someone just typed.
+- `GiftBoxes::saveContents()` and `saveRules()` REPLACE wholesale: the form is
+  the complete picture for that box. Category ids are intersected against the
+  real table before insert, so a posted id cannot create a phantom link.
+- After saving contents the controller recomputes
+  `allowedProductIds()` and reports the count. A box where nothing qualifies is
+  flagged as an error, because the failure is otherwise invisible until a
+  customer opens an empty builder.
+- Pricing rules with `min_slots > max_slots`, or a minimum above the box's
+  capacity, are rejected rather than stored — a rule that can never fire is
+  worse than no rule, because it looks configured.
+- `Pages` passes content RAW to the model. `PageModel::sanitiseContent()` is the
+  single sanitising point. Do not sanitise in the controller as well: two places
+  to keep in step is how one of them drifts.
+
 ### Outstanding security work (tracked, not yet done)
 
 - [ ] **CSP is written but not enabled.** `Config/ContentSecurityPolicy.php`
