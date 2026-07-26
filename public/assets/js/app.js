@@ -155,3 +155,37 @@
     ? document.addEventListener('DOMContentLoaded', init)
     : init();
 })();
+
+/**
+ * Mail settings: show only the fields belonging to the chosen sending method.
+ * Server-side validation does not depend on this — it re-checks whichever
+ * method was actually submitted.
+ */
+(function () {
+  'use strict';
+
+  var radios = document.querySelectorAll('[data-mail-protocol]');
+  if (!radios.length) return;
+
+  var panels = document.querySelectorAll('[data-mail-panel]');
+
+  function apply() {
+    var chosen = document.querySelector('[data-mail-protocol]:checked');
+    var value = chosen ? chosen.value : 'smtp';
+
+    panels.forEach(function (panel) {
+      panel.hidden = panel.getAttribute('data-mail-panel') !== value;
+    });
+
+    radios.forEach(function (radio) {
+      var label = radio.closest('label');
+      if (!label) return;
+      label.classList.toggle('border-mulberry', radio.checked);
+      label.classList.toggle('bg-shell', radio.checked);
+      label.classList.toggle('border-shell-line', !radio.checked);
+    });
+  }
+
+  radios.forEach(function (radio) { radio.addEventListener('change', apply); });
+  apply();
+})();

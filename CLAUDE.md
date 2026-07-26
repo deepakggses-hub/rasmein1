@@ -677,6 +677,32 @@ Rules that follow:
 - `rasmein:diag` now checks baseURL is set, and fails when a production baseURL
   still points at localhost.
 
+### Mail configuration in the admin panel
+
+- Settings live in the `settings` table, group `mail`, all `is_locked = 1` so the
+  generic Settings screen skips them — that screen would render the encrypted
+  password into a text input and re-save it as plain text.
+- **The SMTP password is encrypted** with `service('encrypter')` before storage,
+  base64-wrapped, and NEVER rendered back to the browser — not even masked,
+  because a masked value in a `value` attribute is still in the HTML. Blank on
+  save keeps the stored one. Absent from the audit payload.
+  Without `encryption.key` the panel REFUSES to store it rather than falling
+  back to plain text.
+- `Services::email()` is overridden so every existing caller picks up the stored
+  settings without knowing about them. `.env` remains the fallback.
+- **`Services::mailConfig()` reads the settings group with a RAW query, not
+  `SettingsService::get()`.** That method treats a blank stored value as absent
+  and returns the default, which meant choosing "None" for encryption silently
+  stayed on TLS, and clearing the SMTP username brought the .env one back. Only a
+  MISSING key defers to the fallback now.
+- Crypto is stored as `none|tls|ssl`, never `''`, for the same reason: an empty
+  setting cannot be told apart from an unset one.
+- **A failed send must report the LAST error line, not the first 300 characters.**
+  `printDebugger()` opens with the server's "220 ready" greeting, so truncating
+  from the front showed a success message for a failure — which is exactly what
+  it did on the first test. `explainFailure()` finds the 4xx/5xx replies instead.
+- The test send goes only to the signed-in administrator's own address.
+
 ### Outstanding security work (tracked, not yet done)
 
 - [ ] **CSP is written but not enabled.** `Config/ContentSecurityPolicy.php`

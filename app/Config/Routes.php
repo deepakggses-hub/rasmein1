@@ -239,6 +239,12 @@ $routes->group('admin', [
     // enough — a product editor needs images too.
     $routes->post('editor/upload', 'EditorUpload::store');
 
+    // ---- Mail configuration ----
+    $routes->match(['GET', 'HEAD'], 'mail', 'MailSettings::index');
+    $routes->post('mail', 'MailSettings::save', ['filter' => 'adminAuth:settings.manage']);
+    $routes->post('mail/test', 'MailSettings::test', ['filter' => 'adminAuth:settings.manage']);
+    $routes->post('mail/drain', 'MailSettings::drain', ['filter' => 'adminAuth:settings.manage']);
+
     // ---- Settings ----
     $routes->match(['GET', 'HEAD'], 'settings', 'Settings::index');
     $routes->post('settings', 'Settings::update', ['filter' => 'adminAuth:settings.manage']);

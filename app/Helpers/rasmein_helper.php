@@ -125,7 +125,23 @@ if (! function_exists('rs_asset')) {
 if (! function_exists('rs_excerpt')) {
     function rs_excerpt(?string $text, int $chars = 120): string
     {
-        $text = trim(strip_tags((string) $text));
+        /*
+         * Several fields now hold HTML from the rich text editor, where user
+         * content is stored escaped — "Hand-picked &amp; packed". Stripping the
+         * tags alone leaves those entities in place, and the caller's esc()
+         * then encodes them a second time, so a customer sees the literal
+         * "&amp;" or "&rsquo;" on the card. Decoding here means the caller gets
+         * real text to escape exactly once.
+         *
+         * The second strip matters: decoding can turn a stored "&lt;script&gt;"
+         * back into "<script>". Callers do escape this, but a plain-text
+         * excerpt should contain no tags whatever the caller does with it.
+         * (Same reasoning as MailService::toPlainText.)
+         */
+        $text = strip_tags((string) $text);
+        $text = html_entity_decode($text, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        $text = (string) preg_replace('#</?[a-z][^>]*>#i', '', $text);
+        $text = trim((string) preg_replace('/\s+/u', ' ', $text));
 
         if ($text === '') {
             return '';

@@ -164,6 +164,7 @@ abstract class AdminController extends BaseController
                 'group' => 'System',
                 'items' => [
                     ['label' => 'Settings', 'url' => 'admin/settings', 'match' => 'admin/settings', 'permission' => 'settings.view'],
+                    ['label' => 'Mail', 'url' => 'admin/mail', 'match' => 'admin/mail', 'permission' => 'settings.view'],
                     ['label' => 'Audit log', 'url' => 'admin/audit', 'match' => 'admin/audit', 'permission' => 'audit.view'],
                 ],
             ],

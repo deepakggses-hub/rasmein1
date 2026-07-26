@@ -28,7 +28,15 @@ A queued email that has failed five times is left as `failed` in
 
 ## SMTP
 
-Set these in `.env` before expecting anything to send:
+**Configure this in the admin panel: Settings → Mail.** All three sending
+methods live on one screen, one active at a time, with a "send a test to me"
+button that reports the real server error when it fails.
+
+The SMTP password is stored encrypted, so `php spark key:generate` must have
+been run first — the panel refuses to store a password without a key rather than
+keeping it in plain text.
+
+`.env` still works as a fallback for anything the panel leaves blank:
 
 ```
 email.protocol  = 'smtp'
