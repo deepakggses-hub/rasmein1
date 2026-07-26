@@ -556,6 +556,24 @@ existing design instead of inventing a parallel one.
   table — guests are the majority and must not be invisible. The screen is
   read-only: editing details after the fact would desynchronise order snapshots.
 
+### Phase 5 rules (do not weaken)
+
+- **Never confirm whether an email has an account.** Sign-in, registration and
+  password reset all return the same response regardless. Registering with a
+  taken address reports success and notifies the real owner — do not "improve"
+  this into "that email is already registered".
+- `password_verify()` runs even when the account does not exist, so response
+  time does not leak existence either.
+- Reset tokens: only `hash('sha256', $token)` is stored, TTL 60 minutes, burned
+  by `consume()` BEFORE the caller acts, and issuing a new one voids the old.
+- Everything in `AccountArea` is scoped by `session('customer_id')`. An id from a
+  URL or a form is only honoured after `findForCustomer()` confirms ownership.
+  Do not add a method that trusts a posted owner id.
+- `CartService::attachToCustomer()` runs on every sign-in so a basket filled as
+  a guest is not lost.
+- Email is not editable from the account page: changing it needs verification of
+  the new address, which is its own flow.
+
 ### Outstanding security work (tracked, not yet done)
 
 - [ ] **CSP is written but not enabled.** `Config/ContentSecurityPolicy.php`

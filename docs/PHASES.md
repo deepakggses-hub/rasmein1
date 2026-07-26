@@ -315,7 +315,44 @@ the homepage hero is exactly what a stolen staff password would reach for.
 
 ---
 
-## Phase 5 — Customer accounts
+## Phase 5 — Customer accounts · **complete**
+
+Registration, sign-in, password reset, order history, address book and
+wishlist. Guest checkout is untouched — an account stays optional.
+
+**The theme is not leaking who has an account.** A shop's customer list is
+commercially and personally sensitive; nobody should be able to discover that an
+address shops here by trying it in a form. So:
+
+- sign-in returns one message for every kind of failure, and `password_verify`
+  runs even when the address is unknown, so timing does not answer either;
+- **registering with an existing address reports success** and emails the real
+  owner "someone tried to register", rather than saying "already taken" — which
+  would turn the form into an existence oracle;
+- password reset gives the identical reply whichever way, and is rate limited
+  per IP so it cannot be used to enumerate in bulk or to mail-bomb someone.
+
+**Verified over HTTP:**
+
+| Test | Result |
+|---|---|
+| Anonymous hits `/account`, `/account/orders`, `/wishlist` | 302 to sign-in |
+| Register with an address already in use | Same success message; still **1 row**; notice queued to the owner |
+| Reset for a real vs. a fictional address | **Identical** reply; only 1 token issued |
+| Reset token storage | SHA-256, 64 chars — the plain token is never persisted |
+| Reusing a spent reset link | "That link has expired or been used" |
+| Customer B opens customer A's order UUID | **404** |
+| Customer B's order list | Does not contain A's order |
+| Customer B loads `?edit=` with A's address id | Shows nothing |
+| Customer B POSTs A's address id to save **and** delete | Address unchanged, still present |
+| Guest fills a cart, then signs in | Cart survives and attaches to the account |
+
+Scoping is the defence: every query in `AccountArea` is filtered by
+`session('customer_id')`, and no owner is ever taken from the URL or the form.
+
+---
+
+## Phase 5 — Customer accounts (original outline)
 
 Registration, sign-in, password reset (hashed single-use token), order history,
 address book, wishlist. **Replaces:** `/account*`, `/wishlist`

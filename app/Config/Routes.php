@@ -62,9 +62,46 @@ $routes->group('', ['namespace' => 'App\Controllers\Storefront'], static functio
     $routes->post('checkout', 'Checkout::place');
     $routes->match(['GET', 'HEAD'], 'order/(:segment)', 'Checkout::confirmation/$1', ['as' => 'order']);
 
+    // ---- Customer accounts (Phase 5) ----
+    // Public: this is how you get past the customerAuth filter.
+    $routes->match(['GET', 'HEAD'], 'account/login', 'Account::showLogin', ['as' => 'login']);
+    $routes->post('account/login', 'Account::login');
+    $routes->post('account/logout', 'Account::logout');
+    $routes->match(['GET', 'HEAD'], 'account/register', 'Account::showRegister');
+    $routes->post('account/register', 'Account::register');
+    $routes->match(['GET', 'HEAD'], 'account/forgot', 'Account::showForgot');
+    $routes->post('account/forgot', 'Account::sendReset');
+    $routes->match(['GET', 'HEAD'], 'account/reset/(:segment)', 'Account::showReset/$1');
+    $routes->post('account/reset', 'Account::doReset');
+
     // Must come last in this group: a bare segment would otherwise swallow
     // 'shop/anything' before the more specific routes above are reached.
     $routes->match(['GET', 'HEAD'], 'shop/(:segment)', 'Shop::category/$1', ['as' => 'category']);
+});
+
+// =====================================================================
+// CUSTOMER ACCOUNT AREA — everything behind the customerAuth filter.
+// Every query inside is scoped to session('customer_id'); no owner is ever
+// taken from the URL.
+// =====================================================================
+$routes->group('', [
+    'namespace' => 'App\Controllers\Storefront',
+    'filter'    => 'customerAuth',
+], static function (RouteCollection $routes): void {
+    $routes->match(['GET', 'HEAD'], 'account', 'AccountArea::dashboard', ['as' => 'account']);
+    $routes->post('account/details', 'AccountArea::saveDetails');
+    $routes->post('account/password', 'AccountArea::changePassword');
+
+    $routes->match(['GET', 'HEAD'], 'account/orders', 'AccountArea::orders');
+    $routes->match(['GET', 'HEAD'], 'account/orders/(:segment)', 'AccountArea::order/$1');
+
+    $routes->match(['GET', 'HEAD'], 'account/addresses', 'AccountArea::addresses');
+    $routes->post('account/addresses', 'AccountArea::saveAddress');
+    $routes->post('account/addresses/delete', 'AccountArea::deleteAddress');
+    $routes->post('account/addresses/default', 'AccountArea::makeDefaultAddress');
+
+    $routes->match(['GET', 'HEAD'], 'wishlist', 'AccountArea::wishlist');
+    $routes->post('wishlist/toggle', 'AccountArea::toggleWishlist');
 });
 
 // =====================================================================
@@ -80,10 +117,6 @@ $routes->group('', ['namespace' => 'App\Controllers\Storefront'], static functio
     // --- Phase 3: gift-box builder ---
 
     // --- Phase 5: customer accounts ---
-    $routes->match(['GET', 'HEAD'], 'wishlist', 'Roadmap::show/5/wishlist');
-    $routes->match(['GET', 'HEAD'], 'account', 'Roadmap::show/5/your-account');
-    $routes->match(['GET', 'HEAD'], 'account/login', 'Roadmap::show/5/sign-in');
-    $routes->match(['GET', 'HEAD'], 'account/register', 'Roadmap::show/5/create-an-account');
 });
 
 // =====================================================================

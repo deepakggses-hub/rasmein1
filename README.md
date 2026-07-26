@@ -20,8 +20,8 @@ Built on CodeIgniter 4.7 · PHP 8.2+ · MySQL 8 / MariaDB 10.4+ · Tailwind CSS 
 | **4b** | HTML sanitiser, image uploads, products & categories CRUD | **Complete** |
 | **4c** | Gift-box config, pages editor, coupons | **Complete** |
 | **4d** | Staff & roles, customers, reports, CSV export, banners | **Complete** |
-| 5 | Customer accounts | Not started |
-| 5 | Customer accounts | Not started |
+| **5** | Customer accounts, addresses, wishlist | **Complete** |
+| **5** | Customer accounts, addresses, wishlist | **Complete** |
 | 6 | Payment gateway (Razorpay) | Deferred by request |
 
 Navigation links to unbuilt sections resolve to a branded "in build" page
