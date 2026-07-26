@@ -98,6 +98,7 @@ abstract class AdminController extends BaseController
                 'group' => 'Catalogue',
                 'items' => [
                     ['label' => 'Products', 'url' => 'admin/products', 'match' => 'admin/products', 'permission' => 'products.view'],
+                    ['label' => 'Categories', 'url' => 'admin/categories', 'match' => 'admin/categories', 'permission' => 'products.view'],
                     ['label' => 'Gift boxes', 'url' => 'admin/gift-boxes', 'match' => 'admin/gift-boxes', 'permission' => 'giftboxes.view'],
                 ],
             ],

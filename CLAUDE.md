@@ -491,6 +491,34 @@ existing design instead of inventing a parallel one.
   lowercase letters and compares for equality, which still catches
   "Password123" and "rasmein2026" while allowing real passphrases.
 
+### Phase 4b traps — all three found by testing the real form, not the service
+
+- **CI4 4.7 requires a validation rule for any field used as a `{placeholder}`.**
+  `is_unique[products.sku,id,{id}]` throws
+  `LogicException: No validation rules for the placeholder: "id"` unless the
+  model also declares `'id' => 'permit_empty|is_natural_no_zero'`. Nine models
+  needed it. Without it EVERY admin edit form 500s. Any new model using `{id}`
+  must carry that rule.
+- **`Model::update($id, $data)` does not inject the primary key into `$data`.**
+  So `{id}` resolved to nothing and a product's SKU was compared against itself
+  — "That SKU is already in use". The controller must put `id` in the payload
+  for updates; it is not in `$allowedFields`, so it never reaches the UPDATE.
+- **`UploadedFile::isValid()` calls `is_uploaded_file()`**, which is only true
+  during a real HTTP POST. Upload code cannot be tested from a `spark` command;
+  it has to be exercised through the form with a multipart request.
+
+### Uploads and sanitising (do not weaken)
+
+- `ImageUploadService` decides the type by `getimagesize()`, then RE-ENCODES
+  through GD. Re-encoding is the security control, not an optimisation: it
+  destroys polyglot payloads and strips EXIF (which carries GPS). Proven — a
+  JPEG with `<?php` appended lands on disk with zero PHP tags.
+- Filenames are generated (`bin2hex(random_bytes(16))`). Nothing from the client
+  reaches the path. Destination is chosen by KEY from `Rasmein::$uploadPaths`.
+- `HtmlSanitiser` is an allowlist and runs on SAVE, so stored HTML is clean and
+  every read path is safe by construction. 24 XSS payloads are covered by
+  `rasmein:diag-sanitiser`; add to that list rather than loosening the allowlist.
+
 ### Outstanding security work (tracked, not yet done)
 
 - [ ] **CSP is written but not enabled.** `Config/ContentSecurityPolicy.php`

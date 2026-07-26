@@ -28,6 +28,7 @@ class AdminUserModel extends Model
     ];
 
     protected $validationRules = [
+        'id' => 'permit_empty|is_natural_no_zero',   // required by CI4: {id} placeholder
         'role_id' => 'required|is_natural_no_zero',
         'name'    => 'required|min_length[2]|max_length[120]',
         'email'   => 'required|valid_email|max_length[191]|is_unique[admin_users.email,id,{id}]',

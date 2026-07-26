@@ -16,6 +16,7 @@ class AdminRoleModel extends Model
     protected $allowedFields = ['name', 'slug', 'description', 'permissions', 'is_system'];
 
     protected $validationRules = [
+        'id' => 'permit_empty|is_natural_no_zero',   // required by CI4: {id} placeholder
         'name' => 'required|max_length[80]',
         'slug' => 'required|max_length[60]|regex_match[/^[a-z0-9-]+$/]|is_unique[admin_roles.slug,id,{id}]',
     ];

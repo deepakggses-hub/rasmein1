@@ -125,6 +125,22 @@ $routes->group('admin', [
     $routes->post('enquiries/(:num)', 'Enquiries::update/$1');
     $routes->post('enquiries/(:num)/note', 'Enquiries::addNote/$1');
 
+    // ---- Catalogue (Phase 4b) ----
+    $routes->match(['GET', 'HEAD'], 'products', 'Products::index');
+    $routes->match(['GET', 'HEAD'], 'products/new', 'Products::create', ['filter' => 'adminAuth:products.manage']);
+    $routes->post('products', 'Products::store', ['filter' => 'adminAuth:products.manage']);
+    $routes->match(['GET', 'HEAD'], 'products/(:num)/edit', 'Products::edit/$1', ['filter' => 'adminAuth:products.manage']);
+    $routes->post('products/(:num)', 'Products::update/$1', ['filter' => 'adminAuth:products.manage']);
+    $routes->post('products/(:num)/delete', 'Products::delete/$1', ['filter' => 'adminAuth:products.manage']);
+    $routes->post('products/(:num)/images/(:num)/delete', 'Products::deleteImage/$1/$2', ['filter' => 'adminAuth:products.manage']);
+    $routes->post('products/(:num)/images/(:num)/primary', 'Products::makePrimaryImage/$1/$2', ['filter' => 'adminAuth:products.manage']);
+
+    $routes->match(['GET', 'HEAD'], 'categories', 'Categories::index');
+    $routes->post('categories', 'Categories::store', ['filter' => 'adminAuth:categories.manage']);
+    $routes->match(['GET', 'HEAD'], 'categories/(:num)/edit', 'Categories::edit/$1', ['filter' => 'adminAuth:categories.manage']);
+    $routes->post('categories/(:num)', 'Categories::update/$1', ['filter' => 'adminAuth:categories.manage']);
+    $routes->post('categories/(:num)/delete', 'Categories::delete/$1', ['filter' => 'adminAuth:categories.manage']);
+
     // ---- Settings ----
     $routes->match(['GET', 'HEAD'], 'settings', 'Settings::index');
     $routes->post('settings', 'Settings::update', ['filter' => 'adminAuth:settings.manage']);

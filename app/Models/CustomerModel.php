@@ -24,6 +24,7 @@ class CustomerModel extends Model
     ];
 
     protected $validationRules = [
+        'id' => 'permit_empty|is_natural_no_zero',   // required by CI4: {id} placeholder
         'name'  => 'required|min_length[2]|max_length[120]',
         'email' => 'required|valid_email|max_length[191]|is_unique[customers.email,id,{id}]',
         'phone' => 'permit_empty|min_length[10]|max_length[20]',

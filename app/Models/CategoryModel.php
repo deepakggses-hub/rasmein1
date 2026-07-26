@@ -22,6 +22,7 @@ class CategoryModel extends Model
     ];
 
     protected $validationRules = [
+        'id' => 'permit_empty|is_natural_no_zero',   // required by CI4: {id} placeholder
         'name'             => 'required|min_length[2]|max_length[120]',
         'slug'             => 'required|max_length[160]|regex_match[/^[a-z0-9-]+$/]|is_unique[categories.slug,id,{id}]',
         'parent_id'        => 'permit_empty|is_natural_no_zero',

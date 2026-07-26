@@ -24,6 +24,7 @@ class ProductModel extends Model
     ];
 
     protected $validationRules = [
+        'id' => 'permit_empty|is_natural_no_zero',   // required by CI4: {id} placeholder
         'sku'                 => 'required|max_length[60]|is_unique[products.sku,id,{id}]',
         'name'                => 'required|min_length[2]|max_length[191]',
         'slug'                => 'required|max_length[200]|regex_match[/^[a-z0-9-]+$/]|is_unique[products.slug,id,{id}]',

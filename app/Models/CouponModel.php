@@ -22,6 +22,7 @@ class CouponModel extends Model
     ];
 
     protected $validationRules = [
+        'id' => 'permit_empty|is_natural_no_zero',   // required by CI4: {id} placeholder
         'code'          => 'required|max_length[40]|regex_match[/^[A-Z0-9_-]+$/]|is_unique[coupons.code,id,{id}]',
         'discount_type' => 'required|in_list[percent,fixed,free_shipping]',
         'value'         => 'required|decimal|greater_than_equal_to[0]',

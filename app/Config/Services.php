@@ -8,6 +8,8 @@ use App\Models\SettingModel;
 use App\Services\AuditService;
 use App\Services\CartService;
 use App\Services\GiftBoxBuilderService;
+use App\Services\HtmlSanitiser;
+use App\Services\ImageUploadService;
 use App\Services\OrderService;
 use App\Services\PricingService;
 use App\Services\SettingsService;
@@ -69,6 +71,26 @@ class Services extends BaseService
         }
 
         return new OrderService(static::settings(), static::pricing(), static::cart());
+    }
+
+    /** Allowlist HTML sanitiser for staff-authored content. */
+    public static function sanitiser(bool $getShared = true): HtmlSanitiser
+    {
+        if ($getShared) {
+            return static::getSharedInstance('sanitiser');
+        }
+
+        return new HtmlSanitiser();
+    }
+
+    /** Validates, re-encodes and stores uploaded images. */
+    public static function images(bool $getShared = true): ImageUploadService
+    {
+        if ($getShared) {
+            return static::getSharedInstance('images');
+        }
+
+        return new ImageUploadService();
     }
 
     /** Writes the admin audit trail. */
