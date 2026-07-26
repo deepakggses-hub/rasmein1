@@ -253,6 +253,77 @@ class Services extends BaseService
         }
     }
 
+    /**
+     * Brand identity, with the database taking precedence over Config\Rasmein.
+     *
+     * Before this existed, settings like store_name and store_tagline were
+     * editable in the admin panel and referenced by NOTHING — the storefront
+     * read the PHP config, which never consulted the database, so changing them
+     * did nothing at all. This is the bridge.
+     *
+     * Values are read raw so a deliberately blank one is respected; the PHP
+     * config is the fallback only when a key is absent or empty, since an empty
+     * shop name is never what anyone meant.
+     */
+    public static function brand(bool $getShared = true): \Config\Rasmein
+    {
+        if ($getShared) {
+            return static::getSharedInstance('brand');
+        }
+
+        $config = config(\Config\Rasmein::class);
+
+        try {
+            $rows = db_connect()->table('settings')
+                ->select('key_name, value')
+                ->whereIn('group_name', ['store', 'brand', 'social'])
+                ->get()->getResultArray();
+        } catch (\Throwable) {
+            // Not migrated yet — the PHP defaults stand.
+            return $config;
+        }
+
+        $stored = [];
+
+        foreach ($rows as $row) {
+            $stored[$row['key_name']] = trim((string) $row['value']);
+        }
+
+        $pick = static fn (string $key, string $fallback): string
+            => ($stored[$key] ?? '') !== '' ? $stored[$key] : $fallback;
+
+        $config->brandName    = $pick('store_name', $config->brandName);
+        $config->brandTagline = $pick('store_tagline', $config->brandTagline);
+        $config->supportEmail = $pick('support_email', $config->supportEmail);
+        $config->supportPhone = $pick('support_phone', $config->supportPhone);
+
+        // Identity assets and the rest are additive: they have no PHP default,
+        // so they are exposed as a plain map rather than typed properties.
+        $config->identity = [
+            'logo'         => $stored['brand_logo'] ?? '',
+            'logo_light'   => $stored['brand_logo_light'] ?? '',
+            'favicon'      => $stored['brand_favicon'] ?? '',
+            'og_image'     => $stored['brand_og_image'] ?? '',
+            'title_suffix' => $stored['meta_title_suffix'] ?? '',
+            'description'  => $stored['meta_description'] ?? '',
+            'legal_name'   => $stored['legal_name'] ?? '',
+            'gstin'        => $stored['legal_gstin'] ?? '',
+            'address'      => $stored['legal_address'] ?? '',
+            'whatsapp'     => $stored['whatsapp_number'] ?? '',
+        ];
+
+        $config->social = array_filter([
+            'instagram' => $stored['social_instagram'] ?? '',
+            'facebook'  => $stored['social_facebook'] ?? '',
+            'whatsapp'  => $stored['social_whatsapp'] ?? '',
+            'youtube'   => $stored['social_youtube'] ?? '',
+            'pinterest' => $stored['social_pinterest'] ?? '',
+            'linkedin'  => $stored['social_linkedin'] ?? '',
+        ], static fn (string $v): bool => $v !== '');
+
+        return $config;
+    }
+
     /** Gmail over OAuth 2.0, for shops sending through a Google account. */
     public static function googleMail(bool $getShared = true): GoogleMailService
     {

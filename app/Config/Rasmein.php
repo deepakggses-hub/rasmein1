@@ -16,6 +16,20 @@ use CodeIgniter\Config\BaseConfig;
 class Rasmein extends BaseConfig
 {
     // ---------------------------------------------------------------- brand
+    /**
+     * Identity assets and details set from the admin panel.
+     *
+     * Populated by Services::brand(); empty when read straight from config.
+     * A plain map rather than typed properties because these have no sensible
+     * PHP default — an unset logo is genuinely absent, not "the default logo".
+     *
+     * @var array<string, string>
+     */
+    public array $identity = [];
+
+    /** @var array<string, string> Social links that are actually set. */
+    public array $social = [];
+
     public string $brandName    = 'Rasmein';
     public string $brandTagline = 'Gifting that carries a feeling.';
     public string $supportEmail = 'hello@rasmein.com';
@@ -87,6 +101,7 @@ class Rasmein extends BaseConfig
         'banners'  => 'uploads/banners',
         // Images inserted from inside the rich text editor.
         'content'  => 'uploads/content',
+        'brand'    => 'uploads/brand',
     ];
 
     // ----------------------------------------------------------- pagination

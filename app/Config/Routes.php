@@ -247,6 +247,10 @@ $routes->group('admin', [
     // enough — a product editor needs images too.
     $routes->post('editor/upload', 'EditorUpload::store');
 
+    // ---- Shop identity ----
+    $routes->match(['GET', 'HEAD'], 'brand', 'Brand::index');
+    $routes->post('brand', 'Brand::save', ['filter' => 'adminAuth:settings.manage']);
+
     // ---- Mail configuration ----
     $routes->match(['GET', 'HEAD'], 'mail', 'MailSettings::index');
     $routes->post('mail', 'MailSettings::save', ['filter' => 'adminAuth:settings.manage']);

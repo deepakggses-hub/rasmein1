@@ -10,7 +10,23 @@
 
             <div class="lg:col-span-2">
                 <p class="font-display text-2xl font-semibold text-shell">
-                    Rasme<span class="relative">i<span class="absolute -top-px left-1/2 h-1 w-1 -translate-x-1/2 rounded-full bg-brass"></span></span>n
+                    <?php
+                        /*
+                         * An uploaded logo replaces the wordmark. The wordmark
+                         * is not deleted — a shop without a logo file should
+                         * still look deliberate rather than empty, and this is
+                         * what it looked like before anyone uploaded anything.
+                         */
+                        $rsLogo = $brand->identity['logo_light'] ?? '';
+                        $rsLogo = $rsLogo !== '' ? $rsLogo : ($brand->identity['logo'] ?? '');
+                    ?>
+                    <?php if ($rsLogo !== ''): ?>
+                        <img src="<?= rs_url($rsLogo) ?>"
+                             alt="<?= esc($brand->brandName, 'attr') ?>"
+                             class="h-8 w-auto object-contain sm:h-9">
+                    <?php else: ?>
+                        Rasme<span class="relative">i<span class="absolute -top-px left-1/2 h-1 w-1 -translate-x-1/2 rounded-full bg-brass"></span></span>n
+                    <?php endif; ?>
                 </p>
                 <p class="mt-3 max-w-sm text-sm leading-relaxed">
                     A gifting studio built on one idea: the box should feel as considered

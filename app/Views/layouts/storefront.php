@@ -30,7 +30,19 @@
         <meta property="og:image" content="<?= esc($seo['image'], 'attr') ?>">
     <?php endif; ?>
 
-    <link rel="icon" href="<?= base_url('favicon.ico') ?>" sizes="any">
+    <?php /* A favicon set from the admin panel, falling back to the shipped one. */ ?>
+    <?php $rsIcon = $brand->identity['favicon'] ?? ''; ?>
+    <?php if ($rsIcon !== ''): ?>
+        <link rel="icon" href="<?= rs_url($rsIcon) ?>">
+        <link rel="apple-touch-icon" href="<?= rs_url($rsIcon) ?>">
+    <?php else: ?>
+        <link rel="icon" href="<?= base_url('favicon.ico') ?>" sizes="any">
+    <?php endif; ?>
+    <?php $rsOg = $brand->identity['og_image'] ?? ''; ?>
+    <?php if ($rsOg !== ''): ?>
+        <meta property="og:image" content="<?= rs_url($rsOg) ?>">
+        <meta name="twitter:card" content="summary_large_image">
+    <?php endif; ?>" sizes="any">
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>

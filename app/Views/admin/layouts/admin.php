@@ -44,6 +44,12 @@ foreach ($nav as $group) {
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Eczar:wght@500;600&family=Karla:wght@400;500;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <?php $rsIcon = $brand->identity['favicon'] ?? ''; ?>
+    <?php if ($rsIcon !== ''): ?>
+        <link rel="icon" href="<?= rs_url($rsIcon) ?>">
+    <?php else: ?>
+        <link rel="icon" href="<?= base_url('favicon.ico') ?>" sizes="any">
+    <?php endif; ?>
     <link rel="stylesheet" href="<?= rs_asset('assets/css/app.css') ?>">
     <link rel="stylesheet" href="<?= rs_asset('assets/vendor/sweetalert2/sweetalert2.min.css') ?>">
     <?php if (! empty($needsEditor)): ?>
@@ -70,9 +76,15 @@ foreach ($nav as $group) {
             </button>
 
             <a href="<?= site_url('admin') ?>" class="flex items-baseline gap-2">
+                <?php $rsBar = ($brand->identity['logo_light'] ?? '') ?: ($brand->identity['logo'] ?? ''); ?>
+                <?php if ($rsBar !== ''): ?>
+                    <img src="<?= rs_url($rsBar) ?>" alt="<?= esc($brand->brandName, 'attr') ?>"
+                         class="h-6 w-auto object-contain">
+                <?php else: ?>
                 <span class="font-display text-xl leading-none font-semibold text-shell">
                     Rasme<span class="relative">i<span class="absolute -top-px left-1/2 h-1 w-1 -translate-x-1/2 rounded-full bg-brass"></span></span>n
                 </span>
+                <?php endif; ?>
                 <span class="hidden font-mono text-[0.5625rem] tracking-[0.26em] text-brass uppercase sm:inline">Admin</span>
             </a>
         </div>

@@ -33,7 +33,9 @@ abstract class BaseController extends Controller
         parent::initController($request, $response, $logger);
 
         $this->settings = service('settings');
-        $this->brand    = config(Rasmein::class);
+        // Resolved from the database so what an administrator sets on the
+        // brand screen actually reaches the storefront.
+        $this->brand    = \Config\Services::brand();
     }
 
     /**

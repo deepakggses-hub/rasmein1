@@ -38,7 +38,23 @@ $cartLabel = rs_cta_label(null, 'cart');
                  stem — the one piece of lettering detail we allow ourselves. -->
             <a href="<?= site_url('/') ?>" class="group shrink-0" aria-label="<?= esc($brand->brandName) ?> home">
                 <span class="block font-display text-2xl leading-none font-semibold tracking-tight text-mulberry md:text-[1.75rem]">
-                    Rasme<span class="relative">i<span class="absolute -top-px left-1/2 h-1 w-1 -translate-x-1/2 rounded-full bg-brass"></span></span>n
+                    <?php
+                        /*
+                         * An uploaded logo replaces the wordmark. The wordmark
+                         * is not deleted — a shop without a logo file should
+                         * still look deliberate rather than empty, and this is
+                         * what it looked like before anyone uploaded anything.
+                         */
+                        $rsLogo = $brand->identity['logo'] ?? '';
+                        
+                    ?>
+                    <?php if ($rsLogo !== ''): ?>
+                        <img src="<?= rs_url($rsLogo) ?>"
+                             alt="<?= esc($brand->brandName, 'attr') ?>"
+                             class="h-8 w-auto object-contain sm:h-9">
+                    <?php else: ?>
+                        Rasme<span class="relative">i<span class="absolute -top-px left-1/2 h-1 w-1 -translate-x-1/2 rounded-full bg-brass"></span></span>n
+                    <?php endif; ?>
                 </span>
                 <span class="mt-0.5 block font-mono text-[0.5625rem] tracking-[0.28em] text-ink-muted uppercase">
                     Gifting studio

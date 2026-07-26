@@ -29,7 +29,7 @@ class Settings extends AdminController
         // The mail group is excluded: it has a dedicated screen that knows to
         // encrypt the SMTP password. Rendering it here would show ciphertext in
         // a text input and re-save it as if it were plain.
-        foreach ($model->where('group_name !=', 'mail')
+        foreach ($model->whereNotIn('group_name', ['mail', 'brand', 'store', 'social'])
             ->orderBy('group_name', 'ASC')->orderBy('sort_order', 'ASC')->findAll() as $row) {
             $groups[$row['group_name']][] = $row;
         }

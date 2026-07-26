@@ -807,6 +807,35 @@ Rules that follow:
   history and Referer headers. `Customers::encodeRef()` / `decodeRef()`.
 - The search term reaches raw SQL, so it is BOUND, never interpolated.
 
+### Shop identity — Services::brand()
+
+- **`Config\Rasmein` is now resolved through `Services::brand()`**, which layers
+  the `store`, `brand` and `social` settings groups over the PHP defaults.
+  BaseController assigns `$this->brand` from it, so every view gets the resolved
+  object.
+- This closed a real gap: `store_name`, `store_tagline`, `whatsapp_number` and
+  `social_instagram` already existed as editable settings and were referenced by
+  **zero files**. Editing them did nothing, because the storefront read the PHP
+  config and that never consulted the database.
+- `identity` and `social` are plain maps on the config, not typed properties:
+  these have no sensible PHP default, and an unset logo is genuinely absent
+  rather than "the default logo".
+- The `brand`, `store` and `social` groups are locked and excluded from the
+  generic Settings screen — they have their own panel that knows how to handle
+  uploads.
+- Logo, favicon, sharing image and a dark-background logo all go through
+  ImageUploadService. Replacing one deletes the old file rather than leaving it.
+- The wordmark is NOT deleted when a logo is uploaded; it is the fallback, so a
+  shop with no logo still looks deliberate.
+
+### rs_url() — stop re-introducing the esc-attr trap
+
+`esc($url, 'attr')` entity-encodes `/` and `:` into `&#x2F;` and `&#x3A;`.
+Browsers decode them, so the link works and the bug hides — which is exactly why
+this has now been introduced FOUR separate times (§15.9). Use `rs_url($path)`
+for asset URLs in attributes. It refuses traversal and absolute schemes, and
+does not mangle the slashes.
+
 ### Outstanding security work (tracked, not yet done)
 
 - [ ] **CSP is written but not enabled.** `Config/ContentSecurityPolicy.php`
