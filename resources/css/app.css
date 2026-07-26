@@ -878,3 +878,35 @@
   .rs-main { grid-column: 1 / -1; min-width: 0; }
   @media (min-width: 1024px) { .rs-main { grid-column: 2; } }
 }
+
+/* ================================================================== logo
+   An uploaded logo is an unknown quantity: it might be square, or a 10:1
+   banner. Constraining HEIGHT alone — which is what this did first — lets a
+   wide image grow to any width, and since the header wordmark sits in a
+   shrink-0 container it pushed the navigation off the page instead of wrapping.
+   Capping both dimensions with object-contain means any aspect ratio fits the
+   box, and nothing downstream has to know or care what was uploaded. */
+@layer components {
+  .rs-logo {
+    display: block;
+    width: auto;
+    object-fit: contain;
+    object-position: left center;
+  }
+
+  /* Storefront header. Narrow enough to leave room for the nav on a small
+     laptop, taller on wider screens where there is space. */
+  .rs-logo--header { max-height: 2rem; max-width: 9rem; }
+  @media (min-width: 640px) { .rs-logo--header { max-height: 2.25rem; max-width: 11rem; } }
+  @media (min-width: 1024px) { .rs-logo--header { max-height: 2.5rem; max-width: 13rem; } }
+
+  /* Footer sits on a dark ground with plenty of room. */
+  .rs-logo--footer { max-height: 2.25rem; max-width: 11rem; }
+
+  /* The admin bar is 3.25rem tall, so the logo must stay well inside it. */
+  .rs-logo--admin { max-height: 1.5rem; max-width: 8rem; }
+
+  /* The preview boxes on the identity screen, so what is shown there matches
+     what the site will do with it. */
+  .rs-logo--preview { max-height: 4.5rem; max-width: 100%; object-position: center; }
+}

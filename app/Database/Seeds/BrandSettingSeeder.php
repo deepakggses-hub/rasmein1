@@ -58,13 +58,46 @@ class BrandSettingSeeder extends Seeder
             $added++;
         }
 
-        // The store and social settings that already existed are managed by the
-        // brand screen now, so lock them out of the generic settings form —
-        // otherwise the same value is editable in two places.
+        /*
+         * Move any identity key that ended up in the wrong group.
+         *
+         * SettingsService::set() files an unknown key under 'general', so on an
+         * install where this seeder had not run, saving a logo created the row
+         * in the wrong place. The resolver reads by key now and copes either
+         * way, but leaving rows scattered is confusing for anyone looking at the
+         * table, and the brand screen groups by them.
+         */
+        $moves = [
+            'brand' => ['brand_logo', 'brand_logo_light', 'brand_favicon', 'brand_og_image',
+                'meta_title_suffix', 'meta_description', 'legal_name', 'legal_gstin', 'legal_address'],
+            'store' => ['store_name', 'store_tagline', 'support_email', 'support_phone', 'whatsapp_number'],
+            'social' => ['social_instagram', 'social_facebook', 'social_whatsapp',
+                'social_youtube', 'social_pinterest', 'social_linkedin'],
+        ];
+
+        $moved = 0;
+
+        foreach ($moves as $group => $keys) {
+            $this->db->table('settings')
+                ->whereIn('key_name', $keys)
+                ->where('group_name !=', $group)
+                ->set('group_name', $group)
+                ->update();
+
+            $moved += $this->db->affectedRows();
+        }
+
+        // These are managed by the brand screen, so lock them out of the generic
+        // settings form — otherwise the same value is editable in two places,
+        // one of which does not understand uploads.
         $this->db->table('settings')
             ->whereIn('group_name', ['store', 'social', 'brand'])
             ->set('is_locked', 1)
             ->update();
+
+        if ($moved > 0) {
+            echo "  Brand settings: {$moved} row(s) moved to the correct group.\n";
+        }
 
         echo "  Brand settings: {$added} added (" . count($rows) . " defined).\n";
     }

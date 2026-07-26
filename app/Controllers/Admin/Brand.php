@@ -37,6 +37,60 @@ class Brand extends AdminController
         'social_youtube', 'social_pinterest', 'social_linkedin',
     ];
 
+    /** Which settings group a key belongs in when it has to be created. */
+    private static function groupFor(string $key): string
+    {
+        if (str_starts_with($key, 'social_')) {
+            return 'social';
+        }
+
+        return in_array($key, ['store_name', 'store_tagline', 'support_email', 'support_phone', 'whatsapp_number'], true)
+            ? 'store'
+            : 'brand';
+    }
+
+    /**
+     * Install any identity setting the code expects but the database lacks.
+     *
+     * Same reasoning as the email template restore: these arrive through a
+     * seeder, and an install that was migrated but not seeded leaves the screen
+     * working yet oddly inert. Safe to press at any time — existing values are
+     * untouched.
+     */
+    public function restore()
+    {
+        if ($denied = $this->deny('settings.manage')) {
+            return $denied;
+        }
+
+        $before = model(SettingModel::class)
+            ->whereIn('group_name', ['brand', 'store', 'social'])->countAllResults();
+
+        try {
+            ob_start();
+            \Config\Database::seeder()->call('BrandSettingSeeder');
+            ob_end_clean();
+        } catch (\Throwable $e) {
+            if (ob_get_level() > 0) {
+                ob_end_clean();
+            }
+
+            log_message('error', 'Brand settings restore failed: {msg}', ['msg' => $e->getMessage()]);
+
+            return redirect()->back()->with('error', 'The settings could not be restored — see the log.');
+        }
+
+        $added = model(SettingModel::class)
+            ->whereIn('group_name', ['brand', 'store', 'social'])->countAllResults() - $before;
+
+        $this->settings->flush();
+
+        return redirect()->to(site_url('admin/brand'))->with(
+            'success',
+            $added === 0 ? 'Everything is already installed.' : $added . ' setting(s) installed.'
+        );
+    }
+
     public function index()
     {
         if ($denied = $this->deny('settings.view')) {
@@ -53,6 +107,12 @@ class Brand extends AdminController
             'values'    => $values,
             'images'    => self::IMAGES,
             'canManage' => $this->can('settings.manage'),
+            // Surfaced so the screen can offer to install what is missing rather
+            // than silently doing nothing useful.
+            'missing'   => count(array_filter(
+                array_merge(self::TEXT, array_keys(self::IMAGES)),
+                fn (string $k): bool => model(SettingModel::class)->where('key_name', $k)->countAllResults() === 0
+            )),
         ], 'Shop identity');
     }
 
@@ -93,7 +153,7 @@ class Brand extends AdminController
                 continue;
             }
 
-            $this->settings->set($key, mb_substr(trim((string) $value), 0, 500));
+            $this->settings->set($key, mb_substr(trim((string) $value), 0, 500), 'string', self::groupFor($key));
         }
 
         // ---- images ----
@@ -104,7 +164,7 @@ class Brand extends AdminController
             // otherwise there would be no way to take a logo back off.
             if ($this->request->getPost('remove_' . $field) !== null) {
                 service('images')->delete((string) $this->settings->get($field, ''));
-                $this->settings->set($field, '');
+                $this->settings->set($field, '', 'string', 'brand');
 
                 continue;
             }
@@ -115,7 +175,11 @@ class Brand extends AdminController
                 continue;
             }
 
-            $result = service('images')->store($file, 'brand');
+            $result = service('images')->store(
+                $file,
+                'brand',
+                config(\Config\Rasmein::class)->brandImageWidths[$field] ?? 600
+            );
 
             if (! $result['ok']) {
                 $uploadErrors[] = self::IMAGES[$field] . ': ' . $result['error'];
@@ -126,7 +190,7 @@ class Brand extends AdminController
             // Replace rather than accumulate — an old logo left on disk is
             // clutter nobody will ever go and tidy.
             service('images')->delete((string) $this->settings->get($field, ''));
-            $this->settings->set($field, $result['path']);
+            $this->settings->set($field, $result['path'], 'string', 'brand');
         }
 
         $this->settings->flush();

@@ -36,7 +36,10 @@ $cartLabel = rs_cta_label(null, 'cart');
 
             <!-- Wordmark. Set in Eczar with a brass diacritic dot over the 'i'
                  stem — the one piece of lettering detail we allow ourselves. -->
-            <a href="<?= site_url('/') ?>" class="group shrink-0" aria-label="<?= esc($brand->brandName) ?> home">
+            <?php /* min-w-0 rather than shrink-0: the logo is capped by CSS, but the
+         anchor must still be allowed to give way on a narrow screen instead of
+         forcing the row wider than the viewport. */ ?>
+                <a href="<?= site_url('/') ?>" class="group min-w-0" aria-label="<?= esc($brand->brandName) ?> home">
                 <span class="block font-display text-2xl leading-none font-semibold tracking-tight text-mulberry md:text-[1.75rem]">
                     <?php
                         /*
@@ -51,14 +54,19 @@ $cartLabel = rs_cta_label(null, 'cart');
                     <?php if ($rsLogo !== ''): ?>
                         <img src="<?= rs_url($rsLogo) ?>"
                              alt="<?= esc($brand->brandName, 'attr') ?>"
-                             class="h-8 w-auto object-contain sm:h-9">
+                             class="rs-logo rs-logo--header">
                     <?php else: ?>
                         Rasme<span class="relative">i<span class="absolute -top-px left-1/2 h-1 w-1 -translate-x-1/2 rounded-full bg-brass"></span></span>n
                     <?php endif; ?>
                 </span>
-                <span class="mt-0.5 block font-mono text-[0.5625rem] tracking-[0.28em] text-ink-muted uppercase">
-                    Gifting studio
-                </span>
+                <?php if ($rsLogo === ''): ?>
+                    <?php /* Part of the wordmark lock-up. A real logo carries its
+                             own descriptor, so this would read as a stray caption
+                             sitting underneath it. */ ?>
+                    <span class="mt-0.5 block font-mono text-[0.5625rem] tracking-[0.28em] text-ink-muted uppercase">
+                        Gifting studio
+                    </span>
+                <?php endif; ?>
             </a>
 
             <!-- Desktop nav -->

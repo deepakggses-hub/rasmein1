@@ -79,7 +79,7 @@ foreach ($nav as $group) {
                 <?php $rsBar = ($brand->identity['logo_light'] ?? '') ?: ($brand->identity['logo'] ?? ''); ?>
                 <?php if ($rsBar !== ''): ?>
                     <img src="<?= rs_url($rsBar) ?>" alt="<?= esc($brand->brandName, 'attr') ?>"
-                         class="h-6 w-auto object-contain">
+                         class="rs-logo rs-logo--admin">
                 <?php else: ?>
                 <span class="font-display text-xl leading-none font-semibold text-shell">
                     Rasme<span class="relative">i<span class="absolute -top-px left-1/2 h-1 w-1 -translate-x-1/2 rounded-full bg-brass"></span></span>n

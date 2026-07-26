@@ -23,7 +23,7 @@
                     <?php if ($rsLogo !== ''): ?>
                         <img src="<?= rs_url($rsLogo) ?>"
                              alt="<?= esc($brand->brandName, 'attr') ?>"
-                             class="h-8 w-auto object-contain sm:h-9">
+                             class="rs-logo rs-logo--footer">
                     <?php else: ?>
                         Rasme<span class="relative">i<span class="absolute -top-px left-1/2 h-1 w-1 -translate-x-1/2 rounded-full bg-brass"></span></span>n
                     <?php endif; ?>

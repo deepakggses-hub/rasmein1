@@ -273,10 +273,30 @@ class Services extends BaseService
 
         $config = config(\Config\Rasmein::class);
 
+        /*
+         * Read by KEY, not by group.
+         *
+         * Group is a UI grouping concern. Selecting on it made the resolver
+         * depend on where a row happened to sit — and SettingsService::set()
+         * files a NEW key under 'general'. So on an install where the brand
+         * seeder had not run, uploading a logo saved the path successfully and
+         * the storefront never saw it, because the row was in the wrong group.
+         * Reported from the field. A fixed key list cannot fail that way.
+         */
+        $keys = [
+            'store_name', 'store_tagline', 'support_email', 'support_phone',
+            'whatsapp_number',
+            'brand_logo', 'brand_logo_light', 'brand_favicon', 'brand_og_image',
+            'meta_title_suffix', 'meta_description',
+            'legal_name', 'legal_gstin', 'legal_address',
+            'social_instagram', 'social_facebook', 'social_whatsapp',
+            'social_youtube', 'social_pinterest', 'social_linkedin',
+        ];
+
         try {
             $rows = db_connect()->table('settings')
                 ->select('key_name, value')
-                ->whereIn('group_name', ['store', 'brand', 'social'])
+                ->whereIn('key_name', $keys)
                 ->get()->getResultArray();
         } catch (\Throwable) {
             // Not migrated yet — the PHP defaults stand.

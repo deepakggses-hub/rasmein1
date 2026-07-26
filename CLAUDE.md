@@ -807,6 +807,27 @@ Rules that follow:
   history and Referer headers. `Customers::encodeRef()` / `decodeRef()`.
 - The search term reaches raw SQL, so it is BOUND, never interpolated.
 
+### Shop identity — resolve by KEY, never by group
+
+**The bug this fixes, reported from the field:** a logo uploaded on the Shop
+identity screen saved successfully and never appeared anywhere.
+
+`SettingsService::set()` files an UNKNOWN key under `group_name = 'general'`.
+`Services::brand()` selected `whereIn('group_name', [...])`. So on any install
+where `BrandSettingSeeder` had not run, the upload wrote a row the resolver was
+not looking at. Silent, and it looked like the upload had failed.
+
+Three changes:
+
+1. **`Services::brand()` selects by a fixed KEY list.** Group is a UI grouping
+   concern; making identity depend on it was the mistake. Do not reintroduce a
+   group-based read.
+2. **`SettingsService::set()` takes an optional `$group`**, so a caller that owns
+   a group says so and a new key lands correctly.
+3. **The screen self-heals** — it counts missing keys, warns, and offers
+   "Install them now"; `BrandSettingSeeder` also MOVES any identity key found in
+   the wrong group; and `rasmein:diag` fails when fewer than 15 are installed.
+
 ### Shop identity — Services::brand()
 
 - **`Config\Rasmein` is now resolved through `Services::brand()`**, which layers
@@ -835,6 +856,27 @@ Browsers decode them, so the link works and the bug hides — which is exactly w
 this has now been introduced FOUR separate times (§15.9). Use `rs_url($path)`
 for asset URLs in attributes. It refuses traversal and absolute schemes, and
 does not mangle the slashes.
+
+### Logo sizing — constrain BOTH dimensions
+
+An uploaded logo is an unknown quantity: it might be square or a 10:1 banner.
+
+- **Height-only constraints are not enough.** `h-8 w-auto` on a 3000x300 banner
+  renders roughly 320px wide, and the storefront wordmark sat in a `shrink-0`
+  container, so it pushed the navigation off the page rather than wrapping.
+  Reported from the field.
+- `.rs-logo` caps `max-width` AND `max-height` with `object-fit: contain`, so any
+  aspect ratio fits its box and nothing downstream needs to know what was
+  uploaded. Variants: `--header`, `--footer`, `--admin`, `--preview`.
+- The header anchor is `min-w-0`, not `shrink-0` — it must be able to give way on
+  a narrow screen.
+- **Uploads are capped by purpose** via `Rasmein::$brandImageWidths`: 600px for
+  logos, 512 for the favicon, 1200 for the sharing image. The global 2400px is
+  right for a product photograph and absurd for a logo.
+  `ImageUploadService::store()` takes the cap as a third argument and reports the
+  stored dimensions back.
+- The "Gifting studio" eyebrow is part of the wordmark lock-up and is hidden when
+  a real logo is set, where it would read as a stray caption.
 
 ### Outstanding security work (tracked, not yet done)
 

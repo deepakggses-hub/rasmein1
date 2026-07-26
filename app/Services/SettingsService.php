@@ -122,7 +122,15 @@ class SettingsService
         return $this->journeyMode();
     }
 
-    public function set(string $key, mixed $value, string $type = 'string'): bool
+    /**
+     * Write a setting, creating it if absent.
+     *
+     * $group matters for a key that does not exist yet: without it a new key is
+     * filed under 'general', which is how a freshly uploaded logo ended up
+     * somewhere its own resolver was not looking. Callers that own a group
+     * should say so.
+     */
+    public function set(string $key, mixed $value, string $type = 'string', ?string $group = null): bool
     {
         $stored = $type === 'json' ? json_encode($value) : (string) $value;
 
@@ -134,7 +142,8 @@ class SettingsService
                 'key_name'   => $key,
                 'value'      => $stored,
                 'value_type' => $type,
-                'group_name' => 'general',
+                'group_name' => $group ?? 'general',
+                'is_locked'  => $group === null ? 0 : 1,
             ]) !== false;
 
         $this->flush();

@@ -250,6 +250,7 @@ $routes->group('admin', [
     // ---- Shop identity ----
     $routes->match(['GET', 'HEAD'], 'brand', 'Brand::index');
     $routes->post('brand', 'Brand::save', ['filter' => 'adminAuth:settings.manage']);
+    $routes->post('brand/restore', 'Brand::restore', ['filter' => 'adminAuth:settings.manage']);
 
     // ---- Mail configuration ----
     $routes->match(['GET', 'HEAD'], 'mail', 'MailSettings::index');

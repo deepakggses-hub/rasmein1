@@ -4,10 +4,10 @@
 $v = static fn (string $k) => esc((string) (old($k) ?? $values[$k] ?? ''), 'attr');
 
 $hints = [
-    'brand_logo'       => ['Storefront header', 'Transparent PNG or WebP, around 320×80. Blank keeps the Rasmein wordmark.'],
-    'brand_logo_light' => ['Footer and admin bar', 'A version that reads on a dark background. Falls back to the main logo.'],
-    'brand_favicon'    => ['Browser tab', 'Square PNG, at least 180×180.'],
-    'brand_og_image'   => ['WhatsApp and social previews', '1200×630 is the size every platform accepts.'],
+    'brand_logo'       => ['Storefront header', 'Around 320×80 works best. Displayed up to 13rem wide and 2.5rem tall — anything larger is scaled to fit, never cropped. Scaled to 600px on upload.'],
+    'brand_logo_light' => ['Footer and admin bar', 'A version that reads on a dark background. Falls back to the main logo. Scaled to 600px.'],
+    'brand_favicon'    => ['Browser tab', 'Square PNG, at least 180×180. Scaled to 512px.'],
+    'brand_og_image'   => ['WhatsApp and social previews', '1200×630 is what every platform expects. Scaled to 1200px.'],
 ];
 ?>
 
@@ -16,6 +16,26 @@ $hints = [
     'heading'    => 'Shop identity',
     'subheading' => 'Logo, favicon, contact details and the other things that appear across the site.',
 ]) ?>
+
+<?php if ($missing > 0): ?>
+    <div class="px-5 pt-6 lg:px-8">
+        <section class="border-2 border-brass bg-brass-soft/25 p-5">
+            <h2 class="font-display text-lg font-semibold"><?= (int) $missing ?> setting(s) are not installed.</h2>
+            <p class="mt-2 max-w-2xl text-sm text-ink-soft">
+                These arrive with the seed data. Until they exist, anything saved here
+                is filed in the wrong place and will not appear on the storefront.
+            </p>
+            <form method="post" action="<?= site_url('admin/brand/restore') ?>" class="mt-3">
+                <?= csrf_field() ?>
+                <button type="submit" class="rs-btn rs-btn--primary">Install them now</button>
+            </form>
+            <p class="rs-help mt-2">
+                Or on the command line:
+                <code class="bg-white px-1 font-mono">php spark db:seed BrandSettingSeeder</code>
+            </p>
+        </section>
+    </div>
+<?php endif; ?>
 
 <form method="post" action="<?= site_url('admin/brand') ?>" enctype="multipart/form-data"
       class="space-y-6 px-5 py-6 lg:px-8">
@@ -40,7 +60,7 @@ $hints = [
                                 <?= $field === 'brand_logo_light' ? 'bg-ink' : 'bg-shell-deep' ?>">
                         <?php if ($current !== ''): ?>
                             <img src="<?= rs_url($current) ?>" alt="<?= esc($label, 'attr') ?>"
-                                 class="max-h-20 max-w-full object-contain">
+                                 class="rs-logo rs-logo--preview">
                         <?php else: ?>
                             <span class="font-mono text-[0.625rem] tracking-widest text-ink-muted uppercase">Not set</span>
                         <?php endif; ?>

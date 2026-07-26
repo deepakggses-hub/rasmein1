@@ -95,6 +95,22 @@ class Rasmein extends BaseConfig
     public int   $maxImageBytes     = 2_097_152; // 2 MB
     public int   $maxImageWidth     = 2400;
 
+    /**
+     * Width caps for identity images, by setting key.
+     *
+     * A logo displayed at 40px tall does not need 2400 pixels of width, and a
+     * favicon needs fewer still. The sharing image is the exception: 1200×630 is
+     * what WhatsApp and the social platforms expect.
+     *
+     * @var array<string, int>
+     */
+    public array $brandImageWidths = [
+        'brand_logo'       => 600,
+        'brand_logo_light' => 600,
+        'brand_favicon'    => 512,
+        'brand_og_image'   => 1200,
+    ];
+
     public array $uploadPaths = [
         'products' => 'uploads/products',
         'boxes'    => 'uploads/boxes',

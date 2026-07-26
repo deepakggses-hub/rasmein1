@@ -38,9 +38,12 @@ class ImageUploadService
      * @param string $destination One of Rasmein::$uploadPaths — a key, so a
      *                            posted value can never steer the path.
      *
-     * @return array{ok: bool, path: string|null, error: string|null}
+     * @param int|null $maxWidth Override the default width cap. A logo needs a
+     *                            far smaller one than a product photograph.
+     *
+     * @return array{ok: bool, path: string|null, error: string|null, width?: int, height?: int}
      */
-    public function store(UploadedFile $file, string $destination = 'products'): array
+    public function store(UploadedFile $file, string $destination = 'products', ?int $maxWidth = null): array
     {
         $config = config(Rasmein::class);
 
@@ -115,7 +118,8 @@ class ImageUploadService
         }
 
         try {
-            $written = $this->reencode($temporary, $fullPath, $type, $width, $height, $config->maxImageWidth);
+            $cap     = $maxWidth !== null ? max(16, min(4000, $maxWidth)) : $config->maxImageWidth;
+            $written = $this->reencode($temporary, $fullPath, $type, $width, $height, $cap);
         } catch (Throwable $e) {
             log_message('error', 'Image processing failed: {msg}', ['msg' => $e->getMessage()]);
 
@@ -129,10 +133,16 @@ class ImageUploadService
         // Readable by the web server, never executable.
         @chmod($fullPath, 0o644);
 
+        // Report what actually landed, so a caller can show the true size
+        // rather than the size that was chosen.
+        $stored = @getimagesize($fullPath);
+
         return [
-            'ok'    => true,
-            'path'  => $config->uploadPaths[$destination] . '/' . $name,
-            'error' => null,
+            'ok'     => true,
+            'path'   => $config->uploadPaths[$destination] . '/' . $name,
+            'error'  => null,
+            'width'  => $stored !== false ? (int) $stored[0] : 0,
+            'height' => $stored !== false ? (int) $stored[1] : 0,
         ];
     }
 

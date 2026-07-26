@@ -388,6 +388,19 @@ class Diag extends BaseCommand
             } else {
                 $this->pass('email templates', $templates . ' installed');
 
+            }
+
+            $brand = $db->table('settings')->whereIn('group_name', ['brand', 'store', 'social'])->countAllResults();
+
+            if ($brand < 15) {
+                $this->fail(
+                    'shop identity settings',
+                    'only ' . $brand . ' installed — a logo saved now would not appear',
+                    'Run: php spark db:seed BrandSettingSeeder   (or use Admin → Shop identity → Install them now)'
+                );
+            } else {
+                $this->pass('shop identity settings', $brand . ' installed');
+
             // A baseURL that does not match the host the admin browses on makes
             // fetch() cross-origin: cookies are withheld, CSRF fails, and the
             // editor's image upload returns a 403 that looks like a permissions
