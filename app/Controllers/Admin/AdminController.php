@@ -107,6 +107,20 @@ abstract class AdminController extends BaseController
                 'group' => 'Content',
                 'items' => [
                     ['label' => 'Pages', 'url' => 'admin/pages', 'match' => 'admin/pages', 'permission' => 'content.manage'],
+                    ['label' => 'Banners', 'url' => 'admin/banners', 'match' => 'admin/banners', 'permission' => 'content.manage'],
+                ],
+            ],
+            [
+                'group' => 'People',
+                'items' => [
+                    ['label' => 'Customers', 'url' => 'admin/customers', 'match' => 'admin/customers', 'permission' => 'customers.view'],
+                    ['label' => 'Staff', 'url' => 'admin/staff', 'match' => 'admin/staff', 'permission' => 'staff.manage'],
+                ],
+            ],
+            [
+                'group' => 'Insight',
+                'items' => [
+                    ['label' => 'Reports', 'url' => 'admin/reports', 'match' => 'admin/reports', 'permission' => 'reports.view'],
                 ],
             ],
             [

@@ -9,6 +9,7 @@ use App\Services\AuditService;
 use App\Services\CartService;
 use App\Services\GiftBoxBuilderService;
 use App\Services\HtmlSanitiser;
+use App\Services\CsvExporter;
 use App\Services\ImageUploadService;
 use App\Services\OrderService;
 use App\Services\PricingService;
@@ -91,6 +92,16 @@ class Services extends BaseService
         }
 
         return new ImageUploadService();
+    }
+
+    /** Streams CSV exports, neutralising spreadsheet formula injection. */
+    public static function csv(bool $getShared = true): CsvExporter
+    {
+        if ($getShared) {
+            return static::getSharedInstance('csv');
+        }
+
+        return new CsvExporter();
     }
 
     /** Writes the admin audit trail. */

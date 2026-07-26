@@ -167,6 +167,27 @@ $routes->group('admin', [
     $routes->post('pages/(:num)', 'Pages::update/$1', ['filter' => 'adminAuth:content.manage']);
     $routes->post('pages/(:num)/delete', 'Pages::delete/$1', ['filter' => 'adminAuth:content.manage']);
 
+    // ---- People, content, insight (Phase 4d) ----
+    $routes->match(['GET', 'HEAD'], 'customers', 'Customers::index', ['filter' => 'adminAuth:customers.view']);
+    $routes->match(['GET', 'HEAD'], 'customers/(:any)', 'Customers::show/$1', ['filter' => 'adminAuth:customers.view']);
+
+    $routes->match(['GET', 'HEAD'], 'banners', 'Banners::index', ['filter' => 'adminAuth:content.manage']);
+    $routes->match(['GET', 'HEAD'], 'banners/new', 'Banners::create', ['filter' => 'adminAuth:content.manage']);
+    $routes->post('banners', 'Banners::store', ['filter' => 'adminAuth:content.manage']);
+    $routes->match(['GET', 'HEAD'], 'banners/(:num)/edit', 'Banners::edit/$1', ['filter' => 'adminAuth:content.manage']);
+    $routes->post('banners/(:num)', 'Banners::update/$1', ['filter' => 'adminAuth:content.manage']);
+    $routes->post('banners/(:num)/delete', 'Banners::delete/$1', ['filter' => 'adminAuth:content.manage']);
+
+    $routes->match(['GET', 'HEAD'], 'reports', 'Reports::index', ['filter' => 'adminAuth:reports.view']);
+    $routes->match(['GET', 'HEAD'], 'reports/export/(:segment)', 'Reports::export/$1', ['filter' => 'adminAuth:reports.view']);
+
+    $routes->match(['GET', 'HEAD'], 'staff', 'Staff::index', ['filter' => 'adminAuth:staff.manage']);
+    $routes->match(['GET', 'HEAD'], 'staff/new', 'Staff::create', ['filter' => 'adminAuth:staff.manage']);
+    $routes->post('staff', 'Staff::store', ['filter' => 'adminAuth:staff.manage']);
+    $routes->match(['GET', 'HEAD'], 'staff/(:num)/edit', 'Staff::edit/$1', ['filter' => 'adminAuth:staff.manage']);
+    $routes->post('staff/(:num)', 'Staff::update/$1', ['filter' => 'adminAuth:staff.manage']);
+    $routes->post('staff/(:num)/delete', 'Staff::delete/$1', ['filter' => 'adminAuth:staff.manage']);
+
     // ---- Settings ----
     $routes->match(['GET', 'HEAD'], 'settings', 'Settings::index');
     $routes->post('settings', 'Settings::update', ['filter' => 'adminAuth:settings.manage']);

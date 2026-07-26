@@ -250,10 +250,39 @@ now lets the name stand alone.
 
 ---
 
-## Phase 4d — Remaining admin (next)
+## Phase 4d — Staff, customers, reports, banners · **complete**
 
-- Customers, banners, reports and CSV export
-- Staff and role management (currently a second user needs SQL)
+- **Staff & roles** — accounts, role assignment, admin-set passwords
+- **Customers** — assembled from ORDERS, not the accounts table, because most
+  gifting customers check out as guests and would otherwise be invisible
+- **Reports** — revenue, average order, discounts given, enquiry conversion,
+  revenue-by-day, best sellers, revenue by category, pipeline, coupon use
+- **CSV export** — orders, enquiries, products, customers
+- **Banners** — scheduled promotional slots
+
+**Four invariants enforced in Staff, and each one attacked:**
+
+| Attack | Result |
+|---|---|
+| Store Manager reaches `/admin/staff` | 302 — lacks `staff.manage` |
+| Super admin deactivates own account | Refused; still active |
+| Super admin deletes own account | Refused; account present |
+| Admin sets a colleague's password | Stored hashed, `must_change_password=1` |
+
+Roles are filtered to those the current administrator wholly holds, so a Store
+Manager cannot mint a Super Admin and sign in as them. The last active
+super-admin cannot be deleted or disabled.
+
+**CSV formula injection — the interesting one.** A spreadsheet treats a cell
+beginning `=` `+` `-` `@` as a FORMULA, so an order placed under the name
+`=cmd|'/c calc'!A1` becomes executable when the export is opened in Excel. The
+data is the customer's own text and cannot be rejected at the source, so
+`CsvExporter` neutralises it at the boundary with a leading apostrophe.
+Verified: the database holds `=cmd|'/c calc'!A1`, the CSV holds
+`'=cmd|'/c calc'!A1`, and a phone number `+919876500000` is neutralised too.
+
+Banner links are constrained to this site — an admin-set off-site redirect on
+the homepage hero is exactly what a stolen staff password would reach for.
 
 ---
 

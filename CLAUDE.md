@@ -538,6 +538,24 @@ existing design instead of inventing a parallel one.
   single sanitising point. Do not sanitise in the controller as well: two places
   to keep in step is how one of them drifts.
 
+### Phase 4d rules (do not weaken)
+
+- **Staff::assignableRoles()** filters roles to those the current admin wholly
+  holds. Never offer a role granting a permission the actor lacks — that is
+  escalation by proxy.
+- Self-lockout guards: cannot deactivate, change the role of, or delete your own
+  account; cannot remove the last active holder of `*`.
+- An admin-set password is always single-use: `must_change_password = 1`, so the
+  person who set it never holds a working credential.
+- **CsvExporter::neutralise() is mandatory on every exported cell.** Cells
+  starting `=` `+` `-` `@` (or tab/CR) execute as formulas in Excel and Sheets.
+  Any new export must go through the service, not fputcsv directly.
+- Banner `link_url` must be relative or on this site. An admin-controlled
+  off-site redirect in the hero is a phishing primitive.
+- Customers are derived from `orders` grouped by email, not from the `customers`
+  table — guests are the majority and must not be invisible. The screen is
+  read-only: editing details after the fact would desynchronise order snapshots.
+
 ### Outstanding security work (tracked, not yet done)
 
 - [ ] **CSP is written but not enabled.** `Config/ContentSecurityPolicy.php`
