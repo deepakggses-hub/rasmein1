@@ -387,6 +387,20 @@ class Diag extends BaseCommand
                 );
             } else {
                 $this->pass('email templates', $templates . ' installed');
+
+            // A baseURL that does not match the host the admin browses on makes
+            // fetch() cross-origin: cookies are withheld, CSRF fails, and the
+            // editor's image upload returns a 403 that looks like a permissions
+            // problem. Worth flagging here rather than discovering it that way.
+            $base = rtrim((string) config(\Config\App::class)->baseURL, '/');
+
+            if ($base === '') {
+                $this->fail('baseURL sanity', 'app.baseURL is empty', 'Set app.baseURL in .env to the exact address you use, including the port.');
+            } elseif (ENVIRONMENT === 'production' && (str_contains($base, 'localhost') || str_contains($base, '127.0.0.1'))) {
+                $this->fail('baseURL sanity', 'production baseURL still points at localhost: ' . $base, 'Set app.baseURL in .env to the live address.');
+            } else {
+                $this->pass('baseURL sanity', $base);
+            }
             }
         } catch (Throwable $e) {
             $this->fail('schema', $e->getMessage(), 'Run: php spark migrate');

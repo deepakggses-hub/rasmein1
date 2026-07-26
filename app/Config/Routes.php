@@ -234,6 +234,11 @@ $routes->group('admin', [
     $routes->post('email-templates/(:num)/test', 'EmailTemplates::test/$1', ['filter' => 'adminAuth:content.manage']);
     $routes->post('email-templates/restore', 'EmailTemplates::restore', ['filter' => 'adminAuth:content.manage']);
 
+    // Image upload from inside the rich text editor. Permission is checked in
+    // the controller, because either content.manage or products.manage is
+    // enough — a product editor needs images too.
+    $routes->post('editor/upload', 'EditorUpload::store');
+
     // ---- Settings ----
     $routes->match(['GET', 'HEAD'], 'settings', 'Settings::index');
     $routes->post('settings', 'Settings::update', ['filter' => 'adminAuth:settings.manage']);

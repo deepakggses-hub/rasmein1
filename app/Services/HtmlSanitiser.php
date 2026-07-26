@@ -26,27 +26,81 @@ use DOMXPath;
  */
 class HtmlSanitiser
 {
-    /** Tag => attributes permitted on it. */
+    /**
+     * Tag => attributes permitted on it.
+     *
+     * `style` appears widely because the editor expresses alignment, colour,
+     * size and indentation as inline styles. It is NOT a blanket allowance —
+     * see SAFE_CSS below: every declaration is parsed, its property checked
+     * against an allowlist, and its value validated by pattern.
+     */
     private const ALLOWED = [
-        'p'          => [],
+        'p'          => ['style'],
         'br'         => [],
         'hr'         => [],
         'strong'     => [], 'b' => [],
         'em'         => [], 'i' => [],
         'u'          => [],
-        's'          => [],
-        'h2'         => [], 'h3' => [], 'h4' => [],
-        'ul'         => [], 'ol' => [], 'li' => [],
-        'blockquote' => [],
-        'a'          => ['href', 'title'],
-        'table'      => [], 'thead' => [], 'tbody' => [], 'tr' => [],
-        'th'         => ['colspan', 'rowspan'],
-        'td'         => ['colspan', 'rowspan'],
-        'figure'     => [], 'figcaption' => [],
-        'img'        => ['src', 'alt', 'width', 'height'],
-        'code'       => [], 'pre' => [],
-        'span'       => [],
-        'div'        => [],
+        's'          => [], 'strike' => [], 'del' => [], 'ins' => [],
+        'sub'        => [], 'sup'    => [],
+        'h1'         => ['style'], 'h2' => ['style'], 'h3' => ['style'],
+        'h4'         => ['style'], 'h5' => ['style'], 'h6' => ['style'],
+        'ul'         => ['style'], 'ol' => ['style', 'start', 'type'],
+        'li'         => ['style'],
+        'blockquote' => ['style'],
+        'a'          => ['href', 'title', 'name'],
+        'table'      => ['style', 'border', 'cellpadding', 'cellspacing'],
+        'thead'      => [], 'tbody' => [], 'tfoot' => [], 'caption' => [],
+        'tr'         => ['style'],
+        'th'         => ['colspan', 'rowspan', 'style', 'scope'],
+        'td'         => ['colspan', 'rowspan', 'style'],
+        'figure'     => ['style'], 'figcaption' => [],
+        'img'        => ['src', 'alt', 'title', 'width', 'height', 'style'],
+        'code'       => [], 'pre' => ['style'],
+        'span'       => ['style'],
+        'div'        => ['style'],
+    ];
+
+    /**
+     * CSS properties an author may set, each with a pattern its value must
+     * match. Anything not listed is dropped; anything listed but failing its
+     * pattern is dropped.
+     *
+     * This exists because allowing `style` naively is an XSS hole: historic and
+     * current vectors include `background:url(javascript:...)`,
+     * `width:expression(...)`, `behavior:url(...)` and `@import`. Validating
+     * the VALUE, not just the property name, is what closes them — and no
+     * property here accepts a url() at all.
+     */
+    private const SAFE_CSS = [
+        'text-align'       => '/^(left|right|center|justify)$/i',
+        'text-decoration'  => '/^(none|underline|line-through|overline)$/i',
+        'font-weight'      => '/^(normal|bold|bolder|lighter|[1-9]00)$/i',
+        'font-style'       => '/^(normal|italic|oblique)$/i',
+        'font-size'        => '/^(\d{1,3}(\.\d+)?(px|pt|em|rem|%)|xx-small|x-small|small|medium|large|x-large|xx-large)$/i',
+        'font-family'      => '/^[a-z0-9 ,\-\x27"]{1,120}$/i',
+        'color'            => '/^(#[0-9a-f]{3,8}|rgba?\([\d\s,.%]+\)|hsla?\([\d\s,.%deg]+\)|[a-z]{3,20})$/i',
+        'background-color' => '/^(#[0-9a-f]{3,8}|rgba?\([\d\s,.%]+\)|hsla?\([\d\s,.%deg]+\)|transparent|[a-z]{3,20})$/i',
+        'padding-left'     => '/^\d{1,4}(\.\d+)?(px|em|rem|%)$/i',
+        'margin-left'      => '/^\d{1,4}(\.\d+)?(px|em|rem|%)$/i',
+        'text-indent'      => '/^\d{1,4}(\.\d+)?(px|em|rem|%)$/i',
+        'direction'        => '/^(ltr|rtl)$/i',
+        'width'            => '/^\d{1,4}(\.\d+)?(px|em|rem|%)$/i',
+        'height'           => '/^(auto|\d{1,4}(\.\d+)?(px|em|rem|%))$/i',
+        'vertical-align'   => '/^(top|middle|bottom|baseline|sub|super)$/i',
+        'border-collapse'  => '/^(collapse|separate)$/i',
+        'float'            => '/^(left|right|none)$/i',
+        'line-height'      => '/^\d{1,3}(\.\d+)?(px|em|rem|%)?$/i',
+    ];
+
+    /**
+     * Substrings that void a whole declaration on sight, whatever the property.
+     * Checked against a whitespace-stripped, lowercased copy so
+     * `u r l (` and `\75 rl(` style evasions do not slip past.
+     */
+    private const CSS_POISON = [
+        'url(', 'expression(', 'javascript:', 'vbscript:', 'behavior:',
+        '@import', '\\', '&#', '/*', '*/', '<',
     ];
 
     /** Elements removed together with everything inside them. */
@@ -172,7 +226,31 @@ class HtmlSanitiser
 
             if (($name === 'href' || $name === 'src') && ! $this->isSafeUrl($attribute->value)) {
                 $element->removeAttribute($attribute->name);
+
+                continue;
             }
+
+            if ($name === 'style') {
+                $clean = $this->cleanStyle($attribute->value);
+
+                $clean === ''
+                    ? $element->removeAttribute('style')
+                    : $element->setAttribute('style', $clean);
+
+                continue;
+            }
+
+            // Numeric attributes must actually be numeric.
+            if (in_array($name, ['width', 'height', 'colspan', 'rowspan', 'border', 'cellpadding', 'cellspacing', 'start'], true)
+                && preg_match('/^\d{1,5}$/', trim($attribute->value)) !== 1) {
+                $element->removeAttribute($attribute->name);
+            }
+        }
+
+        // An image with no alt is an accessibility gap; give it an empty one so
+        // screen readers skip it rather than reading out the filename.
+        if (strtolower($element->nodeName) === 'img' && ! $element->hasAttribute('alt')) {
+            $element->setAttribute('alt', '');
         }
 
         // Links that leave the site should not hand over the opener.
@@ -184,6 +262,52 @@ class HtmlSanitiser
                 $element->setAttribute('target', '_blank');
             }
         }
+    }
+
+    /**
+     * Keep only declarations whose property is allowlisted AND whose value
+     * matches that property's pattern. Everything else is discarded silently.
+     */
+    private function cleanStyle(string $style): string
+    {
+        $kept = [];
+
+        foreach (explode(';', $style) as $declaration) {
+            if (! str_contains($declaration, ':')) {
+                continue;
+            }
+
+            [$property, $value] = explode(':', $declaration, 2);
+
+            $property = strtolower(trim($property));
+            $value    = trim($value);
+
+            if (! isset(self::SAFE_CSS[$property]) || $value === '') {
+                continue;
+            }
+
+            // Poison check on a whitespace-free copy, so "url ( x )" and
+            // "URL(" are caught along with "url(".
+            $needle = strtolower((string) preg_replace('/\s+/', '', $value));
+
+            foreach (self::CSS_POISON as $poison) {
+                if (str_contains($needle, $poison)) {
+                    continue 2;
+                }
+            }
+
+            if (preg_match(self::SAFE_CSS[$property], $value) !== 1) {
+                continue;
+            }
+
+            $kept[] = $property . ': ' . $value;
+        }
+
+        // A style attribute long enough to be a payload is not a style
+        // attribute anyone typed on purpose.
+        $out = implode('; ', $kept);
+
+        return strlen($out) > 500 ? '' : $out;
     }
 
     private function isSafeUrl(string $url): bool

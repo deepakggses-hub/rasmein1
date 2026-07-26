@@ -85,6 +85,8 @@ class Rasmein extends BaseConfig
         'products' => 'uploads/products',
         'boxes'    => 'uploads/boxes',
         'banners'  => 'uploads/banners',
+        // Images inserted from inside the rich text editor.
+        'content'  => 'uploads/content',
     ];
 
     // ----------------------------------------------------------- pagination

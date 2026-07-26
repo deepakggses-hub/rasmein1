@@ -1,5 +1,63 @@
 # Rasmein — Build Plan
 
+## Rich text editing · **complete**
+
+Quill 2 (BSD-3-Clause, vendored) on email templates, CMS pages, product
+descriptions and gift-box descriptions.
+
+**Why not CKEditor or TinyMCE:** both are GPL-2.0-or-later on their free tiers,
+which would oblige Rasmein itself to be GPL-licensed. CKEditor's GPL tier also
+needs a licence key and renders a "Powered by CKEditor" mark; commercial plans
+start around $144/month. Quill is permissive — no key, no branding, no cap.
+
+### The toolbar
+
+Headings 1–6 · font size · bold, italic, underline, strikethrough · text colour
+· highlight colour · subscript, superscript · align left/centre/right/justify ·
+indent and outdent · ordered and bullet lists · blockquote · code block ·
+right-to-left · link · **image upload** · clear formatting · **HTML source view**.
+
+All 18 were verified surviving a real form save and rendering on the storefront.
+
+### What made it possible
+
+The sanitiser previously stripped `class` and `style`, so alignment, colour and
+size would have been silently discarded on save. Two changes:
+
+1. Quill is registered with **style attributors** rather than class ones, so it
+   emits `style="text-align:center"` instead of `class="ql-align-center"`. Indent
+   has no built-in style attributor, so a custom Parchment one maps it to
+   `padding-left`.
+2. The sanitiser now allows `style` through **SAFE_CSS** — a per-property
+   allowlist where each value must also match a pattern. No property accepts a
+   `url()`.
+
+**26 CSS-injection vectors were attacked and neutralised**, including
+`background:url(javascript:alert(1))`, `width:expression(...)`,
+`behavior:url(...)`, `-moz-binding`, `@import`, comment-splitting
+(`color:red;/*c*/behavior:url(x)`), and `position:fixed` overlays. Partial
+survival works correctly: `color:red;behavior:url(x)` keeps the colour and drops
+the payload.
+
+### Image upload
+
+A dedicated endpoint goes through the same `ImageUploadService` as every other
+upload — type decided by reading the file, re-encoded through GD, generated
+filename, destination chosen by key. Verified: a 1200px JPEG uploaded, was
+re-encoded to 15 KB with `php_tags=0`, and is served at 200; a PHP payload named
+`.jpg` was refused. Rate limited to 60 an hour per account.
+
+### The honest limitation
+
+**Tables cannot be edited comfortably in Quill.** Table markup is preserved,
+sanitised and styled correctly on the storefront, and tables can be written or
+edited in the HTML source view — but there is no click-to-add-row interface.
+Quill has no mature table module, and this is the one place where CKEditor and
+TinyMCE are genuinely better. If comfortable table editing matters more than the
+licence, that is the trade to make.
+
+---
+
 ## Phase 6 — Notifications & email templates · **complete**
 
 Two things arrived together, because they are the same problem: **the system

@@ -117,6 +117,93 @@ class DiagSanitiser extends BaseCommand
         }
 
         CLI::newLine();
+        CLI::write('  Inline style — must be neutralised', 'white');
+        CLI::write('  ' . str_repeat('-', 66), 'dark_gray');
+
+        // Allowing `style` is the classic way a sanitiser gets holed. Every
+        // one of these must lose its payload while keeping anything legitimate
+        // that sits beside it.
+        $styleAttacks = [
+            '<p style="background:url(javascript:alert(1))">x</p>'        => ['url(', 'javascript'],
+            '<p style="width:expression(alert(1))">x</p>'                 => ['expression'],
+            '<p style="behavior:url(#default#time2)">x</p>'               => ['behavior', 'url('],
+            '<p style="background-image:url(//evil.test/x.png)">x</p>'    => ['url(', 'evil.test'],
+            '<p style="color:red;background:url( javascript:alert(1) )">x</p>' => ['url(', 'javascript'],
+            '<p style="COLOR:RED;BEHAVIOR:URL(x)">x</p>'                  => ['behavior', 'url('],
+            '<p style="@import url(evil.css)">x</p>'                      => ['@import', 'url('],
+            '<p style="color:red;/*c*/behavior:url(x)">x</p>'             => ['behavior', 'url('],
+            '<p style="-moz-binding:url(evil.xml)">x</p>'                 => ['binding', 'url('],
+            '<p style="position:fixed;top:0;left:0;width:100%;height:100%">x</p>' => ['position:', 'fixed'],
+            '<div style="color:red" onclick="steal()">x</div>'            => ['onclick', 'steal'],
+            '<img src="x" style="background:url(javascript:alert(1))">'   => ['javascript', 'url('],
+        ];
+
+        foreach ($styleAttacks as $payload => $forbidden) {
+            $clean = (string) service('sanitiser')->clean($payload);
+            $leaks = [];
+
+            foreach ($forbidden as $needle) {
+                if (stripos($clean, $needle) !== false) {
+                    $leaks[] = $needle;
+                }
+            }
+
+            $label = mb_substr($payload, 0, 44);
+
+            if ($leaks === []) {
+                $this->pass++;
+                CLI::write(sprintf('  [ ok ] %-46s → %s', $label, mb_substr($clean, 0, 24)), 'green');
+            } else {
+                $this->fail++;
+                CLI::write(sprintf('  [FAIL] %-46s LEAKED: %s', $label, implode(', ', $leaks)), 'red');
+                CLI::write('         got: ' . mb_substr($clean, 0, 100), 'yellow');
+            }
+        }
+
+        CLI::newLine();
+        CLI::write('  Inline style — must be preserved', 'white');
+        CLI::write('  ' . str_repeat('-', 66), 'dark_gray');
+
+        $styleKeep = [
+            '<p style="text-align:center">Centred</p>'              => ['text-align: center'],
+            '<p style="text-align:right">Right</p>'                 => ['text-align: right'],
+            '<p style="color:#5E1F3D">Brand colour</p>'             => ['color: #5E1F3D'],
+            '<p style="background-color:#FAF6F3">Tint</p>'          => ['background-color: #FAF6F3'],
+            '<span style="font-size:18px">Bigger</span>'            => ['font-size: 18px'],
+            '<p style="padding-left:3em">Indented</p>'              => ['padding-left: 3em'],
+            '<p style="color:rgb(94,31,61)">RGB</p>'                => ['rgb(94,31,61)'],
+            '<td style="width:50%">Cell</td>'                       => ['width: 50%'],
+            '<p style="direction:rtl">RTL</p>'                      => ['direction: rtl'],
+            '<sub>2</sub> and <sup>3</sup>'                         => ['<sub>', '<sup>'],
+            '<h1>Heading one</h1>'                                  => ['<h1>'],
+            '<table><tr><td>A</td></tr></table>'                    => ['<table>', '<td>'],
+            '<img src="/uploads/x.jpg" width="400" alt="A gift box">' => ['width="400"', 'alt="A gift box"'],
+            '<p style="color:red;behavior:url(x)">Keep the colour</p>' => ['color: red'],
+        ];
+
+        foreach ($styleKeep as $input => $expected) {
+            $clean   = (string) service('sanitiser')->clean($input);
+            $missing = [];
+
+            foreach ($expected as $needle) {
+                if (! str_contains($clean, $needle)) {
+                    $missing[] = $needle;
+                }
+            }
+
+            $label = mb_substr($input, 0, 44);
+
+            if ($missing === []) {
+                $this->pass++;
+                CLI::write(sprintf('  [ ok ] %-46s kept', $label), 'green');
+            } else {
+                $this->fail++;
+                CLI::write(sprintf('  [FAIL] %-46s LOST: %s', $label, implode(', ', $missing)), 'red');
+                CLI::write('         got: ' . mb_substr($clean, 0, 100), 'yellow');
+            }
+        }
+
+        CLI::newLine();
         CLI::write('  Edge cases', 'white');
         CLI::write('  ' . str_repeat('-', 66), 'dark_gray');
 

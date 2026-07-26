@@ -618,10 +618,21 @@ existing design instead of inventing a parallel one.
   key and renders a "Powered by CKEditor" mark. Quill 2 is BSD-3-Clause: no key,
   no branding, no cap, ~200 KB against CKEditor's ~500 KB.
 - **Vendored, not CDN**: `public/assets/vendor/quill/`, with its LICENSE file.
-- **The toolbar deliberately mirrors HtmlSanitiser.** Quill expresses alignment
-  and indentation as `ql-*` classes and the sanitiser strips `class`, so those
-  buttons would appear to work then lose their effect on save. Do not add them
-  back without also widening the sanitiser — and think hard before doing that.
+- **Quill is configured with STYLE attributors, not class ones.** By default it
+  writes alignment/colour/size/font as `ql-*` classes, which the sanitiser
+  strips. `registerStyleAttributors()` in editor.js swaps them for inline
+  styles, and a custom Parchment attributor maps indent to `padding-left`. If a
+  format ever stops surviving a save, check that registration first.
+- **The sanitiser now allows `style`, but only via SAFE_CSS.** Each declaration
+  is parsed, its property checked against an allowlist, and its VALUE matched
+  against a per-property pattern. No property accepts a `url()`. CSS_POISON
+  voids a declaration containing `url(`, `expression(`, `behavior:`, `@import`,
+  comments or backslashes, checked against a whitespace-stripped copy so
+  `url ( x )` is caught too. 26 CSS-injection vectors are covered by
+  `rasmein:diag-sanitiser` — add to that list rather than loosening the patterns.
+- Adding a toolbar button means adding its property to SAFE_CSS or its tag to
+  ALLOWED, plus an attack case and a keep case in the diag suite. A button whose
+  output is silently stripped is worse than no button.
 - **The editor is not a security control.** It runs in the browser. Server-side
   sanitising on save is the actual protection; the editor only makes writing
   pleasant.
@@ -633,6 +644,38 @@ existing design instead of inventing a parallel one.
   `beforeInsert`/`beforeUpdate`. Never write to those columns bypassing the model.
 - Quill loads only where `needsEditor => true` is passed to `adminPage()`, so the
   rest of the panel does not pay for it.
+
+### baseURL and fetch() — a bug that reported itself as a permissions error
+
+Field report: the editor's image upload returned
+`{"status":"error","message":"You do not have access to that.","errors":[]}`.
+That string is ApiExceptionHandler's 403 mapping, not a permissions check — a
+403 was thrown before the controller ran, i.e. CSRF.
+
+Root cause: `site_url()` builds an ABSOLUTE url from `app.baseURL`. When baseURL
+does not exactly match the host the browser is on (different port, http vs
+https, localhost vs a hostname), `fetch()` treats the request as cross-origin,
+`credentials: 'same-origin'` withholds cookies, and it arrives with no session
+and no CSRF token.
+
+Rules that follow:
+
+- **Any in-app `fetch()` target must be a ROOT-RELATIVE path**, never
+  `site_url()`. Same for URLs returned to the client for insertion — the upload
+  response returns `/uploads/...`, not `base_url(...)`, or a wrong baseURL leaves
+  broken `<img src>` on the live storefront.
+- **Never `esc($path, 'attr')` a constant internal path.** It encodes `/` as
+  `&#x2F;`. Browsers decode it, but it is fragile — and this is trap §15.9 again.
+- **`security.regenerate = true`, so the token rotates after every validated
+  POST.** Any JS that POSTs must read the token live from the DOM at request
+  time and write the rotated one back into every CSRF input on the page.
+  Otherwise uploading an image then saving the form fails with a 403 — verified:
+  stale token 403, fresh token 303.
+- A 403 on an AJAX endpoint should say "your token expired, reload" rather than
+  "you do not have access". The generic message sends people hunting through
+  roles for a problem that is a stale page.
+- `rasmein:diag` now checks baseURL is set, and fails when a production baseURL
+  still points at localhost.
 
 ### Outstanding security work (tracked, not yet done)
 

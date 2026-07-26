@@ -40,7 +40,28 @@ $value = $value ?? '';
 $rows  = (int) ($rows ?? 14);
 $id    = 'editor-' . preg_replace('/[^a-z0-9]+/i', '-', $name);
 ?>
-<div class="rs-editor" data-editor data-editor-target="<?= esc($id, 'attr') ?>">
+<div class="rs-editor" data-editor
+     data-editor-target="<?= esc($id, 'attr') ?>"
+     <?php /*
+        A ROOT-RELATIVE path, deliberately not site_url().
+        site_url() builds an absolute URL from app.baseURL. If baseURL does not
+        exactly match the host the browser is on — a different port, http vs
+        https, localhost vs a hostname — then fetch() treats the upload as
+        cross-origin, `credentials: 'same-origin'` sends no cookies, and the
+        request arrives with no session and no CSRF token. The server correctly
+        rejects it with a 403, and the editor reports "You do not have access to
+        that", which points at permissions and hides the real cause.
+        A relative path always hits whatever origin the admin is actually using.
+     */ ?>
+     <?php
+        // Output RAW, not esc(..., 'attr'): that helper entity-encodes "/" into
+        // &#x2F;, which browsers decode correctly but which is needlessly
+        // fragile. This is a constant path with nothing user-influenced in it.
+        $rsUploadPath = parse_url(site_url('admin/editor/upload'), PHP_URL_PATH) ?: '/admin/editor/upload';
+     ?>
+     data-upload-url="<?= $rsUploadPath ?>"
+     data-csrf-name="<?= esc(csrf_token(), 'attr') ?>"
+     data-csrf-value="<?= esc(csrf_hash(), 'attr') ?>">
     <?php if (! empty($label)): ?>
         <span class="rs-label"><?= esc($label) ?></span>
     <?php endif; ?>
