@@ -202,7 +202,8 @@ $routes->group('admin', [
 
     // ---- People, content, insight (Phase 4d) ----
     $routes->match(['GET', 'HEAD'], 'customers', 'Customers::index', ['filter' => 'adminAuth:customers.view']);
-    $routes->match(['GET', 'HEAD'], 'customers/(:any)', 'Customers::show/$1', ['filter' => 'adminAuth:customers.view']);
+    // (:segment) not (:any): the token is a single path element with no slashes.
+    $routes->match(['GET', 'HEAD'], 'customers/(:segment)', 'Customers::show/$1', ['filter' => 'adminAuth:customers.view']);
 
     $routes->match(['GET', 'HEAD'], 'banners', 'Banners::index', ['filter' => 'adminAuth:content.manage']);
     $routes->match(['GET', 'HEAD'], 'banners/new', 'Banners::create', ['filter' => 'adminAuth:content.manage']);

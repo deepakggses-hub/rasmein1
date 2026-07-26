@@ -115,7 +115,7 @@ abstract class AdminController extends BaseController
             [
                 'group' => 'Overview',
                 'items' => [
-                    ['label' => 'Dashboard', 'url' => 'admin', 'match' => 'admin', 'permission' => null],
+                    ['label' => 'Dashboard', 'url' => 'admin', 'match' => 'admin', 'icon' => 'dashboard', 'permission' => null],
                     [
                         'label'      => 'Notifications',
                         'url'        => 'admin/notifications',
@@ -128,47 +128,47 @@ abstract class AdminController extends BaseController
             [
                 'group' => 'Sales',
                 'items' => [
-                    ['label' => 'Orders', 'url' => 'admin/orders', 'match' => 'admin/orders', 'permission' => 'orders.view'],
-                    ['label' => 'Enquiries', 'url' => 'admin/enquiries', 'match' => 'admin/enquiries', 'permission' => 'enquiries.view'],
-                    ['label' => 'Coupons', 'url' => 'admin/coupons', 'match' => 'admin/coupons', 'permission' => 'coupons.manage'],
+                    ['label' => 'Orders', 'url' => 'admin/orders', 'match' => 'admin/orders', 'icon' => 'orders', 'permission' => 'orders.view'],
+                    ['label' => 'Enquiries', 'url' => 'admin/enquiries', 'match' => 'admin/enquiries', 'icon' => 'enquiries', 'permission' => 'enquiries.view'],
+                    ['label' => 'Coupons', 'url' => 'admin/coupons', 'match' => 'admin/coupons', 'icon' => 'coupons', 'permission' => 'coupons.manage'],
                 ],
             ],
             [
                 'group' => 'Catalogue',
                 'items' => [
-                    ['label' => 'Products', 'url' => 'admin/products', 'match' => 'admin/products', 'permission' => 'products.view'],
-                    ['label' => 'Categories', 'url' => 'admin/categories', 'match' => 'admin/categories', 'permission' => 'products.view'],
-                    ['label' => 'Gift boxes', 'url' => 'admin/gift-boxes', 'match' => 'admin/gift-boxes', 'permission' => 'giftboxes.view'],
+                    ['label' => 'Products', 'url' => 'admin/products', 'match' => 'admin/products', 'icon' => 'products', 'permission' => 'products.view'],
+                    ['label' => 'Categories', 'url' => 'admin/categories', 'match' => 'admin/categories', 'icon' => 'categories', 'permission' => 'products.view'],
+                    ['label' => 'Gift boxes', 'url' => 'admin/gift-boxes', 'match' => 'admin/gift-boxes', 'icon' => 'giftbox', 'permission' => 'giftboxes.view'],
                 ],
             ],
             [
                 'group' => 'Content',
                 'items' => [
-                    ['label' => 'Pages', 'url' => 'admin/pages', 'match' => 'admin/pages', 'permission' => 'content.manage'],
-                    ['label' => 'Email templates', 'url' => 'admin/email-templates', 'match' => 'admin/email-templates', 'permission' => 'content.manage'],
-                    ['label' => 'Banners', 'url' => 'admin/banners', 'match' => 'admin/banners', 'permission' => 'content.manage'],
+                    ['label' => 'Pages', 'url' => 'admin/pages', 'match' => 'admin/pages', 'icon' => 'pages', 'permission' => 'content.manage'],
+                    ['label' => 'Email templates', 'url' => 'admin/email-templates', 'match' => 'admin/email-templates', 'icon' => 'mailtemplate', 'permission' => 'content.manage'],
+                    ['label' => 'Banners', 'url' => 'admin/banners', 'match' => 'admin/banners', 'icon' => 'banners', 'permission' => 'content.manage'],
                 ],
             ],
             [
                 'group' => 'People',
                 'items' => [
-                    ['label' => 'Customers', 'url' => 'admin/customers', 'match' => 'admin/customers', 'permission' => 'customers.view'],
-                    ['label' => 'Staff', 'url' => 'admin/staff', 'match' => 'admin/staff', 'permission' => 'staff.manage'],
-                    ['label' => 'Roles', 'url' => 'admin/roles', 'match' => 'admin/roles', 'permission' => 'roles.manage'],
+                    ['label' => 'Customers', 'url' => 'admin/customers', 'match' => 'admin/customers', 'icon' => 'customers', 'permission' => 'customers.view'],
+                    ['label' => 'Staff', 'url' => 'admin/staff', 'match' => 'admin/staff', 'icon' => 'staff', 'permission' => 'staff.manage'],
+                    ['label' => 'Roles', 'url' => 'admin/roles', 'match' => 'admin/roles', 'icon' => 'roles', 'permission' => 'roles.manage'],
                 ],
             ],
             [
                 'group' => 'Insight',
                 'items' => [
-                    ['label' => 'Reports', 'url' => 'admin/reports', 'match' => 'admin/reports', 'permission' => 'reports.view'],
+                    ['label' => 'Reports', 'url' => 'admin/reports', 'match' => 'admin/reports', 'icon' => 'reports', 'permission' => 'reports.view'],
                 ],
             ],
             [
                 'group' => 'System',
                 'items' => [
-                    ['label' => 'Settings', 'url' => 'admin/settings', 'match' => 'admin/settings', 'permission' => 'settings.view'],
-                    ['label' => 'Mail', 'url' => 'admin/mail', 'match' => 'admin/mail', 'permission' => 'settings.view'],
-                    ['label' => 'Audit log', 'url' => 'admin/audit', 'match' => 'admin/audit', 'permission' => 'audit.view'],
+                    ['label' => 'Settings', 'url' => 'admin/settings', 'match' => 'admin/settings', 'icon' => 'settings', 'permission' => 'settings.view'],
+                    ['label' => 'Mail', 'url' => 'admin/mail', 'match' => 'admin/mail', 'icon' => 'mail', 'permission' => 'settings.view'],
+                    ['label' => 'Audit log', 'url' => 'admin/audit', 'match' => 'admin/audit', 'icon' => 'audit', 'permission' => 'audit.view'],
                 ],
             ],
         ];

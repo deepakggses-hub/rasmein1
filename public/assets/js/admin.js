@@ -218,3 +218,91 @@
     ? document.addEventListener('DOMContentLoaded', init)
     : init();
 })();
+
+/**
+ * Admin shell behaviour: the mobile drawer, the desktop collapse, and the
+ * account menu.
+ *
+ * All of it degrades to nothing harmful without JavaScript — the sidebar is
+ * visible at desktop widths by CSS alone, and the account menu's contents are
+ * reachable from the pages they link to.
+ */
+(function () {
+  'use strict';
+
+  var shell = document.querySelector('[data-admin-shell]');
+  if (!shell) return;
+
+  var nav = document.querySelector('[data-nav]');
+  var scrim = document.querySelector('[data-nav-scrim]');
+  var openBtn = document.querySelector('[data-nav-open]');
+  var closeBtn = document.querySelector('[data-nav-close]');
+  var collapseBtn = document.querySelector('[data-nav-collapse]');
+
+  // ------------------------------------------------------ mobile drawer
+  function setDrawer(open) {
+    if (!nav) return;
+    nav.classList.toggle('is-open', open);
+    if (scrim) scrim.hidden = !open;
+    if (openBtn) openBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    // Stop the page behind scrolling while the drawer covers it.
+    document.body.style.overflow = open ? 'hidden' : '';
+  }
+
+  if (openBtn) openBtn.addEventListener('click', function () { setDrawer(true); });
+  if (closeBtn) closeBtn.addEventListener('click', function () { setDrawer(false); });
+  if (scrim) scrim.addEventListener('click', function () { setDrawer(false); });
+
+  // ---------------------------------------------------- desktop collapse
+  var COLLAPSE_KEY = 'rsAdminCollapsed';
+
+  function setCollapsed(on) {
+    shell.classList.toggle('is-collapsed', on);
+    if (collapseBtn) {
+      collapseBtn.setAttribute('aria-label', on ? 'Expand the menu' : 'Collapse the menu');
+    }
+    try {
+      window.localStorage.setItem(COLLAPSE_KEY, on ? '1' : '0');
+    } catch (e) {
+      /* Private browsing, or storage disabled. The preference simply is not
+         remembered; nothing else breaks. */
+    }
+  }
+
+  try {
+    if (window.localStorage.getItem(COLLAPSE_KEY) === '1') setCollapsed(true);
+  } catch (e) { /* as above */ }
+
+  if (collapseBtn) {
+    collapseBtn.addEventListener('click', function () {
+      setCollapsed(!shell.classList.contains('is-collapsed'));
+    });
+  }
+
+  // -------------------------------------------------------- account menu
+  document.querySelectorAll('[data-menu]').forEach(function (menu) {
+    var trigger = menu.querySelector('[data-menu-trigger]');
+    var panel = menu.querySelector('[data-menu-panel]');
+    if (!trigger || !panel) return;
+
+    function close() {
+      panel.hidden = true;
+      trigger.setAttribute('aria-expanded', 'false');
+    }
+
+    trigger.addEventListener('click', function (event) {
+      event.stopPropagation();
+      var open = panel.hidden;
+      panel.hidden = !open;
+      trigger.setAttribute('aria-expanded', open ? 'true' : 'false');
+    });
+
+    document.addEventListener('click', function (event) {
+      if (!menu.contains(event.target)) close();
+    });
+
+    document.addEventListener('keydown', function (event) {
+      if (event.key === 'Escape') { close(); setDrawer(false); }
+    });
+  });
+})();

@@ -780,6 +780,33 @@ Rules that follow:
   implies a continuity that is not there. Doughnut rather than pie: comparing
   arc lengths beats comparing wedge areas.
 
+### Admin shell (top bar + icon sidebar)
+
+- Grid layout, not fixed positioning with a matching margin — the main column is
+  simply the remaining track, so nothing has to be kept in step with the sidebar
+  width.
+- The collapse preference lives in localStorage. It is a display preference, not
+  data, so it does not warrant a round trip; a storage failure (private browsing)
+  degrades to "not remembered" and nothing else.
+- **Icons are `rs_icon()`, a helper — NOT a view partial.** Two bugs forced this:
+  CodeIgniter's `view()` keeps its data between calls, so one icon rendered with
+  an explicit class became the default for every later one (23 of 25 came out the
+  wrong size); and `esc($class, 'attr')` encodes the space in "h-4 w-4" as
+  `&#x20;` (trap §15.9 again). A function also avoids resolving a view 25 times
+  a page.
+
+### Customers are built from TWO sources
+
+- `Customers::index()` unions orders (grouped by email) with the `customers`
+  table. Orders alone hides anyone who registered and has not bought — reported
+  from the field, and those are exactly the people worth following up. The
+  `customers` table alone would hide guests, who are the majority.
+- **The detail page is addressed by an opaque token, not the email.** CI4's
+  `permittedURIChars` excludes `@`, so an email in the path returned 400 and the
+  page had never opened. An email in a URL also lands in access logs, browser
+  history and Referer headers. `Customers::encodeRef()` / `decodeRef()`.
+- The search term reaches raw SQL, so it is BOUND, never interpolated.
+
 ### Outstanding security work (tracked, not yet done)
 
 - [ ] **CSP is written but not enabled.** `Config/ContentSecurityPolicy.php`

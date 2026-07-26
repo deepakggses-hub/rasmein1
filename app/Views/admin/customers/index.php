@@ -4,7 +4,8 @@
 <?= view('admin/partials/header', [
     'eyebrow'    => 'People',
     'heading'    => 'Customers',
-    'subheading' => $total . ' address' . ($total === 1 ? '' : 'es') . ', built from orders — guests included.',
+    'subheading' => $total . ' ' . ($total === 1 ? 'person' : 'people')
+        . ' — everyone who has ordered, plus everyone with an account.',
 ]) ?>
 
 <div class="px-5 py-6 lg:px-8">
@@ -37,9 +38,15 @@
                     <?php foreach ($customers as $customer): ?>
                         <tr class="hover:bg-shell">
                             <td class="px-4 py-2.5">
-                                <a href="<?= site_url('admin/customers/' . rawurlencode((string) $customer['email'])) ?>"
+                                <a href="<?= site_url('admin/customers/' . \App\Controllers\Admin\Customers::encodeRef((string) $customer['email'])) ?>"
                                    class="rs-link font-medium"><?= esc($customer['name']) ?></a>
-                                <?php if ($customer['customer_id'] !== null): ?>
+                                <?php
+                                $hasAccount = $customer['customer_id'] !== null;
+                                $hasBought  = (int) $customer['orders'] > 0 || (int) $customer['enquiries'] > 0;
+                                ?>
+                                <?php if ($hasAccount && ! $hasBought): ?>
+                                    <span class="rs-badge rs-badge--brass ml-1">Signed up, not bought</span>
+                                <?php elseif ($hasAccount): ?>
                                     <span class="rs-badge rs-badge--soft ml-1">Account</span>
                                 <?php else: ?>
                                     <span class="rs-badge rs-badge--soft ml-1">Guest</span>

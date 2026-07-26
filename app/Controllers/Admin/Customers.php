@@ -19,6 +19,22 @@ use Config\Rasmein;
  */
 class Customers extends AdminController
 {
+    /** URL-safe token for an email address. */
+    public static function encodeRef(string $email): string
+    {
+        return rtrim(strtr(base64_encode($email), '+/', '-_'), '=');
+    }
+
+    /** Reverse of encodeRef. Null when the token is not decodable. */
+    public static function decodeRef(string $token): ?string
+    {
+        $padded  = strtr($token, '-_', '+/');
+        $padded .= str_repeat('=', (4 - strlen($padded) % 4) % 4);
+        $decoded = base64_decode($padded, true);
+
+        return $decoded === false || $decoded === '' ? null : $decoded;
+    }
+
     public function index()
     {
         if ($denied = $this->deny('customers.view')) {
@@ -30,35 +46,73 @@ class Customers extends AdminController
         $page = max(1, (int) $this->request->getGet('page'));
         $per  = config(Rasmein::class)->adminPerPage;
 
-        $builder = $db->table('orders')
-            ->select('orders.customer_email AS email,'
-                . ' MAX(orders.customer_name) AS name,'
-                . ' MAX(orders.customer_phone) AS phone,'
-                . ' SUM(CASE WHEN orders.journey_mode = "buy_now" AND orders.status NOT IN ("cancelled","refunded") THEN 1 ELSE 0 END) AS orders,'
-                . ' SUM(CASE WHEN orders.journey_mode = "buy_now" AND orders.status NOT IN ("cancelled","refunded") THEN orders.grand_total ELSE 0 END) AS spend,'
-                . ' SUM(CASE WHEN orders.journey_mode = "enquire_now" THEN 1 ELSE 0 END) AS enquiries,'
-                . ' MIN(orders.placed_at) AS first_seen,'
-                . ' MAX(orders.placed_at) AS last_seen,'
-                . ' MAX(customers.id) AS customer_id', false)
-            ->join('customers', 'customers.email = orders.customer_email', 'left')
-            ->where('orders.deleted_at', null)
-            ->groupBy('orders.customer_email');
+        /*
+         * Customers come from TWO sources, unioned.
+         *
+         * Most people buying a gift check out as guests, so a list built only
+         * from the `customers` table would miss the majority. But building it
+         * only from orders — which is what this did first — hides anyone who
+         * registered and has not bought yet, and they are exactly the people
+         * worth following up. Reported from the field: a newly registered
+         * account was invisible here.
+         *
+         * So: every address that has ordered, plus every registered account,
+         * folded together on email.
+         */
+        $sql = 'SELECT
+                    email,
+                    MAX(name) AS name,
+                    MAX(phone) AS phone,
+                    SUM(is_order) AS orders,
+                    SUM(spend) AS spend,
+                    SUM(is_enquiry) AS enquiries,
+                    MIN(seen_at) AS first_seen,
+                    MAX(seen_at) AS last_seen,
+                    MAX(customer_id) AS customer_id
+                FROM (
+                    SELECT
+                        o.customer_email AS email,
+                        o.customer_name  AS name,
+                        o.customer_phone AS phone,
+                        CASE WHEN o.journey_mode = ? AND o.status NOT IN ("cancelled","refunded") THEN 1 ELSE 0 END AS is_order,
+                        CASE WHEN o.journey_mode = ? AND o.status NOT IN ("cancelled","refunded") THEN o.grand_total ELSE 0 END AS spend,
+                        CASE WHEN o.journey_mode = ? THEN 1 ELSE 0 END AS is_enquiry,
+                        o.placed_at AS seen_at,
+                        NULL AS customer_id
+                    FROM orders o
+                    WHERE o.deleted_at IS NULL
+
+                    UNION ALL
+
+                    SELECT
+                        c.email, c.name, c.phone,
+                        0, 0, 0,
+                        c.created_at AS seen_at,
+                        c.id AS customer_id
+                    FROM customers c
+                    WHERE c.deleted_at IS NULL
+                ) AS everyone';
+
+        $binds = [Rasmein::MODE_BUY, Rasmein::MODE_BUY, Rasmein::MODE_ENQUIRE];
 
         if ($q !== null) {
-            $builder->groupStart()
-                ->like('orders.customer_email', $q)
-                ->orLike('orders.customer_name', $q)
-                ->orLike('orders.customer_phone', $q)
-                ->groupEnd();
+            // Bound, not interpolated — this is user input reaching raw SQL.
+            $sql .= ' WHERE email LIKE ? OR name LIKE ? OR phone LIKE ?';
+            $like = '%' . $q . '%';
+            array_push($binds, $like, $like, $like);
         }
 
-        // GROUP BY makes CI4's pager unreliable here, so count and slice by hand.
-        // getCompiledSelect(false) keeps the builder's state for the real query.
+        $sql .= ' GROUP BY email';
+
         $totalRows = (int) ($db->query(
-            'SELECT COUNT(*) AS c FROM (' . $builder->getCompiledSelect(false) . ') AS grouped'
+            'SELECT COUNT(*) AS c FROM (' . $sql . ') AS counted',
+            $binds
         )->getRowArray()['c'] ?? 0);
 
-        $rows = $builder->orderBy('spend', 'DESC')->get($per, ($page - 1) * $per)->getResultArray();
+        $rows = $db->query(
+            $sql . ' ORDER BY spend DESC, last_seen DESC LIMIT ' . (int) $per . ' OFFSET ' . (int) (($page - 1) * $per),
+            $binds
+        )->getResultArray();
 
         return $this->adminPage('admin/customers/index', [
             'customers' => $rows,
@@ -69,13 +123,26 @@ class Customers extends AdminController
         ], 'Customers');
     }
 
-    public function show(string $email)
+    /**
+     * Customer detail, addressed by an opaque token rather than the email.
+     *
+     * Two reasons. CodeIgniter's permittedURIChars does not include "@", so an
+     * email in the path was rejected with a 400 — this page had never opened.
+     * And an email in a URL ends up in access logs, browser history and Referer
+     * headers, which is careless with someone's personal data when an
+     * unambiguous alternative costs nothing.
+     */
+    public function show(string $token)
     {
         if ($denied = $this->deny('customers.view')) {
             return $denied;
         }
 
-        $email = trim(urldecode($email));
+        $email = self::decodeRef($token);
+
+        if ($email === null || ! filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            return redirect()->to(site_url('admin/customers'))->with('error', 'That customer reference is not valid.');
+        }
         $db    = db_connect();
 
         $orders = $db->table('orders')
@@ -85,14 +152,18 @@ class Customers extends AdminController
             ->orderBy('placed_at', 'DESC')
             ->get()->getResultArray();
 
-        if ($orders === []) {
+        $account = $db->table('customers')->where('email', $email)->get()->getRowArray();
+
+        // Someone may have an account and no orders yet — that is a real
+        // customer record and the page must still open.
+        if ($orders === [] && $account === null) {
             return redirect()->to(site_url('admin/customers'))->with('error', 'No record for that address.');
         }
 
         return $this->adminPage('admin/customers/show', [
             'email'    => $email,
             'orders'   => $orders,
-            'account'  => $db->table('customers')->where('email', $email)->get()->getRowArray(),
+            'account'  => $account,
             'spend'    => array_sum(array_map(
                 static fn (array $o): float => $o['journey_mode'] === 'buy_now'
                     && ! in_array($o['status'], ['cancelled', 'refunded'], true)
