@@ -169,6 +169,8 @@ class Orders extends AdminController
             ['status' => $to]
         );
 
+        service('notify')->orderStatusChanged($orders->find($id), $from, $to);
+
         return redirect()->back()->with('success', 'Order is now ' . $to . '.');
     }
 
@@ -252,6 +254,11 @@ class Orders extends AdminController
         }
 
         service('audit')->log('dispatched', 'orders', 'order', $id, $order['order_ref'] . ' dispatched');
+
+        service('notify')->orderDispatched(
+            model(OrderModel::class)->find($id),
+            model(ShipmentModel::class)->latestForOrder($id) ?? []
+        );
 
         return redirect()->back()->with('success', 'Dispatch recorded.');
     }

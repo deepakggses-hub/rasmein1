@@ -11,6 +11,8 @@ use App\Services\GiftBoxBuilderService;
 use App\Services\HtmlSanitiser;
 use App\Services\CsvExporter;
 use App\Services\ImageUploadService;
+use App\Services\MailService;
+use App\Services\NotificationService;
 use App\Services\OrderService;
 use App\Services\PricingService;
 use App\Services\SettingsService;
@@ -102,6 +104,26 @@ class Services extends BaseService
         }
 
         return new CsvExporter();
+    }
+
+    /** Renders editable templates and drains the mail queue. */
+    public static function mail(bool $getShared = true): MailService
+    {
+        if ($getShared) {
+            return static::getSharedInstance('mail');
+        }
+
+        return new MailService();
+    }
+
+    /** Decides who hears about what, in-app and by email. */
+    public static function notify(bool $getShared = true): NotificationService
+    {
+        if ($getShared) {
+            return static::getSharedInstance('notify');
+        }
+
+        return new NotificationService();
     }
 
     /** Writes the admin audit trail. */

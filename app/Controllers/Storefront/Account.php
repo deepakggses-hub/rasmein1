@@ -137,7 +137,7 @@ class Account extends StorefrontController
             // Do NOT say the address is taken — that turns this form into an
             // account-existence oracle. Report the same success either way and
             // let the real owner find out by email.
-            $this->queueNotice($email, 'register_attempt', 'Someone tried to register with your email');
+            service('notify')->registerAttempt($email, (string) $existing['name']);
 
             return redirect()->to(site_url('account/login'))
                 ->with('success', 'Account created. You can sign in now.');
@@ -156,7 +156,7 @@ class Account extends StorefrontController
             return redirect()->back()->withInput()->with('errors', $customers->errors());
         }
 
-        $this->queueNotice($email, 'welcome', 'Welcome to Rasmein');
+        service('notify')->customerWelcome($customers->find((int) $id));
 
         return $this->establishSession($customers->find((int) $id), 'Account created.');
     }
@@ -189,12 +189,14 @@ class Account extends StorefrontController
             $token = model(PasswordResetModel::class)
                 ->issue('customer', (int) $customer['id'], $email, $ip);
 
-            $this->queueNotice(
-                $email,
-                'password_reset',
-                'Reset your Rasmein password',
-                site_url('account/reset/' . $token)
-            );
+            $link = site_url('account/reset/' . $token);
+            service('notify')->passwordReset($email, (string) $customer['name'], $link);
+
+            // In development the link also goes to the log, so the flow is
+            // testable before SMTP exists. Never in production.
+            if (ENVIRONMENT !== 'production') {
+                log_message('info', 'Password reset link for {email}: {url}', ['email' => $email, 'url' => $link]);
+            }
         }
 
         // Identical response either way.
@@ -248,7 +250,9 @@ class Account extends StorefrontController
         // Anyone holding an old session for this account is signed out with it.
         session()->regenerate(true);
 
-        $this->queueNotice((string) $customer['email'], 'password_changed', 'Your Rasmein password was changed');
+        service('mail')->queue('customer_welcome', (string) $customer['email'], [
+            'customer_name' => $customer['name'],
+        ], (int) $customer['id'], 'customer');
 
         return redirect()->to(site_url('account/login'))
             ->with('success', 'Password updated. Sign in with it now.');
@@ -281,25 +285,4 @@ class Account extends StorefrontController
         return redirect()->to($intended ?? site_url('account'))->with('success', $message);
     }
 
-    /** Queue an outbound email. The sender is wired in a later phase. */
-    private function queueNotice(string $email, string $event, string $subject, ?string $context = null): void
-    {
-        db_connect()->table('notification_log')->insert([
-            'channel'      => 'email',
-            'event'        => $event,
-            'recipient'    => $email,
-            'subject'      => $subject,
-            'template'     => $event,
-            'related_type' => 'customer',
-            'status'       => 'queued',
-            'attempts'     => 0,
-            'created_at'   => date('Y-m-d H:i:s'),
-        ]);
-
-        // The reset URL goes to the log in development so the flow is testable
-        // before SMTP exists. It is never written to the database.
-        if ($context !== null && ENVIRONMENT !== 'production') {
-            log_message('info', 'Password reset link for {email}: {url}', ['email' => $email, 'url' => $context]);
-        }
-    }
 }

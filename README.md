@@ -22,7 +22,8 @@ Built on CodeIgniter 4.7 · PHP 8.2+ · MySQL 8 / MariaDB 10.4+ · Tailwind CSS 
 | **4d** | Staff & roles, customers, reports, CSV export, banners | **Complete** |
 | **5** | Customer accounts, addresses, wishlist | **Complete** |
 | **5** | Customer accounts, addresses, wishlist | **Complete** |
-| 6 | Payment gateway (Razorpay) | Deferred by request |
+| **6** | Notifications, email templates, scheduled tasks | **Complete** |
+| 7 | Payment gateway (Razorpay) | Deferred by request |
 
 Navigation links to unbuilt sections resolve to a branded "in build" page
 rather than a 404. See `docs/PHASES.md` for the full plan.
@@ -96,6 +97,11 @@ php spark rasmein:diag-checkout      # cart, pricing, coupons, orders (39 checks
 php spark rasmein:diag-builder       # gift-box capacity & eligibility (31 checks)
 php spark rasmein:diag-sanitiser     # 24 XSS payloads against the HTML sanitiser
 php spark rasmein:diag-firstrun --fresh  # rebuild from zero and walk a clean install
+php spark rasmein:diag-notify        # templates, targeting, mail queue (32 checks)
+
+# Scheduled — see docs/DEPLOYMENT.md for the crontab lines
+php spark rasmein:send-mail          # drain the outbound email queue
+php spark rasmein:housekeeping       # low-stock alerts, abandoned carts, pruning
 ```
 
 `rasmein:diag` runs every storefront query and reports OK/FAIL per query. It is

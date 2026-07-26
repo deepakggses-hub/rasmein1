@@ -24,6 +24,7 @@
         ['label' => 'Ready to dispatch', 'count' => $needsWork['to_dispatch'],    'url' => 'admin/orders?status=packed'],
         ['label' => 'New enquiries',     'count' => $needsWork['new_enquiries'],  'url' => 'admin/enquiries?status=new'],
         ['label' => 'Follow-ups overdue','count' => $needsWork['overdue_followup'],'url' => 'admin/enquiries?overdue=1'],
+        ['label' => 'Unread notifications','count' => $needsWork['unread_notices'], 'url' => 'admin/notifications?show=unread'],
     ];
     $anything = array_sum(array_column($queue, 'count')) > 0;
     ?>
@@ -34,7 +35,7 @@
                 Nothing waiting. Everything is confirmed, paid and dispatched.
             </p>
         <?php else: ?>
-            <ul class="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+            <ul class="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
                 <?php foreach ($queue as $entry): ?>
                     <li>
                         <a href="<?= site_url($entry['url']) ?>"

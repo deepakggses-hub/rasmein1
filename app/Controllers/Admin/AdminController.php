@@ -31,6 +31,32 @@ abstract class AdminController extends BaseController
         }
     }
 
+    /**
+     * Unread count for the sidebar badge. Cached per request — the navigation
+     * is built on every admin page load and this must not become a query the
+     * whole panel pays for twice.
+     */
+    private ?int $unreadCache = null;
+
+    protected function unreadNotifications(): int
+    {
+        if ($this->unreadCache !== null) {
+            return $this->unreadCache;
+        }
+
+        if ($this->admin === null) {
+            return $this->unreadCache = 0;
+        }
+
+        try {
+            return $this->unreadCache = model(\App\Models\AdminNotificationModel::class)
+                ->unreadCount((int) $this->admin['id']);
+        } catch (\Throwable) {
+            // A missing table (migration not yet run) must not break the panel.
+            return $this->unreadCache = 0;
+        }
+    }
+
     /** Does the signed-in user hold this permission? */
     protected function can(string $permission): bool
     {
@@ -85,6 +111,13 @@ abstract class AdminController extends BaseController
                 'group' => 'Overview',
                 'items' => [
                     ['label' => 'Dashboard', 'url' => 'admin', 'match' => 'admin', 'permission' => null],
+                    [
+                        'label'      => 'Notifications',
+                        'url'        => 'admin/notifications',
+                        'match'      => 'admin/notifications',
+                        'permission' => null,
+                        'badge'      => $this->unreadNotifications(),
+                    ],
                 ],
             ],
             [
@@ -107,6 +140,7 @@ abstract class AdminController extends BaseController
                 'group' => 'Content',
                 'items' => [
                     ['label' => 'Pages', 'url' => 'admin/pages', 'match' => 'admin/pages', 'permission' => 'content.manage'],
+                    ['label' => 'Email templates', 'url' => 'admin/email-templates', 'match' => 'admin/email-templates', 'permission' => 'content.manage'],
                     ['label' => 'Banners', 'url' => 'admin/banners', 'match' => 'admin/banners', 'permission' => 'content.manage'],
                 ],
             ],

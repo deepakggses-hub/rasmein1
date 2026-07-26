@@ -574,6 +574,25 @@ existing design instead of inventing a parallel one.
 - Email is not editable from the account page: changing it needs verification of
   the new address, which is its own flow.
 
+### Notifications & email (Phase 6) — do not weaken
+
+- **MailService::render() is an allowlist.** Only tokens a template DECLARES are
+  substituted, and the second pass covers `$global` (brand tokens) — never the
+  caller's `$data`. Iterating `$values` there once made the allowlist
+  decorative; a test now guards it.
+- Substituted values are escaped into the HTML body. Never render a template
+  through anything that evaluates code — staff can edit the body.
+- **`toPlainText()` must strip tags AFTER decoding entities.** Decoding turns
+  stored `&lt;script&gt;` back into `<script>`; the second `preg_replace` pass
+  removes it. Do not simplify that back to one strip_tags call.
+- Sending is queued, always. `rasmein:send-mail` retries five times with
+  exponential backoff; nothing sends inline from a request.
+- Notifications are targeted by permission via `NotificationService::toStaff()`.
+  Do not broadcast to all staff.
+- The template test-send goes ONLY to the signed-in admin's own address. A
+  free-text recipient box is an open relay with extra steps.
+- `template_key` is not editable from the UI — the code sends by key.
+
 ### Outstanding security work (tracked, not yet done)
 
 - [ ] **CSP is written but not enabled.** `Config/ContentSecurityPolicy.php`

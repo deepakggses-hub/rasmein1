@@ -1,5 +1,65 @@
 # Rasmein — Build Plan
 
+## Phase 6 — Notifications & email templates · **complete**
+
+Two things arrived together, because they are the same problem: **the system
+now tells people what happened.**
+
+### In-app notification centre
+
+A notifications section in the admin panel, with an unread badge in the sidebar
+and a tile on the dashboard. Orders, enquiries and low stock all raise one.
+
+**Notifications are targeted by permission.** An order notification goes to
+staff holding `orders.view`, not to everyone — a support account that cannot
+open Settings should not be told the journey mode changed. Verified: a narrow
+permission reached 1 person where `orders.view` reached 2.
+
+One row per recipient rather than a broadcast row plus a read-state table. The
+unread badge is queried on every admin page load, so that path stays a single
+indexed count rather than a `NOT EXISTS` join.
+
+### Editable email templates
+
+Eleven templates, all editable from **Admin → Email templates**: subject, body,
+and an on/off switch, with a live sandboxed preview and a "send a test to me"
+button. Both audiences are covered — customer emails and team alerts.
+
+Rendering is an **allowlist substitution, not a template engine**. Staff edit
+the body, so evaluating it would turn "edit the welcome email" into "run
+arbitrary PHP". Only tokens a template declares are replaced, and every
+substituted value is escaped.
+
+Sending is **queued, never inline** — `php spark rasmein:send-mail` drains it
+with five capped retries and exponential backoff, so a slow mail server can
+never delay a checkout or roll back an order.
+
+### Housekeeping
+
+`php spark rasmein:housekeeping` raises low-stock alerts (deduplicated to one
+per product per day), marks week-old carts abandoned, and prunes carts, expired
+tokens, sent mail and read notifications. Cron lines are in `docs/DEPLOYMENT.md`.
+
+### Two bugs found by testing, both real
+
+1. **The allowlist was not an allowlist.** A second substitution pass iterated
+   the caller's whole data array, so any key a caller passed was substituted
+   whether the template declared it or not. Now it iterates only the fixed
+   brand tokens. A test asserts an undeclared token stays unsubstituted.
+2. **The plain-text part decoded escaping back into markup.** The HTML body
+   correctly stored a customer named `<script>` as `&lt;script&gt;`, but
+   `html_entity_decode()` in `toPlainText()` turned it back into `<script>` in
+   the text/plain part. Not executable in a conforming client, but the value had
+   round-tripped back to markup and anything downstream putting that text in an
+   HTML context would inherit it. Found by sending through a real SMTP server
+   and reading what arrived — not by inspecting the code.
+
+**Verified: 32 automated checks, plus a real SMTP delivery.** A message with a
+hostile customer name arrives with no live tag in either MIME part, the HTML
+part showing it escaped as text, the real name intact, and `&` readable.
+
+---
+
 Maps the proposal's six phases onto the actual build. Each phase ends at
 something runnable and reviewable, not a half-wired layer.
 

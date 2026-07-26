@@ -386,53 +386,25 @@ class OrderService
     }
 
     /**
-     * Queue the outbound messages. Rows land as 'queued'; the sender is wired
-     * in a later phase, and the log makes "did the customer get it?" answerable.
+     * Hand off to NotificationService, which decides who hears about this and
+     * builds the emails from the editable templates.
      *
-     * @param array<string, mixed> $input
+     * Deliberately the LAST thing inside the transaction and wrapped in its own
+     * guard: a notification failure must never roll back a completed order.
      */
     private function queueNotifications(int $orderId, array $input, bool $isEnquiry): void
     {
-        $db    = db_connect();
-        $now   = date('Y-m-d H:i:s');
-        $event = $isEnquiry ? 'enquiry_received' : 'order_placed';
+        try {
+            $order = model(OrderModel::class)->find($orderId);
 
-        $rows = [[
-            'channel'      => 'email',
-            'event'        => $event,
-            'recipient'    => (string) $input['customer_email'],
-            'subject'      => $isEnquiry
-                ? 'We have your enquiry'
-                : 'Your Rasmein order is confirmed',
-            'template'     => $event . '_customer',
-            'related_type' => 'order',
-            'related_id'   => $orderId,
-            'status'       => 'queued',
-            'attempts'     => 0,
-            'created_at'   => $now,
-        ]];
-
-        // Staff copy — enquiries in particular need a human to pick them up.
-        $staff = $this->settings->get('enquiry_notify_emails', []);
-
-        if (is_array($staff)) {
-            foreach ($staff as $address) {
-                $rows[] = [
-                    'channel'      => 'email',
-                    'event'        => $event,
-                    'recipient'    => (string) $address,
-                    'subject'      => $isEnquiry ? 'New enquiry received' : 'New order received',
-                    'template'     => $event . '_staff',
-                    'related_type' => 'order',
-                    'related_id'   => $orderId,
-                    'status'       => 'queued',
-                    'attempts'     => 0,
-                    'created_at'   => $now,
-                ];
+            if ($order !== null) {
+                service('notify')->orderPlaced($order);
             }
+        } catch (Throwable $e) {
+            log_message('error', 'Notifications for order {id} failed: {msg}', [
+                'id' => (string) $orderId, 'msg' => $e->getMessage(),
+            ]);
         }
-
-        $db->table('notification_log')->insertBatch($rows);
     }
 
     private function uuid4(): string

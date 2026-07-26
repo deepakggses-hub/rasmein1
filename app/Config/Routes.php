@@ -221,6 +221,18 @@ $routes->group('admin', [
     $routes->post('staff/(:num)', 'Staff::update/$1', ['filter' => 'adminAuth:staff.manage']);
     $routes->post('staff/(:num)/delete', 'Staff::delete/$1', ['filter' => 'adminAuth:staff.manage']);
 
+    // ---- Notifications & email templates (Phase 6) ----
+    // The notification centre needs no extra permission: everyone sees only
+    // their own rows, and those were targeted by permission when created.
+    $routes->match(['GET', 'HEAD'], 'notifications', 'Notifications::index');
+    $routes->post('notifications/(:num)/read', 'Notifications::read/$1');
+    $routes->post('notifications/read-all', 'Notifications::readAll');
+
+    $routes->match(['GET', 'HEAD'], 'email-templates', 'EmailTemplates::index', ['filter' => 'adminAuth:content.manage']);
+    $routes->match(['GET', 'HEAD'], 'email-templates/(:num)/edit', 'EmailTemplates::edit/$1', ['filter' => 'adminAuth:content.manage']);
+    $routes->post('email-templates/(:num)', 'EmailTemplates::update/$1', ['filter' => 'adminAuth:content.manage']);
+    $routes->post('email-templates/(:num)/test', 'EmailTemplates::test/$1', ['filter' => 'adminAuth:content.manage']);
+
     // ---- Settings ----
     $routes->match(['GET', 'HEAD'], 'settings', 'Settings::index');
     $routes->post('settings', 'Settings::update', ['filter' => 'adminAuth:settings.manage']);

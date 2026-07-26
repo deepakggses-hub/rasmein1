@@ -90,6 +90,7 @@ class Dashboard extends AdminController
                 ->where('deleted_at', null)->countAllResults(),
             'new_enquiries'    => $db->table('enquiries')->where('lead_status', 'new')
                 ->where('deleted_at', null)->countAllResults(),
+            'unread_notices'   => $this->unreadNotifications(),
             'overdue_followup' => $db->table('enquiries')
                 ->whereNotIn('lead_status', ['won', 'lost', 'spam'])
                 ->where('followup_at <', date('Y-m-d H:i:s'))
