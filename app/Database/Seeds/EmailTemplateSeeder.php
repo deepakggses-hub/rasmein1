@@ -173,6 +173,115 @@ class EmailTemplateSeeder extends Seeder
                     . '<a href="{{site_url}}/account/forgot">reset your password</a> if you have '
                     . 'forgotten it. If it was not you, no action is needed.</p>',
             ],
+            [
+                'template_key' => 'order_processing_customer',
+                'name'         => 'Order being packed — to the customer',
+                'description'  => 'Sent when an order moves to Processing.',
+                'audience'     => 'customer',
+                'subject'      => 'We are packing {{order_ref}}',
+                'placeholders' => $orderTokens,
+                'body'         => '<p>{{customer_name}}, your box is being packed by hand now.</p>'
+                    . '<p>We will email a tracking link the moment it leaves us.</p>',
+            ],
+            [
+                'template_key' => 'order_packed_customer',
+                'name'         => 'Order packed — to the customer',
+                'description'  => 'Sent when an order is packed and waiting for the courier.',
+                'audience'     => 'customer',
+                'subject'      => '{{order_ref}} is packed and ready',
+                'placeholders' => $orderTokens,
+                'body'         => '<p>{{customer_name}}, {{order_ref}} is boxed, sealed and waiting '
+                    . 'for the courier. Tracking follows shortly.</p>',
+            ],
+            [
+                'template_key' => 'order_refunded_customer',
+                'name'         => 'Order refunded — to the customer',
+                'description'  => 'Sent when an order is marked refunded.',
+                'audience'     => 'customer',
+                'subject'      => 'Your refund for {{order_ref}}',
+                'placeholders' => $orderTokens,
+                'body'         => '<p>{{customer_name}}, we have refunded {{order_total}} against '
+                    . '{{order_ref}}.</p><p>It should reach your original payment method within '
+                    . '5–7 working days. Reply to this email if it has not arrived by then.</p>',
+            ],
+            [
+                'template_key' => 'enquiry_quoted_customer',
+                'name'         => 'Quote ready — to the customer',
+                'description'  => 'Sent when staff move an enquiry to Quoted.',
+                'audience'     => 'customer',
+                'subject'      => 'Your quote for {{order_ref}}',
+                'placeholders' => [
+                    'order_ref'     => 'The enquiry reference',
+                    'customer_name' => "The customer's name",
+                    'quoted_value'  => 'The quoted figure, formatted',
+                ],
+                'body'         => '<p>{{customer_name}}, thank you for your patience.</p>'
+                    . '<p>We have quoted <strong>{{quoted_value}}</strong> for {{order_ref}}. '
+                    . 'The full breakdown follows in a separate note from the person handling '
+                    . 'your enquiry.</p><p>The quote holds for 15 days. Reply to this email to '
+                    . 'go ahead, or with any changes you would like.</p>',
+            ],
+            [
+                'template_key' => 'customer_password_changed',
+                'name'         => 'Password changed — to the customer',
+                'description'  => 'Security notice sent after a password is reset or changed.',
+                'audience'     => 'customer',
+                'subject'      => 'Your {{brand_name}} password was changed',
+                'placeholders' => [
+                    'customer_name' => "The customer's name",
+                    'changed_at'    => 'When the change happened',
+                ],
+                'body'         => '<p>{{customer_name}}, the password on your account was changed '
+                    . 'on {{changed_at}}.</p><p>If that was you, nothing more is needed.</p>'
+                    . '<p><strong>If it was not you</strong>, reply to this email straight away '
+                    . 'and we will secure the account.</p>',
+            ],
+            [
+                'template_key' => 'staff_welcome_admin',
+                'name'         => 'Staff account created — to the new member',
+                'description'  => 'Sent when an administrator creates an account. Never contains a password.',
+                'audience'     => 'admin',
+                'subject'      => 'Your {{brand_name}} admin account',
+                'placeholders' => [
+                    'staff_name' => 'The new member\'s name',
+                    'login_url'  => 'The admin sign-in address',
+                ],
+                'body'         => '<p>{{staff_name}}, an admin account has been created for you '
+                    . 'at {{brand_name}}.</p><p><a href="{{login_url}}">Sign in here</a>. Whoever '
+                    . 'set it up will give you the starting password separately — you will be '
+                    . 'asked to replace it the first time you sign in.</p>'
+                    . '<p>We never send passwords by email.</p>',
+            ],
+            [
+                'template_key' => 'admin_password_changed',
+                'name'         => 'Staff password changed — security notice',
+                'description'  => 'Sent to a staff member when their password changes.',
+                'audience'     => 'admin',
+                'subject'      => 'Your {{brand_name}} admin password was changed',
+                'placeholders' => [
+                    'staff_name' => 'The staff member\'s name',
+                    'changed_at' => 'When the change happened',
+                ],
+                'body'         => '<p>{{staff_name}}, the password on your admin account changed '
+                    . 'on {{changed_at}}.</p><p>If that was not you, tell whoever manages the '
+                    . 'shop immediately — an admin account has access to orders and customer '
+                    . 'details.</p>',
+            ],
+            [
+                'template_key' => 'low_stock_digest_admin',
+                'name'         => 'Low stock digest — to the team',
+                'description'  => 'One daily summary of everything running low, rather than an email per product.',
+                'audience'     => 'admin',
+                'subject'      => '{{product_count}} product(s) running low',
+                'placeholders' => [
+                    'product_count' => 'How many products are low',
+                    'product_list'  => 'One product per line, with SKU and quantity',
+                    'admin_url'     => 'Link to the filtered product list',
+                ],
+                'body'         => '<p>{{product_count}} product(s) are at or below their low-stock '
+                    . 'threshold:</p><p>{{product_list}}</p>'
+                    . '<p><a href="{{admin_url}}">Review them in the admin panel</a></p>',
+            ],
         ];
 
         $added = 0;

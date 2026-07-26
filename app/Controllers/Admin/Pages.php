@@ -34,7 +34,7 @@ class Pages extends AdminController
             return $denied;
         }
 
-        return $this->adminPage('admin/pages/form', ['page' => null], 'New page');
+        return $this->adminPage('admin/pages/form', ['page' => null, 'needsEditor' => true], 'New page');
     }
 
     public function edit(int $id)
@@ -49,7 +49,7 @@ class Pages extends AdminController
             throw PageNotFoundException::forPageNotFound();
         }
 
-        return $this->adminPage('admin/pages/form', ['page' => $page], 'Edit ' . $page['title']);
+        return $this->adminPage('admin/pages/form', ['page' => $page, 'needsEditor' => true], 'Edit ' . $page['title']);
     }
 
     public function store()

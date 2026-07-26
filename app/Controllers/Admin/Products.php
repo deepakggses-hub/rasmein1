@@ -142,6 +142,7 @@ class Products extends AdminController
             'images'     => $images,
             'categories' => model(CategoryModel::class)->orderBy('name', 'ASC')->findAll(),
             'maxBytes'   => config(Rasmein::class)->maxImageBytes,
+            'needsEditor' => true,
         ], $product === null ? 'New product' : 'Edit ' . $product->name);
     }
 

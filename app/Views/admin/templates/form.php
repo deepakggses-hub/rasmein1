@@ -31,15 +31,17 @@
                 <span class="rs-help">Plain text. Placeholders work here too.</span>
             </label>
 
-            <label class="mt-5 block">
-                <span class="rs-label">Body</span>
-                <textarea name="body_html" class="rs-textarea font-mono text-xs" rows="18"><?= esc(old('body_html') ?? $template['body_html'] ?? '') ?></textarea>
-                <span class="rs-help">
-                    Basic HTML only — <code>&lt;p&gt; &lt;strong&gt; &lt;em&gt; &lt;a&gt; &lt;ul&gt; &lt;li&gt;
-                    &lt;h2&gt; &lt;h3&gt;</code>. Scripts, styles and iframes are stripped on save.
-                    The brand header and footer are added automatically.
-                </span>
-            </label>
+            <div class="mt-5">
+                <?= view('admin/partials/editor', [
+                    'name'  => 'body_html',
+                    'label' => 'Body',
+                    'value' => old('body_html') ?? $template['body_html'] ?? '',
+                    'rows'  => 18,
+                    'help'  => 'Placeholders like <code>{{order_ref}}</code> can be typed straight into '
+                        . 'the text. The brand header and footer are added automatically when the '
+                        . 'email is sent.',
+                ]) ?>
+            </div>
 
             <label class="mt-5 flex items-center gap-2.5 text-sm">
                 <input type="checkbox" name="is_active" value="1" class="accent-mulberry"

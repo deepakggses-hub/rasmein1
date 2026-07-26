@@ -157,9 +157,12 @@ class NotificationService
         // Only the transitions a customer actually cares about get an email.
         $template = match ($to) {
             'confirmed'  => 'order_confirmed_customer',
+            'processing' => 'order_processing_customer',
+            'packed'     => 'order_packed_customer',
             'dispatched' => 'order_dispatched_customer',
             'delivered'  => 'order_delivered_customer',
             'cancelled'  => 'order_cancelled_customer',
+            'refunded'   => 'order_refunded_customer',
             default      => null,
         };
 
@@ -188,6 +191,34 @@ class NotificationService
             ]),
             (int) $order['id']
         );
+    }
+
+    /** Staff moved an enquiry to Quoted — tell the customer their quote is ready. */
+    public function enquiryQuoted(array $order, array $enquiry): void
+    {
+        service('mail')->queue('enquiry_quoted_customer', (string) $order['customer_email'], [
+            'order_ref'     => $enquiry['enquiry_ref'] ?? $order['order_ref'],
+            'customer_name' => $order['customer_name'],
+            'quoted_value'  => rs_money($enquiry['quoted_value'] ?? 0),
+        ], (int) $order['id']);
+    }
+
+    /** A new staff account was created. Credentials are NEVER emailed. */
+    public function staffWelcome(array $staff): void
+    {
+        service('mail')->queue('staff_welcome_admin', (string) $staff['email'], [
+            'staff_name' => $staff['name'],
+            'login_url'  => site_url('admin/login'),
+        ], (int) $staff['id'], 'admin');
+    }
+
+    /** Security notice when a staff password changes. */
+    public function adminPasswordChanged(array $staff): void
+    {
+        service('mail')->queue('admin_password_changed', (string) $staff['email'], [
+            'staff_name' => $staff['name'],
+            'changed_at' => date('j M Y, H:i'),
+        ], (int) $staff['id'], 'admin');
     }
 
     public function customerWelcome(array $customer): void
@@ -242,6 +273,37 @@ class NotificationService
                     'dedupe_key'  => 'low_stock:' . $product->id . ':' . date('Y-m-d'),
                 ]
             );
+        }
+
+        // One digest email a day rather than one per product — a dozen
+        // separate "low stock" emails is how people learn to ignore them.
+        if ($low !== [] && ! model(AdminNotificationModel::class)
+            ->recentlyRaised('low_stock_digest:' . date('Y-m-d'))) {
+            $lines = [];
+
+            foreach ($low as $product) {
+                $lines[] = $product->name . ' (' . $product->sku . ') — ' . $product->stock_qty . ' left';
+            }
+
+            foreach ($this->staffEmails() as $address) {
+                service('mail')->queue('low_stock_digest_admin', $address, [
+                    'product_count' => (string) count($low),
+                    'product_list'  => implode("\n", $lines),
+                    'admin_url'     => site_url('admin/products?state=low'),
+                ], null, 'product');
+            }
+
+            // Reuse the notification dedupe ledger so the digest is also
+            // once-a-day, without a second mechanism to keep in step.
+            model(AdminNotificationModel::class)->insert([
+                'admin_user_id' => (int) ($this->staffWith('products.view')[0] ?? 0),
+                'event'         => 'low_stock_digest',
+                'title'         => 'Low-stock digest sent (' . count($low) . ' products)',
+                'severity'      => 'info',
+                'dedupe_key'    => 'low_stock_digest:' . date('Y-m-d'),
+                'is_read'       => 1,
+                'read_at'       => date('Y-m-d H:i:s'),
+            ]);
         }
 
         return $raised;

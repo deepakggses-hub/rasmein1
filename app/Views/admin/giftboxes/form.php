@@ -59,10 +59,14 @@ $ruleTypes = [
                         <input type="text" name="price_tier" class="rs-input" maxlength="40" placeholder="1500 – 4000"
                                value="<?= $v('price_tier', $box->price_tier ?? '') ?>">
                     </label>
-                    <label class="sm:col-span-2">
-                        <span class="rs-label">Description</span>
-                        <textarea name="description" class="rs-textarea" rows="3"><?= esc(old('description') ?? $box->description ?? '') ?></textarea>
-                    </label>
+                    <div class="sm:col-span-2">
+                        <?= view('admin/partials/editor', [
+                            'name'  => 'description',
+                            'label' => 'Description',
+                            'value' => old('description') ?? $box->description ?? '',
+                            'rows'  => 8,
+                        ]) ?>
+                    </div>
                     <label class="sm:col-span-2">
                         <span class="rs-label">Photograph</span>
                         <input type="file" name="image" class="rs-input" accept="image/jpeg,image/png,image/webp">

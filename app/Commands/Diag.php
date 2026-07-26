@@ -374,6 +374,20 @@ class Diag extends BaseCommand
             }
 
             $this->pass('seed data', $products . ' products, ' . $settings . ' settings');
+
+            // A migrated-but-unseeded templates table means no email can be
+            // sent, and the admin list looks simply empty. Say so.
+            $templates = $db->table('email_templates')->countAllResults();
+
+            if ($templates === 0) {
+                $this->fail(
+                    'email templates',
+                    'none installed — no email can be sent',
+                    'Run: php spark db:seed EmailTemplateSeeder   (or use Admin → Email templates → Install missing)'
+                );
+            } else {
+                $this->pass('email templates', $templates . ' installed');
+            }
         } catch (Throwable $e) {
             $this->fail('schema', $e->getMessage(), 'Run: php spark migrate');
 

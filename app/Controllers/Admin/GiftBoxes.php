@@ -315,6 +315,7 @@ class GiftBoxes extends AdminController
                 ? model(GiftBoxPricingRuleModel::class)->where('gift_box_id', $id)->orderBy('priority', 'ASC')->findAll()
                 : [],
             'reach'              => $id > 0 ? count(model(GiftBoxModel::class)->allowedProductIds($id)) : 0,
+            'needsEditor'        => true,
         ], $box === null ? 'New gift box' : 'Edit ' . $box->name);
     }
 

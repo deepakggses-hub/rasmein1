@@ -250,8 +250,11 @@ class Account extends StorefrontController
         // Anyone holding an old session for this account is signed out with it.
         session()->regenerate(true);
 
-        service('mail')->queue('customer_welcome', (string) $customer['email'], [
+        // A security notice, not a welcome. Getting this wrong once meant a
+        // customer resetting a password received "Welcome to Rasmein".
+        service('mail')->queue('customer_password_changed', (string) $customer['email'], [
             'customer_name' => $customer['name'],
+            'changed_at'    => date('j M Y, H:i'),
         ], (int) $customer['id'], 'customer');
 
         return redirect()->to(site_url('account/login'))

@@ -34,6 +34,26 @@ Sending is **queued, never inline** — `php spark rasmein:send-mail` drains it
 with five capped retries and exponential backoff, so a slow mail server can
 never delay a checkout or roll back an order.
 
+### The full template set — 19
+
+**Customer (14):** order placed, processing, packed, dispatched, delivered,
+cancelled, refunded · enquiry received, quote ready · welcome, password reset,
+password changed, registration attempt.
+
+**Team (5):** order placed, enquiry received, new staff account, staff password
+changed, daily low-stock digest.
+
+**One-click recovery.** A migrated-but-unseeded database showed an empty list
+with no way forward. `Admin → Email templates → Install missing` re-runs the
+seeder for absent keys only — safe to press any time, and verified not to
+overwrite edited wording. `rasmein:diag` also fails loudly when the table is
+empty, because with no templates nothing can send at all.
+
+**A bug this found.** Auditing every key the code sends against every key seeded
+revealed that the password-reset confirmation had been wired to
+`customer_welcome` — so resetting a password sent "Welcome to Rasmein". Fixed,
+and `customer_password_changed` now exists as a proper security notice.
+
 ### Housekeeping
 
 `php spark rasmein:housekeeping` raises low-stock alerts (deduplicated to one

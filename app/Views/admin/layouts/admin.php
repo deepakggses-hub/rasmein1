@@ -33,6 +33,11 @@ $journeyMode = $journeyMode ?? \Config\Rasmein::MODE_BUY;
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Eczar:wght@500;600&family=Karla:wght@400;500;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="<?= rs_asset('assets/css/app.css') ?>">
+    <?php /* Quill is only pulled in by screens that actually edit rich text,
+             so the rest of the panel does not pay for 200 KB it never uses. */ ?>
+    <?php if (! empty($needsEditor)): ?>
+        <link rel="stylesheet" href="<?= rs_asset('assets/vendor/quill/quill.snow.css') ?>">
+    <?php endif; ?>
 </head>
 <body class="bg-shell-deep text-ink">
 
@@ -117,5 +122,9 @@ $journeyMode = $journeyMode ?? \Config\Rasmein::MODE_BUY;
 </div>
 
 <script src="<?= rs_asset('assets/js/app.js') ?>" defer></script>
+<?php if (! empty($needsEditor)): ?>
+    <script src="<?= rs_asset('assets/vendor/quill/quill.js') ?>" defer></script>
+    <script src="<?= rs_asset('assets/js/editor.js') ?>" defer></script>
+<?php endif; ?>
 </body>
 </html>

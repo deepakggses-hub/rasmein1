@@ -89,6 +89,9 @@ abstract class AdminController extends BaseController
     protected function adminPage(string $view, array $data = [], string $title = 'Admin'): string
     {
         return view($view, array_merge([
+            // Screens that edit rich text set this, so Quill's ~200 KB is only
+            // loaded where it is actually used.
+            'needsEditor' => false,
             'brand'       => $this->brand,
             'admin'       => $this->admin,
             'pageTitle'   => $title,

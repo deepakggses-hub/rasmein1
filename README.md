@@ -4,7 +4,7 @@ A dual-mode gifting platform: a **build-your-own gift box** flow alongside a
 standard **e-commerce store**, with a site-wide switch between **Buy now**
 (online payment) and **Enquire now** (lead capture), and a full admin panel.
 
-Built on CodeIgniter 4.7 · PHP 8.2+ · MySQL 8 / MariaDB 10.4+ · Tailwind CSS 4
+Built on CodeIgniter 4.7 · PHP 8.2+ · MySQL 8 / MariaDB 10.4+ · Tailwind CSS 4 · Quill 2
 
 ---
 

@@ -27,9 +27,59 @@ class EmailTemplates extends AdminController
             return $denied;
         }
 
+        $model = model(EmailTemplateModel::class);
+
         return $this->adminPage('admin/templates/index', [
-            'grouped' => model(EmailTemplateModel::class)->grouped(),
+            'grouped' => $model->grouped(),
+            'total'   => $model->countAllResults(),
         ], 'Email templates');
+    }
+
+    /**
+     * Install any template the code expects but the database does not have.
+     *
+     * This exists because an empty list is a dead end: the templates arrive
+     * through a seeder, and a database that has been migrated but not seeded
+     * shows a blank page with no way forward. That happened in the field. An
+     * update that adds a template hits the same wall.
+     *
+     * Safe to press at any time — the seeder skips keys that already exist, so
+     * it never overwrites wording someone has edited.
+     */
+    public function restore()
+    {
+        if ($denied = $this->deny('content.manage')) {
+            return $denied;
+        }
+
+        $before = model(EmailTemplateModel::class)->countAllResults();
+
+        try {
+            // The seeder echoes progress; swallow it rather than let it leak
+            // into the response.
+            ob_start();
+            \Config\Database::seeder()->call('EmailTemplateSeeder');
+            ob_end_clean();
+        } catch (\Throwable $e) {
+            if (ob_get_level() > 0) {
+                ob_end_clean();
+            }
+
+            log_message('error', 'Template restore failed: {msg}', ['msg' => $e->getMessage()]);
+
+            return redirect()->back()->with('error', 'The templates could not be restored — see the log.');
+        }
+
+        $added = model(EmailTemplateModel::class)->countAllResults() - $before;
+
+        service('audit')->log('restored', 'content', 'email_template', null, $added . ' template(s) installed');
+
+        return redirect()->to(site_url('admin/email-templates'))->with(
+            'success',
+            $added === 0
+                ? 'Everything the code sends already has a template. Nothing to add.'
+                : $added . ' template' . ($added === 1 ? '' : 's') . ' installed. Existing wording was left alone.'
+        );
     }
 
     public function edit(int $id)
@@ -48,6 +98,7 @@ class EmailTemplates extends AdminController
             'template'     => $template,
             'placeholders' => model(EmailTemplateModel::class)->placeholdersFor($template),
             'preview'      => $this->buildPreview($template),
+            'needsEditor'  => true,
         ], 'Edit ' . $template['name']);
     }
 

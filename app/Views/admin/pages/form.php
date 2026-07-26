@@ -34,16 +34,16 @@ $v = static fn (string $f, $fb = '') => esc((string) (old($f) ?? $fb), 'attr');
                        value="<?= $v('excerpt', $page['excerpt'] ?? '') ?>">
                 <span class="rs-help">One line under the heading.</span>
             </label>
-            <label class="mt-4 block">
-                <span class="rs-label">Content</span>
-                <textarea name="content" class="rs-textarea font-mono text-xs" rows="22"><?= esc(old('content') ?? $page['content'] ?? '') ?></textarea>
-                <span class="rs-help">
-                    Basic HTML: <code>&lt;p&gt; &lt;h2&gt; &lt;h3&gt; &lt;ul&gt; &lt;ol&gt; &lt;li&gt;
-                    &lt;strong&gt; &lt;em&gt; &lt;a&gt; &lt;blockquote&gt; &lt;table&gt;</code>.
-                    Anything else — scripts, styles, event handlers, iframes — is stripped
-                    on save, and external links get <code>rel="noopener"</code> automatically.
-                </span>
-            </label>
+            <div class="mt-4">
+                <?= view('admin/partials/editor', [
+                    'name'  => 'content',
+                    'label' => 'Content',
+                    'value' => old('content') ?? $page['content'] ?? '',
+                    'rows'  => 22,
+                    'help'  => 'Scripts, styles, event handlers and iframes are removed when you save, '
+                        . 'and external links get <code>rel="noopener"</code> automatically.',
+                ]) ?>
+            </div>
         </section>
 
         <aside class="space-y-5">

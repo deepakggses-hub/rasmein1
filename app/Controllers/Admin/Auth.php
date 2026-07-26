@@ -194,6 +194,7 @@ class Auth extends AdminController
 
         // The hash is never logged, only the fact of the change.
         service('audit')->log('password_changed', 'auth', 'admin_user', (int) $user['id']);
+        service('notify')->adminPasswordChanged($users->find((int) $user['id']));
 
         return redirect()->to(site_url('admin'))->with('success', 'Password updated.');
     }

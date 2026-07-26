@@ -155,6 +155,15 @@ class Enquiries extends AdminController
             $enquiry['enquiry_ref'] . ' updated'
         );
 
+        // Moving to Quoted is the moment the customer is waiting for.
+        if ($status === 'quoted' && $enquiry['lead_status'] !== 'quoted') {
+            $order = model(OrderModel::class)->find((int) $enquiry['order_id']);
+
+            if ($order !== null) {
+                service('notify')->enquiryQuoted($order, array_merge($enquiry, $update));
+            }
+        }
+
         return redirect()->back()->with('success', 'Enquiry updated.');
     }
 

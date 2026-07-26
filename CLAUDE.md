@@ -593,6 +593,47 @@ existing design instead of inventing a parallel one.
   free-text recipient box is an open relay with extra steps.
 - `template_key` is not editable from the UI — the code sends by key.
 
+### Email templates — the full set, and why restore exists
+
+- 19 templates, seeded by `EmailTemplateSeeder`. Every key
+  `MailService::queue()` is ever called with MUST have one; a missing key is
+  logged and the email is silently skipped.
+- **`Admin → Email templates → Install missing`** re-runs the seeder for absent
+  keys only. It exists because a migrated-but-unseeded database showed a blank
+  page with no way forward — reported from the field. `rasmein:diag` also fails
+  loudly when the table is empty.
+- Adding a template: put it in the seeder AND make the restore path reachable.
+  Never write to `email_templates` from a migration; seeders are re-runnable,
+  migrations are not.
+- A bug worth remembering: during Phase 6 the password-reset confirmation was
+  wired to `customer_welcome`, so resetting a password sent "Welcome to
+  Rasmein". Found by auditing sent keys against seeded keys — worth repeating
+  that audit whenever an event is added.
+
+### The rich text editor — Quill 2, and why not CKEditor
+
+- **Licensing decided this, not features.** CKEditor 5 and TinyMCE are both
+  GPL-2.0-or-later on their free tiers. Shipping GPL code inside Rasmein would
+  oblige Rasmein itself to be GPL. CKEditor's GPL tier also requires a licence
+  key and renders a "Powered by CKEditor" mark. Quill 2 is BSD-3-Clause: no key,
+  no branding, no cap, ~200 KB against CKEditor's ~500 KB.
+- **Vendored, not CDN**: `public/assets/vendor/quill/`, with its LICENSE file.
+- **The toolbar deliberately mirrors HtmlSanitiser.** Quill expresses alignment
+  and indentation as `ql-*` classes and the sanitiser strips `class`, so those
+  buttons would appear to work then lose their effect on save. Do not add them
+  back without also widening the sanitiser — and think hard before doing that.
+- **The editor is not a security control.** It runs in the browser. Server-side
+  sanitising on save is the actual protection; the editor only makes writing
+  pleasant.
+- **Progressive**: the real field is a `<textarea>` that already works. Quill is
+  layered on top and syncs back on every change and on submit. A blocked script
+  leaves a usable HTML textarea.
+- `products.description` and `gift_boxes.description` are now HTML and rendered
+  unescaped on the storefront. That is only safe because both models sanitise in
+  `beforeInsert`/`beforeUpdate`. Never write to those columns bypassing the model.
+- Quill loads only where `needsEditor => true` is passed to `adminPage()`, so the
+  rest of the panel does not pay for it.
+
 ### Outstanding security work (tracked, not yet done)
 
 - [ ] **CSP is written but not enabled.** `Config/ContentSecurityPolicy.php`

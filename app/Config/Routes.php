@@ -232,6 +232,7 @@ $routes->group('admin', [
     $routes->match(['GET', 'HEAD'], 'email-templates/(:num)/edit', 'EmailTemplates::edit/$1', ['filter' => 'adminAuth:content.manage']);
     $routes->post('email-templates/(:num)', 'EmailTemplates::update/$1', ['filter' => 'adminAuth:content.manage']);
     $routes->post('email-templates/(:num)/test', 'EmailTemplates::test/$1', ['filter' => 'adminAuth:content.manage']);
+    $routes->post('email-templates/restore', 'EmailTemplates::restore', ['filter' => 'adminAuth:content.manage']);
 
     // ---- Settings ----
     $routes->match(['GET', 'HEAD'], 'settings', 'Settings::index');

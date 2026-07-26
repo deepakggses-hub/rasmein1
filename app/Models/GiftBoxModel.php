@@ -44,8 +44,22 @@ class GiftBoxModel extends Model
      * min_slots can never exceed capacity_slots. Enforced here rather than in a
      * controller so it holds for the admin form, a seeder, and an import alike.
      */
-    protected $beforeInsert = ['clampSlots'];
-    protected $beforeUpdate = ['clampSlots'];
+    protected $beforeInsert = ['clampSlots', 'sanitiseDescription'];
+    protected $beforeUpdate = ['clampSlots', 'sanitiseDescription'];
+
+    /**
+     * The description is now authored in a rich text editor, so it is HTML and
+     * the storefront renders it unescaped. That is only safe because it is
+     * sanitised here on save, through the same allowlist the CMS pages use.
+     */
+    protected function sanitiseDescription(array $data): array
+    {
+        if (isset($data['data']['description'])) {
+            $data['data']['description'] = service('sanitiser')->clean($data['data']['description']);
+        }
+
+        return $data;
+    }
 
     protected function clampSlots(array $data): array
     {

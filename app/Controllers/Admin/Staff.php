@@ -267,6 +267,10 @@ class Staff extends AdminController
             ['role_id' => $payload['role_id'], 'is_active' => $payload['is_active']]
         );
 
+        if ($id === null) {
+            service('notify')->staffWelcome($model->find($newId));
+        }
+
         return redirect()->to(site_url('admin/staff/' . $newId . '/edit'))
             ->with('success', $id === null
                 ? 'Account created. They will be asked to set their own password on first sign-in.'

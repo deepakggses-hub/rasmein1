@@ -63,11 +63,16 @@ $checked = static fn (string $field, bool $fallback): string => (old($field) !==
                                value="<?= $v('short_description', $product->short_description ?? '') ?>">
                         <span class="rs-help">One line, shown on cards and in search.</span>
                     </label>
-                    <label class="sm:col-span-2">
-                        <span class="rs-label">Full description</span>
-                        <textarea name="description" class="rs-textarea" rows="5"><?= esc(old('description') ?? $product->description ?? '') ?></textarea>
-                        <span class="rs-help">Plain text. Line breaks are preserved; HTML is escaped.</span>
-                    </label>
+                    <div class="sm:col-span-2">
+                        <?= view('admin/partials/editor', [
+                            'name'  => 'description',
+                            'label' => 'Full description',
+                            'value' => old('description') ?? $product->description ?? '',
+                            'rows'  => 10,
+                            'help'  => 'Shown on the product page. Formatting beyond the toolbar is '
+                                . 'removed when you save.',
+                        ]) ?>
+                    </div>
                 </div>
             </section>
 

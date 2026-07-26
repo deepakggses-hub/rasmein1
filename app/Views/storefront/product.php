@@ -141,7 +141,16 @@ $gallery = $images !== [] ? $images : [['path' => null, 'alt_text' => $product->
                 <div class="mt-10 border-t border-shell-line pt-8">
                     <h2 class="rs-eyebrow rs-eyebrow--plain">About this</h2>
                     <div class="rs-prose mt-4 text-ink-soft">
-                        <p><?= nl2br(esc($product->description)) ?></p>
+                        <?php
+                        /*
+                         * Rendered as HTML, not escaped, because it is authored
+                         * in the admin editor. ProductModel sanitises it on save
+                         * through the allowlist — that callback is what makes
+                         * this line safe. Never write to products.description
+                         * bypassing the model.
+                         */
+                        echo $product->description;
+                        ?>
                     </div>
                 </div>
             <?php endif; ?>

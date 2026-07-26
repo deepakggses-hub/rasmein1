@@ -53,6 +53,24 @@ class ProductModel extends Model
         ],
     ];
 
+    protected $beforeInsert = ['sanitiseDescription'];
+    protected $beforeUpdate = ['sanitiseDescription'];
+
+    /**
+     * The description is now authored in a rich text editor, so it is HTML and
+     * the storefront renders it unescaped. That is only safe because it is
+     * sanitised here on save, through the same allowlist the CMS pages use.
+     */
+    protected function sanitiseDescription(array $data): array
+    {
+        if (isset($data['data']['description'])) {
+            $data['data']['description'] = service('sanitiser')->clean($data['data']['description']);
+        }
+
+        return $data;
+    }
+
+
     /**
      * Adds the primary image path as `primary_image` without duplicating rows.
      * A correlated subquery is cheaper here than a join plus GROUP BY.
