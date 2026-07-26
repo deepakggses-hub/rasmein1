@@ -92,6 +92,8 @@ abstract class AdminController extends BaseController
             // Screens that edit rich text set this, so Quill's ~200 KB is only
             // loaded where it is actually used.
             'needsEditor' => false,
+            // Chart.js is ~200 KB; only the screens that draw something load it.
+            'needsCharts' => false,
             'brand'       => $this->brand,
             'admin'       => $this->admin,
             'pageTitle'   => $title,

@@ -43,6 +43,7 @@ class Reports extends AdminController
             'byCategory'  => $this->byCategory($db, $since),
             'pipeline'    => $this->pipeline($db, $since),
             'coupons'     => $this->couponUse($db, $since),
+            'needsCharts' => true,
         ], 'Reports');
     }
 

@@ -760,6 +760,26 @@ Rules that follow:
   they can be lifted into toasts. The server-rendered block stays visible when JS
   is unavailable — neither path loses the message.
 
+### Charts — Chart.js 4 (MIT, vendored)
+
+- **Data reaches the browser in a `<script type="application/json">` block**,
+  never an inline script. That element is inert, so no inline JavaScript is
+  needed and the page stays ready for the CSP that is still to be enabled.
+- **`json_encode` uses JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS |
+  JSON_HEX_QUOT.** Without those, a product named `</script>` closes the block
+  and the remainder is parsed as markup. Tested: zero raw occurrences.
+- Charts AUGMENT the tables and lists, never replace them. If Chart.js fails to
+  load the figures are all still readable, and every canvas carries an aria-label
+  spelling out its values.
+- Chart.js is ~200 KB and loads only where `needsCharts => true` is passed to
+  `adminPage()`. Verified absent on Orders, Staff and Products.
+- Colours come from the CSS design tokens via `getComputedStyle`, not restated
+  in JS, so the palette has one home. The series varies lightness as well as hue
+  so it survives printing and most kinds of colour blindness.
+- Bars for revenue, not a line: daily takings are discrete events and a line
+  implies a continuity that is not there. Doughnut rather than pie: comparing
+  arc lengths beats comparing wedge areas.
+
 ### Outstanding security work (tracked, not yet done)
 
 - [ ] **CSP is written but not enabled.** `Config/ContentSecurityPolicy.php`

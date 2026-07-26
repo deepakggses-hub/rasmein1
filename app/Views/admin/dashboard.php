@@ -85,25 +85,70 @@ $firstName = esc(explode(' ', (string) ($admin['name'] ?? 'there'))[0]);
 
             <div class="rs-stat">
                 <span class="rs-stat__label">Last 14 days</span>
-                <div class="rs-spark mt-3">
-                    <?php foreach ($trend as $day): ?>
-                        <?php
-                        $height = $peak > 0 ? max(3, (int) round((float) $day['revenue'] / $peak * 100)) : 3;
-                        $empty  = (float) $day['revenue'] <= 0;
-                        ?>
-                        <span class="rs-spark__bar <?= $empty ? 'rs-spark__bar--empty' : '' ?>"
-                              style="height:<?= $height ?>%"
-                              title="<?= esc(date('j M', strtotime((string) $day['day']))) ?> — <?= rs_money($day['revenue']) ?>, <?= (int) $day['orders'] ?> order(s)"></span>
-                    <?php endforeach; ?>
-                </div>
-                <div class="num mt-2 flex justify-between font-mono text-[0.5625rem] text-ink-muted">
-                    <span><?= esc(date('j M', strtotime((string) $trend[0]['day']))) ?></span>
-                    <span>peak <?= rs_money($peak) ?></span>
-                    <span>today</span>
-                </div>
+                <?= view('admin/partials/chart', [
+                    'kind'   => 'revenue',
+                    'title'  => 'Revenue',
+                    'money'  => true,
+                    'height' => 'h-28',
+                    'labels' => array_map(
+                        static fn (array $d): string => date('j M', strtotime((string) $d['day'])),
+                        $trend
+                    ),
+                    'values' => array_map(static fn (array $d): float => (float) $d['revenue'], $trend),
+                    'empty'  => 'No orders in this period.',
+                ]) ?>
             </div>
         </div>
         <p class="rs-help mt-2">Cancelled and refunded orders are excluded from every figure.</p>
+    </section>
+
+    <!-- ============================== charts ============================ -->
+    <section>
+        <div class="rs-section-head"><h2 class="rs-eyebrow">At a glance</h2></div>
+        <div class="grid gap-3 lg:grid-cols-3">
+            <div class="rs-stat">
+                <span class="rs-stat__label">Orders in progress</span>
+                <p class="rs-stat__note mb-2">Delivered, cancelled and refunded are excluded.</p>
+                <?= view('admin/partials/chart', [
+                    'kind'   => 'doughnut',
+                    'title'  => 'Orders by status',
+                    'height' => 'h-56',
+                    'labels' => array_map(static fn (array $r): string => ucfirst((string) $r['status']), $byStatus),
+                    'values' => array_map(static fn (array $r): int => (int) $r['n'], $byStatus),
+                    'empty'  => 'Nothing in progress.',
+                ]) ?>
+            </div>
+
+            <div class="rs-stat">
+                <span class="rs-stat__label">Revenue by category</span>
+                <p class="rs-stat__note mb-2">Last 90 days.</p>
+                <?= view('admin/partials/chart', [
+                    'kind'   => 'doughnut',
+                    'title'  => 'Revenue by category',
+                    'money'  => true,
+                    'height' => 'h-56',
+                    'labels' => array_map(static fn (array $r): string => (string) $r['name'], $byCategory),
+                    'values' => array_map(static fn (array $r): float => (float) $r['revenue'], $byCategory),
+                    'empty'  => 'No sales in the last 90 days.',
+                ]) ?>
+            </div>
+
+            <div class="rs-stat">
+                <span class="rs-stat__label">Best sellers</span>
+                <p class="rs-stat__note mb-2">Units, last 30 days.</p>
+                <?= view('admin/partials/chart', [
+                    'kind'   => 'ranked',
+                    'title'  => 'Units sold',
+                    'height' => 'h-56',
+                    'labels' => array_map(
+                        static fn (array $r): string => rs_excerpt((string) $r['name'], 22),
+                        $topProducts
+                    ),
+                    'values' => array_map(static fn (array $r): int => (int) $r['units'], $topProducts),
+                    'empty'  => 'Nothing sold yet.',
+                ]) ?>
+            </div>
+        </div>
     </section>
 
     <!-- ============================ the shop ============================= -->
@@ -278,25 +323,6 @@ $firstName = esc(explode(' ', (string) ($admin['name'] ?? 'there'))[0]);
         </section>
 
         <div class="space-y-6">
-            <section>
-                <div class="rs-section-head"><h2 class="rs-eyebrow">Best sellers</h2></div>
-                <div class="border border-shell-line bg-white">
-                    <?php if ($topProducts === []): ?>
-                        <p class="px-4 py-6 text-sm text-ink-muted">Nothing sold in the last 30 days.</p>
-                    <?php else: ?>
-                        <ul class="divide-y divide-shell-line text-sm">
-                            <?php foreach ($topProducts as $product): ?>
-                                <li class="num flex items-center justify-between gap-3 px-4 py-2.5">
-                                    <span class="min-w-0"><?= esc(rs_excerpt($product['name'], 24)) ?></span>
-                                    <span class="shrink-0 font-semibold"><?= (int) $product['units'] ?></span>
-                                </li>
-                            <?php endforeach; ?>
-                        </ul>
-                        <p class="rs-help border-t border-shell-line px-4 py-2">Units, last 30 days.</p>
-                    <?php endif; ?>
-                </div>
-            </section>
-
             <section>
                 <div class="rs-section-head"><h2 class="rs-eyebrow">Running low</h2></div>
                 <div class="border border-shell-line bg-white">

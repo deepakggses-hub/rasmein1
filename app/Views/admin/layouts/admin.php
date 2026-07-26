@@ -125,6 +125,10 @@ $journeyMode = $journeyMode ?? \Config\Rasmein::MODE_BUY;
 <script src="<?= rs_asset('assets/vendor/sweetalert2/sweetalert2.min.js') ?>" defer></script>
 <script src="<?= rs_asset('assets/js/app.js') ?>" defer></script>
 <script src="<?= rs_asset('assets/js/admin.js') ?>" defer></script>
+<?php if (! empty($needsCharts)): ?>
+    <script src="<?= rs_asset('assets/vendor/chartjs/chart.umd.js') ?>" defer></script>
+    <script src="<?= rs_asset('assets/js/charts.js') ?>" defer></script>
+<?php endif; ?>
 <?php if (! empty($needsEditor)): ?>
     <script src="<?= rs_asset('assets/vendor/quill/quill.js') ?>" defer></script>
     <script src="<?= rs_asset('assets/js/editor.js') ?>" defer></script>

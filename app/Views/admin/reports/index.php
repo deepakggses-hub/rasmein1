@@ -51,29 +51,77 @@ $qs = '?days=' . (int) $days;
         <?php endforeach; ?>
     </div>
 
-    <!-- Revenue by day. A bar per day, drawn in CSS — no chart library for
-         something this simple, and it prints correctly. -->
     <section class="border border-shell-line bg-white p-5">
         <h2 class="rs-eyebrow rs-eyebrow--plain">Revenue by day</h2>
-        <?php if ($daily === []): ?>
-            <p class="mt-4 text-sm text-ink-muted">Nothing in this period.</p>
-        <?php else: ?>
-            <ul class="mt-5 flex items-end gap-1 overflow-x-auto" style="height:9rem">
-                <?php foreach ($daily as $d): ?>
-                    <?php $pct = $peak > 0 ? max(2, (int) round((float) $d['revenue'] / $peak * 100)) : 2; ?>
-                    <li class="flex min-w-3 flex-1 flex-col justify-end"
-                        title="<?= esc(date('j M', strtotime((string) $d['day']))) ?> — <?= rs_money($d['revenue']) ?> from <?= (int) $d['orders'] ?> order(s)">
-                        <span class="block w-full bg-mulberry" style="height:<?= $pct ?>%"></span>
-                    </li>
-                <?php endforeach; ?>
-            </ul>
-            <div class="num mt-2 flex justify-between font-mono text-[0.5625rem] text-ink-muted">
-                <span><?= esc(date('j M', strtotime((string) $daily[0]['day']))) ?></span>
-                <span>peak <?= rs_money($peak) ?></span>
-                <span><?= esc(date('j M', strtotime((string) end($daily)['day']))) ?></span>
-            </div>
-        <?php endif; ?>
+        <?= view('admin/partials/chart', [
+            'kind'   => 'revenue',
+            'title'  => 'Revenue',
+            'money'  => true,
+            'height' => 'h-72',
+            'labels' => array_map(
+                static fn (array $d): string => date('j M', strtotime((string) $d['day'])),
+                $daily
+            ),
+            'values' => array_map(static fn (array $d): float => (float) $d['revenue'], $daily),
+            'empty'  => 'Nothing in this period.',
+        ]) ?>
     </section>
+
+    <div class="grid gap-6 lg:grid-cols-2">
+        <section class="border border-shell-line bg-white p-5">
+            <h2 class="rs-eyebrow rs-eyebrow--plain">Revenue by category</h2>
+            <?= view('admin/partials/chart', [
+                'kind'   => 'doughnut',
+                'title'  => 'Revenue by category',
+                'money'  => true,
+                'height' => 'h-64',
+                'labels' => array_map(static fn (array $r): string => (string) $r['category'], $byCategory),
+                'values' => array_map(static fn (array $r): float => (float) $r['revenue'], $byCategory),
+                'empty'  => 'No sales in this period.',
+            ]) ?>
+        </section>
+
+        <section class="border border-shell-line bg-white p-5">
+            <h2 class="rs-eyebrow rs-eyebrow--plain">Best sellers by units</h2>
+            <?= view('admin/partials/chart', [
+                'kind'   => 'ranked',
+                'title'  => 'Units sold',
+                'height' => 'h-64',
+                'labels' => array_map(
+                    static fn (array $r): string => rs_excerpt((string) $r['name'], 24),
+                    $topProducts
+                ),
+                'values' => array_map(static fn (array $r): int => (int) $r['units'], $topProducts),
+                'empty'  => 'Nothing sold in this period.',
+            ]) ?>
+        </section>
+    </div>
+
+    <div class="grid gap-6 lg:grid-cols-2">
+        <section class="border border-shell-line bg-white p-5">
+            <h2 class="rs-eyebrow rs-eyebrow--plain">Enquiry pipeline</h2>
+            <?= view('admin/partials/chart', [
+                'kind'   => 'ranked',
+                'title'  => 'Enquiries',
+                'height' => 'h-64',
+                'labels' => array_map(static fn (array $r): string => ucfirst((string) $r['lead_status']), $pipeline),
+                'values' => array_map(static fn (array $r): int => (int) $r['count'], $pipeline),
+                'empty'  => 'No enquiries in this period.',
+            ]) ?>
+        </section>
+
+        <section class="border border-shell-line bg-white p-5">
+            <h2 class="rs-eyebrow rs-eyebrow--plain">Coupon use</h2>
+            <?= view('admin/partials/chart', [
+                'kind'   => 'ranked',
+                'title'  => 'Redemptions',
+                'height' => 'h-64',
+                'labels' => array_map(static fn (array $r): string => (string) $r['code'], $coupons),
+                'values' => array_map(static fn (array $r): int => (int) $r['uses'], $coupons),
+                'empty'  => 'No coupons redeemed in this period.',
+            ]) ?>
+        </section>
+    </div>
 
     <div class="grid gap-6 xl:grid-cols-2">
         <?php

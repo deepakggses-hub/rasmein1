@@ -614,3 +614,56 @@
   #admin-nav p { margin-top: 1.125rem; }
   #admin-nav a { transition: background-color 0.12s, color 0.12s; }
 }
+
+/* --------------------------------------------------------- chart surrounds
+   Charts sit inside .rs-stat tiles, which were sized for a number and a label.
+   A little breathing room and a consistent canvas baseline stops them looking
+   cramped next to the plain figures. */
+@layer components {
+  .rs-stat canvas { display: block; }
+
+  /* A tile that holds a chart rather than a figure. */
+  .rs-stat:has(canvas) { padding-bottom: 1rem; }
+
+  /* Cards lift very slightly on hover — enough to read as interactive,
+     not enough to be a distraction on a screen full of them. */
+  .rs-card,
+  .rs-stat {
+    transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+  }
+  a.rs-stat:hover,
+  a.rs-card:hover {
+    box-shadow: 0 2px 0 0 var(--color-brass);
+    transform: translateY(-1px);
+  }
+
+  /* Reports and dashboards get printed. Charts are canvases, which print
+     poorly at default sizes, and navigation is noise on paper. */
+  @media print {
+    #admin-nav,
+    .rs-btn,
+    [data-flash] {
+      display: none !important;
+    }
+
+    .rs-stat,
+    .rs-card,
+    table {
+      break-inside: avoid;
+    }
+
+    canvas {
+      max-height: 18rem !important;
+    }
+
+    body {
+      background: #fff;
+    }
+  }
+
+  /* Respect a stated preference for less motion. */
+  @media (prefers-reduced-motion: reduce) {
+    .rs-card, .rs-stat, #admin-nav a { transition: none; }
+    a.rs-stat:hover, a.rs-card:hover { transform: none; }
+  }
+}

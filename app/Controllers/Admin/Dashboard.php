@@ -31,11 +31,14 @@ class Dashboard extends AdminController
             'baskets'     => $this->baskets($db),
             'topProducts' => $this->topProducts($db),
             'mail'        => $this->mailHealth($db),
+            'byStatus'    => $this->ordersByStatus($db),
+            'byCategory'  => $this->revenueByCategory($db),
             'lowStock'    => $this->lowStock(),
             'recent'      => $this->recentOrders(),
             'audit'       => $this->can('audit.view')
                 ? model(AdminAuditLogModel::class)->recent(8)
                 : [],
+            'needsCharts' => true,
         ], 'Dashboard');
     }
 
@@ -187,6 +190,43 @@ class Dashboard extends AdminController
             ->groupBy('order_items.name_snapshot')
             ->orderBy('units', 'DESC')
             ->get(5)->getResultArray();
+    }
+
+    /**
+     * Where open orders currently sit. Terminal states are excluded — a
+     * doughnut of work-in-progress is useful, one dominated by a year of
+     * "delivered" is not.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    private function ordersByStatus(\CodeIgniter\Database\BaseConnection $db): array
+    {
+        return $db->table('orders')
+            ->select('status, COUNT(*) AS n', false)
+            ->where('journey_mode', Rasmein::MODE_BUY)
+            ->whereNotIn('status', ['delivered', 'cancelled', 'refunded'])
+            ->where('deleted_at', null)
+            ->groupBy('status')
+            ->orderBy('n', 'DESC')
+            ->get()->getResultArray();
+    }
+
+    /** @return array<int, array<string, mixed>> */
+    private function revenueByCategory(\CodeIgniter\Database\BaseConnection $db): array
+    {
+        return $db->table('order_items')
+            ->select('COALESCE(categories.name, "Uncategorised") AS name,'
+                . ' SUM(order_items.line_total) AS revenue', false)
+            ->join('orders', 'orders.id = order_items.order_id')
+            ->join('products', 'products.id = order_items.product_id', 'left')
+            ->join('categories', 'categories.id = products.category_id', 'left')
+            ->where('orders.journey_mode', Rasmein::MODE_BUY)
+            ->whereNotIn('orders.status', ['cancelled', 'refunded'])
+            ->where('orders.deleted_at', null)
+            ->where('orders.placed_at >=', date('Y-m-d H:i:s', strtotime('-90 days')))
+            ->groupBy('name')
+            ->orderBy('revenue', 'DESC')
+            ->get(8)->getResultArray();
     }
 
     /** @return array<string, mixed> */
