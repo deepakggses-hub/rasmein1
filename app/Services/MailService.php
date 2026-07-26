@@ -215,9 +215,34 @@ class MailService
         return ['sent' => $sent, 'failed' => $failed, 'skipped' => $skipped];
     }
 
-    /** Actually hand the message to CodeIgniter's mailer. */
+    /**
+     * Hand the message to whichever transport is configured.
+     *
+     * Gmail-over-OAuth cannot go through CodeIgniter's mailer — that class
+     * supports LOGIN, PLAIN and CRAM-MD5 only, with no way to add XOAUTH2
+     * short of reimplementing its SMTP conversation. So the Google path uses
+     * Gmail's REST endpoint instead, and everything else uses CI4 as before.
+     */
     public function deliver(string $to, string $subject, string $bodyHtml): void
     {
+        if ($this->transport() === 'gmail_api') {
+            $config = \Config\Services::mailConfig();
+
+            service('googleMail')->send(
+                $to,
+                $subject,
+                $this->wrap($bodyHtml),
+                $this->toPlainText($bodyHtml),
+                // Gmail will only send as the authorised account or one of its
+                // verified aliases, so prefer that address over a from address
+                // typed into the settings screen that Google would reject.
+                service('googleMail')->account() ?: $config->fromEmail,
+                $config->fromName
+            );
+
+            return;
+        }
+
         $email = service('email', null, false);
         $email->setTo($to);
         $email->setSubject($subject);
@@ -296,6 +321,19 @@ class MailService
         $text = preg_replace("/\n{3,}/", "\n\n", $text) ?? $text;
 
         return trim($text);
+    }
+
+    /** Which transport the shop is configured to use. */
+    private function transport(): string
+    {
+        try {
+            $row = db_connect()->table('settings')->select('value')
+                ->where('key_name', 'mail_protocol')->get()->getRowArray();
+
+            return (string) ($row['value'] ?? 'smtp');
+        } catch (Throwable) {
+            return 'smtp';
+        }
     }
 
     private function stringify(mixed $value): string

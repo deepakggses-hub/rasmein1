@@ -72,6 +72,101 @@ $sel = old('mail_protocol') ?? $protocol;
             </div>
         </section>
 
+        <!-- ------------------------------------------- Google / Gmail -->
+        <section class="border border-shell-line bg-white p-5" data-mail-panel="gmail_api"
+                 <?= $sel === 'gmail_api' ? '' : 'hidden' ?>>
+            <h2 class="rs-eyebrow rs-eyebrow--plain">Google / Gmail</h2>
+
+            <?php if ($google['connected']): ?>
+                <div class="mt-4 border-l-2 border-pista-deep bg-pista/10 px-4 py-3">
+                    <p class="text-sm">
+                        <span class="font-semibold text-pista-deep">Connected</span>
+                        <?php if ($google['account'] !== ''): ?>
+                            as <span class="font-medium"><?= esc($google['account']) ?></span>
+                        <?php endif; ?>
+                    </p>
+                    <?php if ($google['connectedAt'] !== ''): ?>
+                        <p class="num rs-help">Authorised <?= esc(date('j M Y, H:i', strtotime($google['connectedAt']))) ?></p>
+                    <?php endif; ?>
+                    <p class="rs-help mt-1">
+                        Mail is sent through Gmail’s API using the authorised account.
+                        Google sends as that address regardless of the from address above.
+                    </p>
+                </div>
+                <?php if ($canManage): ?>
+                    <form method="post" action="<?= site_url('admin/mail/google/disconnect') ?>" class="mt-3"
+                          onsubmit="return confirm('Disconnect this Google account? Mail will stop sending until you reconnect or switch method.');">
+                        <?= csrf_field() ?>
+                        <button type="submit" class="rs-link text-sm text-ink-muted hover:text-bad">Disconnect this account</button>
+                    </form>
+                <?php endif; ?>
+            <?php endif; ?>
+
+            <div class="mt-5 grid gap-4 sm:grid-cols-2">
+                <label class="sm:col-span-2">
+                    <span class="rs-label">Client ID</span>
+                    <input type="text" name="mail_google_client_id" class="rs-input font-mono text-xs"
+                           maxlength="255" autocomplete="off"
+                           placeholder="000000000000-xxxxxxxx.apps.googleusercontent.com"
+                           value="<?= $v('mail_google_client_id', $google['clientId']) ?>"
+                           <?= $canManage ? '' : 'disabled' ?>>
+                </label>
+
+                <label class="sm:col-span-2">
+                    <span class="rs-label">Client secret</span>
+                    <?php /* Never rendered with a value, same reasoning as the SMTP password. */ ?>
+                    <input type="password" name="mail_google_client_secret" class="rs-input"
+                           autocomplete="new-password"
+                           placeholder="<?= $google['hasSecret'] ? '•••••••• stored' : 'not set' ?>"
+                           <?= $canManage && $canEncrypt ? '' : 'disabled' ?>>
+                    <?php if (! $canEncrypt): ?>
+                        <span class="rs-help text-bad">
+                            No encryption key is set. Run <code class="font-mono">php spark key:generate</code> first.
+                        </span>
+                    <?php elseif ($google['hasSecret']): ?>
+                        <span class="rs-help">Stored encrypted. Leave blank to keep it.</span>
+                    <?php endif; ?>
+                </label>
+            </div>
+
+            <div class="mt-5 border border-shell-line bg-shell-deep p-4">
+                <p class="rs-eyebrow rs-eyebrow--plain">Setting this up in Google</p>
+                <ol class="mt-3 list-decimal space-y-1.5 pl-5 text-xs text-ink-soft">
+                    <li>Open <span class="font-mono">console.cloud.google.com</span> and create a project.</li>
+                    <li>Enable the <strong>Gmail API</strong> for it.</li>
+                    <li>Configure the OAuth consent screen. While it is in Testing, add the
+                        sending account under <strong>Test users</strong> — otherwise Google
+                        refuses the authorisation.</li>
+                    <li>Create an <strong>OAuth client ID</strong> of type <em>Web application</em>.</li>
+                    <li>Add this exact <strong>authorised redirect URI</strong>:</li>
+                </ol>
+                <p class="mt-2 overflow-x-auto border border-shell-line bg-white px-3 py-2 font-mono text-[0.6875rem]">
+                    <?= esc($google['redirectUri']) ?>
+                </p>
+                <p class="rs-help mt-2">
+                    It must match character for character, including http vs https and any port.
+                    If <span class="font-mono">app.baseURL</span> in .env is wrong, this line is
+                    wrong too and Google will reject the redirect.
+                </p>
+                <ol class="mt-3 list-decimal space-y-1.5 pl-5 text-xs text-ink-soft" start="6">
+                    <li>Copy the client ID and secret into the fields above and save.</li>
+                    <li>Then press <strong>Authorise a Google account</strong>.</li>
+                </ol>
+                <p class="rs-help mt-3">
+                    Only the <span class="font-mono">gmail.send</span> permission is requested —
+                    it cannot read, search or delete your mail.
+                </p>
+            </div>
+
+            <?php if ($canManage): ?>
+                <?php if ($google['configured']): ?>
+                    <p class="rs-help mt-4">Save any changes above before authorising.</p>
+                <?php else: ?>
+                    <p class="rs-help mt-4">Save a client ID and secret first, then the authorise button appears.</p>
+                <?php endif; ?>
+            <?php endif; ?>
+        </section>
+
         <!-- ----------------------------------------------------- SMTP -->
         <section class="border border-shell-line bg-white p-5" data-mail-panel="smtp"
                  <?= $sel === 'smtp' ? '' : 'hidden' ?>>
@@ -192,6 +287,20 @@ $sel = old('mail_protocol') ?? $protocol;
         <?php endif; ?>
     </form>
 
+    <?php if ($sel === 'gmail_api' && $google['configured'] && $canManage): ?>
+        <?php /* A separate form: HTML cannot nest one inside the settings form. */ ?>
+        <form method="post" action="<?= site_url('admin/mail/google/connect') ?>" class="lg:col-start-1">
+            <?= csrf_field() ?>
+            <button type="submit" class="rs-btn rs-btn--outline w-full sm:w-auto">
+                <?= $google['connected'] ? 'Re-authorise the Google account' : 'Authorise a Google account' ?>
+            </button>
+            <p class="rs-help mt-2">
+                Opens Google’s consent screen and returns here. You will be asked to allow
+                sending only.
+            </p>
+        </form>
+    <?php endif; ?>
+
     <!-- ------------------------------------------------------ sidebar -->
     <aside class="space-y-5">
         <section class="border-2 <?= $lastTest !== '' && $lastError === '' ? 'border-pista-deep' : 'border-brass' ?> bg-white p-5">
@@ -256,6 +365,10 @@ $sel = old('mail_protocol') ?? $protocol;
         <section class="border border-shell-line bg-white p-5">
             <h2 class="rs-eyebrow rs-eyebrow--plain">If mail is refused</h2>
             <ul class="mt-3 space-y-2 text-xs text-ink-muted">
+                <li><strong>Gmail:</strong> if the consent screen is still in Testing, the
+                    sending account must be listed as a Test user in Google Cloud Console.</li>
+                <li><strong>Gmail:</strong> "redirect_uri_mismatch" means the URI in Google
+                    does not match this site exactly — check app.baseURL.</li>
                 <li>Port 587 goes with TLS; 465 goes with SSL. Mixing them is the usual cause of a timeout.</li>
                 <li>Gmail and Zoho need an app-specific password, not your normal one.</li>
                 <li>The from address must be on a domain the server may send for.</li>

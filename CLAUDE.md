@@ -703,6 +703,37 @@ Rules that follow:
   it did on the first test. `explainFailure()` finds the 4xx/5xx replies instead.
 - The test send goes only to the signed-in administrator's own address.
 
+### Gmail over OAuth 2.0
+
+- **CodeIgniter's Email class cannot do XOAUTH2** — LOGIN, PLAIN and CRAM-MD5
+  only, with no extension point. So the Google transport sends via Gmail's REST
+  endpoint (`gmail/v1/users/me/messages/send`) with a Bearer token and a raw
+  RFC 2822 message, built by `GoogleMailService::buildMime()`.
+  `MailService::deliver()` branches on `mail_protocol === 'gmail_api'`.
+- `Services::mailConfig()` forces `Config\Email->protocol` back to `smtp` when
+  the shop is on gmail_api, so the framework can never fall through and send
+  unauthenticated.
+- **Scope is `gmail.send` alone.** Not gmail.compose, not mail.google.com. A
+  leaked token should not be able to read the shop's mail.
+- **`access_type=offline` AND `prompt=consent` are both required.** Without the
+  second, Google omits the refresh token on re-authorisation and the connection
+  dies silently an hour later.
+- Client secret and refresh token are ENCRYPTED at rest; the client ID is not a
+  secret (it appears in the consent URL). Access tokens live in the cache only,
+  expiring two minutes early, never in the database.
+- **`state` is validated with `hash_equals` on the callback.** Without it,
+  someone can hand an administrator a crafted callback URL and attach their own
+  Google account to the shop.
+- `CURLOPT_SSL_VERIFYPEER` stays on. Disabling it to "fix" a handshake hands the
+  tokens to anyone on the path.
+- **A method-level `static` cache is shared by every instance for the whole
+  request.** `GoogleMailService::raw()` used one, so settings saved mid-request
+  were invisible to a newly constructed object. It is an instance property now,
+  with `refresh()` for when the controller saves and re-reads.
+- `rasmein:diag-gmail` covers 29 checks. The live handshake needs real
+  credentials and a browser and is NOT covered — verify it with the authorise
+  button and a test send.
+
 ### Outstanding security work (tracked, not yet done)
 
 - [ ] **CSP is written but not enabled.** `Config/ContentSecurityPolicy.php`

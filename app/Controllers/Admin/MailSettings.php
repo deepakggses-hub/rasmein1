@@ -30,6 +30,7 @@ use Throwable;
 class MailSettings extends AdminController
 {
     private const PROTOCOLS = [
+        'gmail_api' => 'Google / Gmail — authorise an account (recommended for Gmail)',
         'smtp'     => 'SMTP — a mail server (recommended)',
         'sendmail' => 'Sendmail — the server’s own binary',
         'mail'     => 'PHP mail() — last resort',
@@ -65,6 +66,15 @@ class MailSettings extends AdminController
             'lastTest'    => (string) $settings->get('mail_last_test_at', ''),
             'lastError'   => (string) $settings->get('mail_last_error', ''),
             'queue'       => $this->queueSummary(),
+            'google'      => [
+                'configured'   => service('googleMail')->isConfigured(),
+                'connected'    => service('googleMail')->isConnected(),
+                'account'      => service('googleMail')->account(),
+                'connectedAt'  => (string) $settings->get('mail_google_connected_at', ''),
+                'clientId'     => service('googleMail')->clientId(),
+                'hasSecret'    => service('googleMail')->clientSecret() !== '',
+                'redirectUri'  => service('googleMail')->redirectUri(),
+            ],
             'canManage'   => $this->can('settings.manage'),
         ], 'Mail settings');
     }
@@ -94,6 +104,17 @@ class MailSettings extends AdminController
         }
 
         $errors = [];
+
+        if ($protocol === 'gmail_api') {
+            if (trim((string) $this->request->getPost('mail_google_client_id')) === '') {
+                $errors[] = 'Gmail needs a client ID from Google Cloud Console.';
+            }
+
+            if (! service('googleMail')->isConfigured()
+                && trim((string) $this->request->getPost('mail_google_client_secret')) === '') {
+                $errors[] = 'Gmail needs a client secret the first time you save.';
+            }
+        }
 
         if ($protocol === 'smtp') {
             if (trim((string) $this->request->getPost('mail_smtp_host')) === '') {
@@ -142,10 +163,27 @@ class MailSettings extends AdminController
                 ? (string) $this->request->getPost('mail_smtp_auth_method') : 'login',
             'mail_sendmail_path'    => trim((string) $this->request->getPost('mail_sendmail_path')) ?: '/usr/sbin/sendmail',
             'mail_word_wrap'        => $this->request->getPost('mail_word_wrap') !== null ? '1' : '0',
+            // The client ID is not a secret — it is visible in the consent URL.
+            'mail_google_client_id'  => trim((string) $this->request->getPost('mail_google_client_id')),
         ];
 
         foreach ($plain as $key => $value) {
             $settings->set($key, $value);
+        }
+
+        // ---- the Google client secret, encrypted like any credential ----
+        $googleSecret = (string) $this->request->getPost('mail_google_client_secret');
+
+        if ($googleSecret !== '') {
+            if (! $this->encryptionAvailable()) {
+                return redirect()->back()->withInput()->with(
+                    'error',
+                    'The Google client secret cannot be stored safely without an encryption key. '
+                        . 'Run: php spark key:generate — then save again.'
+                );
+            }
+
+            $settings->set('mail_google_client_secret', base64_encode(service('encrypter')->encrypt($googleSecret)));
         }
 
         // ---- the password, handled apart from everything else ----
@@ -178,6 +216,10 @@ class MailSettings extends AdminController
         }
 
         $settings->flush();
+
+        // The shared Google service may already have cached the old values while
+        // this page was rendering.
+        service('googleMail')->refresh();
 
         // The password is deliberately absent from what is audited.
         service('audit')->log(
@@ -218,11 +260,17 @@ class MailSettings extends AdminController
 
         $config = AppServices::mailConfig();
 
-        if ($config->protocol === 'smtp' && trim($config->SMTPHost) === '') {
+        $protocol = (string) $this->settings->get('mail_protocol', 'smtp');
+
+        if ($protocol === 'gmail_api') {
+            if (! service('googleMail')->isConnected()) {
+                return redirect()->back()->with('error', 'Authorise a Google account before testing.');
+            }
+        } elseif ($config->protocol === 'smtp' && trim($config->SMTPHost) === '') {
             return redirect()->back()->with('error', 'Set an SMTP host before testing.');
         }
 
-        if (trim($config->fromEmail) === '') {
+        if ($protocol !== 'gmail_api' && trim($config->fromEmail) === '') {
             return redirect()->back()->with('error', 'Set a from address before testing — most servers reject mail without one.');
         }
 
@@ -239,6 +287,20 @@ class MailSettings extends AdminController
             . '</ul>';
 
         try {
+            // Gmail goes through its own transport, so exercise the real path
+            // rather than a mailer that would silently use different settings.
+            if ($protocol === 'gmail_api') {
+                service('mail')->deliver($to, 'Rasmein mail test — ' . date('H:i'), $body);
+
+                $this->settings->set('mail_last_test_at', date('Y-m-d H:i:s'));
+                $this->settings->set('mail_last_error', '');
+                $this->settings->flush();
+
+                service('audit')->log('mail_test_sent', 'settings', 'setting', null, 'Gmail test sent to ' . $to);
+
+                return redirect()->back()->with('success', 'Test sent to ' . $to . ' via Gmail. Check that inbox.');
+            }
+
             // A fresh, unshared mailer, so a previously cached bad config is not
             // what gets tested.
             $email = AppServices::email($config, false);
@@ -274,6 +336,97 @@ class MailSettings extends AdminController
         service('audit')->log('mail_test_sent', 'settings', 'setting', null, 'Test sent to ' . $to);
 
         return redirect()->back()->with('success', 'Test sent to ' . $to . '. Check that inbox, and the spam folder.');
+    }
+
+    // =================================================================
+    // Google OAuth
+    // =================================================================
+
+    /** Send the administrator to Google's consent screen. */
+    public function googleConnect()
+    {
+        if ($denied = $this->deny('settings.manage')) {
+            return $denied;
+        }
+
+        $google = service('googleMail');
+
+        if (! $google->isConfigured()) {
+            return redirect()->back()->with('error', 'Save a client ID and secret before authorising.');
+        }
+
+        if (! $this->encryptionAvailable()) {
+            return redirect()->back()->with(
+                'error',
+                'An encryption key is needed to store the authorisation. Run: php spark key:generate'
+            );
+        }
+
+        return redirect()->to($google->authorisationUrl());
+    }
+
+    /** Where Google sends the administrator back to. */
+    public function googleCallback()
+    {
+        if ($denied = $this->deny('settings.manage')) {
+            return $denied;
+        }
+
+        // Google reports refusal in the query string rather than by failing.
+        $refused = (string) $this->request->getGet('error');
+
+        if ($refused !== '') {
+            return redirect()->to(site_url('admin/mail'))->with(
+                'error',
+                'Google did not complete the authorisation: ' . esc($refused)
+            );
+        }
+
+        $code  = (string) $this->request->getGet('code');
+        $state = (string) $this->request->getGet('state');
+
+        if ($code === '') {
+            return redirect()->to(site_url('admin/mail'))->with('error', 'Google returned no authorisation code.');
+        }
+
+        $result = service('googleMail')->completeAuthorisation($code, $state);
+
+        if (! $result['ok']) {
+            log_message('error', 'Google mail authorisation failed: {msg}', ['msg' => (string) $result['error']]);
+
+            return redirect()->to(site_url('admin/mail'))->with('error', (string) $result['error']);
+        }
+
+        // The tokens themselves are never audited, only the fact and the account.
+        service('audit')->log(
+            'google_mail_connected',
+            'settings',
+            'setting',
+            null,
+            'Gmail authorised for ' . ($result['account'] ?? 'an account')
+        );
+
+        return redirect()->to(site_url('admin/mail'))->with(
+            'success',
+            'Connected' . ($result['account'] !== null ? ' as ' . $result['account'] : '')
+                . '. Send a test to confirm it works.'
+        );
+    }
+
+    public function googleDisconnect()
+    {
+        if ($denied = $this->deny('settings.manage')) {
+            return $denied;
+        }
+
+        service('googleMail')->disconnect();
+        service('audit')->log('google_mail_disconnected', 'settings', 'setting', null, 'Gmail authorisation removed');
+
+        return redirect()->back()->with(
+            'success',
+            'Disconnected. Revoke the access at myaccount.google.com/permissions as well, '
+                . 'if you want it gone from Google’s side too.'
+        );
     }
 
     /** Drain the queue by hand, for when cron is not yet set up. */

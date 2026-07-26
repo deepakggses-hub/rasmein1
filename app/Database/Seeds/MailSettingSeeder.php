@@ -37,6 +37,13 @@ class MailSettingSeeder extends Seeder
 
             ['mail_sendmail_path', '/usr/sbin/sendmail', 'string', 'Sendmail path', 'Only used when the method is Sendmail.', 20],
 
+            // --- Google / Gmail API (OAuth 2.0) ---
+            ['mail_google_client_id', '', 'string', 'Google client ID', 'From the OAuth client you create in Google Cloud Console.', 40],
+            ['mail_google_client_secret', '', 'string', 'Google client secret', 'Stored encrypted. Leave blank when saving to keep the current one.', 41],
+            ['mail_google_refresh_token', '', 'string', 'Google refresh token', 'Obtained by authorising the account. Stored encrypted; never entered by hand.', 42],
+            ['mail_google_account', '', 'string', 'Authorised Google account', 'The address that authorised sending. Set automatically.', 43],
+            ['mail_google_connected_at', '', 'string', 'Authorised on', 'Set automatically when the account is connected.', 44],
+
             ['mail_word_wrap', '1', 'bool', 'Wrap long lines', 'Keeps plain-text parts readable in older clients.', 30],
             ['mail_last_test_at', '', 'string', 'Last successful test', 'Set automatically when a test email goes through.', 31],
             ['mail_last_error', '', 'string', 'Last failure', 'The most recent delivery error, kept to help diagnose.', 32],

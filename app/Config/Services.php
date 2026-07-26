@@ -10,6 +10,7 @@ use App\Services\CartService;
 use App\Services\GiftBoxBuilderService;
 use App\Services\HtmlSanitiser;
 use App\Services\CsvExporter;
+use App\Services\GoogleMailService;
 use App\Services\ImageUploadService;
 use App\Services\MailService;
 use App\Services\NotificationService;
@@ -170,6 +171,14 @@ class Services extends BaseService
             $config->protocol = $protocol;
         }
 
+        // gmail_api is our own transport, not one CodeIgniter knows about. If it
+        // were assigned to Config\Email->protocol the framework would fall
+        // through to its default and send unauthenticated mail. Leave the
+        // framework config on smtp; MailService routes around it.
+        if ($protocol === 'gmail_api') {
+            $config->protocol = 'smtp';
+        }
+
         // An empty from address would be worse than the .env one, so this single
         // field still prefers a non-empty fallback.
         $from = (string) $pick('mail_from_email', '');
@@ -242,6 +251,16 @@ class Services extends BaseService
 
             return null;
         }
+    }
+
+    /** Gmail over OAuth 2.0, for shops sending through a Google account. */
+    public static function googleMail(bool $getShared = true): GoogleMailService
+    {
+        if ($getShared) {
+            return static::getSharedInstance('googleMail');
+        }
+
+        return new GoogleMailService();
     }
 
     /** Renders editable templates and drains the mail queue. */

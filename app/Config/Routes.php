@@ -245,6 +245,13 @@ $routes->group('admin', [
     $routes->post('mail/test', 'MailSettings::test', ['filter' => 'adminAuth:settings.manage']);
     $routes->post('mail/drain', 'MailSettings::drain', ['filter' => 'adminAuth:settings.manage']);
 
+    // Google OAuth. The callback is a GET because Google redirects the browser
+    // back to it; it is still behind the admin filter, and the `state` value is
+    // what actually proves the round trip belongs to this administrator.
+    $routes->post('mail/google/connect', 'MailSettings::googleConnect', ['filter' => 'adminAuth:settings.manage']);
+    $routes->match(['GET', 'HEAD'], 'mail/google/callback', 'MailSettings::googleCallback', ['filter' => 'adminAuth:settings.manage']);
+    $routes->post('mail/google/disconnect', 'MailSettings::googleDisconnect', ['filter' => 'adminAuth:settings.manage']);
+
     // ---- Settings ----
     $routes->match(['GET', 'HEAD'], 'settings', 'Settings::index');
     $routes->post('settings', 'Settings::update', ['filter' => 'adminAuth:settings.manage']);

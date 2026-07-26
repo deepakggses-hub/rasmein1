@@ -51,3 +51,30 @@ email.fromName  = 'Rasmein'
 
 Then use **Admin → Email templates → Send test** to confirm delivery. The test
 only ever goes to the signed-in administrator's own address.
+
+
+## Sending through a Google / Gmail account
+
+**Settings → Mail → Google / Gmail.** This uses Gmail's API with OAuth, so no
+password is involved and app-specific passwords are unnecessary.
+
+1. `console.cloud.google.com` → create a project.
+2. Enable the **Gmail API**.
+3. Configure the OAuth consent screen. While it is in **Testing**, add the
+   sending address under **Test users** — Google refuses the authorisation
+   otherwise.
+4. Create an **OAuth client ID**, type *Web application*.
+5. Add the authorised redirect URI shown on the mail settings screen. It must
+   match exactly, including http vs https and any port — it is derived from
+   `app.baseURL`, so that must be correct.
+6. Paste the client ID and secret, save, then press **Authorise a Google
+   account** and complete the consent screen.
+7. Send a test.
+
+`php spark key:generate` must have been run first: the client secret and refresh
+token are stored encrypted, and the panel refuses to store them otherwise.
+
+Only the `gmail.send` permission is requested. Revoke it any time at
+`myaccount.google.com/permissions`.
+
+**Note:** Google sends as the authorised account, whatever the from address says.
