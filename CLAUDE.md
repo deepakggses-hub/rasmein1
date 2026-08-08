@@ -878,6 +878,67 @@ An uploaded logo is an unknown quantity: it might be square or a 10:1 banner.
 - The "Gifting studio" eyebrow is part of the wordmark lock-up and is hidden when
   a real logo is set, where it would read as a stray caption.
 
+### Nested categories at the site root
+
+URLs are now /teas-infusions and /teas-infusions/green-teas/sencha.
+
+- **The catch-all route block MUST stay last in Routes.php.** CodeIgniter matches
+  in declaration order, so a catch-all declared earlier swallows /cart, /admin
+  and everything else. Registering it after every real route means those win
+  first and only an unclaimed path reaches the category resolver.
+- **`categories.path` is a materialised path**, unique-indexed. Resolving a URL
+  is one equality match at any depth, instead of a query per level. Nothing may
+  write `path` directly — `CategoryModel::rebuildSubtree()` owns it.
+- **`rebuildSubtree($id, $oldPath)` needs the PRE-SAVE path passed in.** The
+  controller has already written the new one by the time it runs, so reading the
+  row compares the new path against itself, returns early, and strands every
+  descendant at an address whose parent no longer exists. Found in testing: a
+  rename left four subcategories 404ing.
+- **Slugs are NOT globally unique.** /tea/gifts and /coffee/gifts are different
+  pages that both legitimately use "gifts". The original schema had a UNIQUE
+  index on `slug` which failed as a raw "Duplicate entry"; migration 000014
+  drops it. Uniqueness lives on `path`.
+- **`reservedSlugs()` parses Routes.php with `token_get_all()`.** Two earlier
+  attempts failed: `service('routes')->getRoutes()` returns an EMPTY collection
+  in both CLI and web contexts, so the check silently passed everything and a
+  category called "Cart" saved at /cart. Regex over the source then broke on the
+  quote characters. The tokeniser is deterministic and needs no bootstrapping.
+  It is intentionally over-inclusive — reserving too much fails safe.
+- Cycle prevention is in `wouldCycle()` AND the dropdown omits the category's own
+  subtree. Depth is capped at `MAX_DEPTH` (5 levels).
+- A category page lists products from its descendants too, via
+  `descendantIds()`; otherwise a parent looks empty while its children hold
+  everything. `ProductModel` accepts a list for `category`.
+- Old /shop/{slug} URLs 301 to the canonical path rather than 404ing.
+
+### Occasions
+
+- **An occasion IS a collection with `type = 'occasion'`.** Same table, same
+  pivot, same landing page. A parallel `occasions` table would have duplicated
+  the model, CRUD, pivot and — the dangerous part — the root-URL collision
+  check. Two copies of that check is how they drift and a shop ends up with an
+  unreachable page and no error anywhere.
+- **`RootUrlService` is the single authority on what may live at the site root.**
+  Categories AND occasions both claim it. Every slug assignment goes through
+  `whyUnavailable()`; every root URL is resolved by `resolve()`. Never add a
+  second place that decides this.
+- `starts_at`/`ends_at` bound an occasion. Outside its window it 404s rather
+  than rendering — a Diwali page in March is worse than nothing.
+- **`syncProductOccasions()` clears only OCCASION pivot rows.** Collections live
+  in the same table, so a naive delete-by-product-id would silently drop a
+  product's collection memberships. Tested: they survive.
+- **CategoryModel returns entities; CollectionModel returns arrays.** They are
+  not interchangeable — assuming otherwise produced a TypeError on the live
+  occasion page.
+- Occasions are flat by design: one slug segment. A path containing a slash can
+  therefore only be a category, which keeps the resolver unambiguous.
+- **A migration backfill cannot fix rows a seeder inserts afterwards.** On a
+  --fresh rebuild, migrate runs against an empty table. The occasion `type` and
+  the category `path` both had to move into the seed data itself.
+  `diag-firstrun` now asserts an occasion resolves at the root and that no
+  category and occasion share a URL. THIRD time this pattern has bitten — check
+  it for any new column whose value a seeder must supply.
+
 ### Outstanding security work (tracked, not yet done)
 
 - [ ] **CSP is written but not enabled.** `Config/ContentSecurityPolicy.php`

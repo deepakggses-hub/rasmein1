@@ -142,6 +142,10 @@ class Products extends AdminController
             'images'     => $images,
             'categories' => model(CategoryModel::class)->orderBy('name', 'ASC')->findAll(),
             'maxBytes'   => config(Rasmein::class)->maxImageBytes,
+            'occasions'  => model(\App\Models\CollectionModel::class)->occasions(),
+            'taggedOccasions' => $product !== null
+                ? model(\App\Models\CollectionModel::class)->occasionIdsForProduct((int) $product->id)
+                : [],
             'needsEditor' => true,
         ], $product === null ? 'New product' : 'Edit ' . $product->name);
     }
@@ -203,6 +207,15 @@ class Products extends AdminController
         if ($isNew) {
             $id = (int) $model->getInsertID();
         }
+
+        // ---- occasions ----
+        // Done through the model so a product's COLLECTION memberships are left
+        // alone: both live in the same pivot, and clearing by product id would
+        // silently drop them.
+        model(\App\Models\CollectionModel::class)->syncProductOccasions(
+            $id,
+            array_map('intval', (array) $this->request->getPost('occasions'))
+        );
 
         // ---- images ----
         $uploadError = $this->handleImages($id);

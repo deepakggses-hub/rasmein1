@@ -154,6 +154,49 @@ class DiagFirstRun extends BaseCommand
             'journey mode defaults to Buy',
             service('settings')->journeyMode() === 'buy_now'
         );
+
+        // A category without a path has no URL. On a fresh install this was
+        // every one of them, because the seeder does not go through the admin
+        // controller that computes it.
+        $pathless = $db->table('categories')
+            ->groupStart()->where('path', null)->orWhere('path', '')->groupEnd()
+            ->countAllResults();
+
+        $this->check(
+            'every category has a URL path',
+            $pathless === 0,
+            $pathless === 0 ? 'all reachable' : $pathless . ' with no path'
+        );
+
+        // Root URLs come from two places now. Both must survive a fresh seed —
+        // a migration backfill cannot fix rows the seeder inserts afterwards.
+        $occasions = $db->table('collections')->where('type', 'occasion')->countAllResults();
+
+        $this->check(
+            'occasions seeded with a root URL',
+            $occasions > 0,
+            $occasions . ' occasion(s)'
+        );
+
+        $rootUrls = service('rootUrls');
+        $sample   = $db->table('collections')->where('type', 'occasion')->get(1)->getRowArray();
+
+        if ($sample !== null) {
+            $this->check(
+                'an occasion resolves at the site root',
+                $rootUrls->resolve((string) $sample['slug']) !== null,
+                '/' . $sample['slug']
+            );
+        }
+
+        // The two namespaces must not overlap.
+        $overlap = (int) ($db->query(
+            'SELECT COUNT(*) AS n FROM collections c
+             JOIN categories cat ON cat.path = c.slug AND cat.parent_id IS NULL
+             WHERE c.type = "occasion"'
+        )->getRowArray()['n'] ?? 0);
+
+        $this->check('no category and occasion share a URL', $overlap === 0);
     }
 
     private function checkStorefront(): void

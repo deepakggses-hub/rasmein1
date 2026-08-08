@@ -306,3 +306,49 @@
     });
   });
 })();
+
+/**
+ * Occasion tagging: live filter over a long product list, and a running count.
+ *
+ * The list is rendered in full server-side, so with JavaScript unavailable it is
+ * still a usable (if long) set of checkboxes. This only makes finding things
+ * quicker.
+ */
+(function () {
+  'use strict';
+
+  var list = document.querySelector('[data-tag-list]');
+  if (!list) return;
+
+  var rows = list.querySelectorAll('[data-tag-row]');
+  var boxes = list.querySelectorAll('[data-tag]');
+  var filter = document.querySelector('[data-tag-filter]');
+  var counter = document.querySelector('[data-tag-count]');
+
+  function count() {
+    if (!counter) return;
+    var n = 0;
+    boxes.forEach(function (b) { if (b.checked) n++; });
+    counter.textContent = String(n);
+  }
+
+  boxes.forEach(function (b) { b.addEventListener('change', count); });
+  count();
+
+  if (filter) {
+    filter.addEventListener('input', function () {
+      var term = filter.value.trim().toLowerCase();
+
+      rows.forEach(function (row) {
+        // A ticked product always stays visible: hiding something the person
+        // has already chosen makes it look as though the choice was lost.
+        var box = row.querySelector('[data-tag]');
+        var keep = term === '' ||
+          (row.getAttribute('data-search') || '').indexOf(term) !== -1 ||
+          (box && box.checked);
+
+        row.hidden = !keep;
+      });
+    });
+  }
+})();

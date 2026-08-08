@@ -208,6 +208,37 @@ $checked = static fn (string $field, bool $fallback): string => (old($field) !==
             </section>
 
             <section class="border border-shell-line bg-white p-5">
+                <h2 class="rs-eyebrow rs-eyebrow--plain">Occasions</h2>
+                <?php if ($occasions === []): ?>
+                    <p class="rs-help mt-3">
+                        None created yet.
+                        <a href="<?= site_url('admin/occasions/new') ?>" class="rs-link">Add one</a>.
+                    </p>
+                <?php else: ?>
+                    <ul class="mt-3 space-y-2">
+                        <?php foreach ($occasions as $occasion): ?>
+                            <?php
+                            $on = old('occasions') !== null
+                                ? in_array((string) $occasion['id'], array_map('strval', (array) old('occasions')), true)
+                                : in_array((int) $occasion['id'], $taggedOccasions, true);
+                            ?>
+                            <li>
+                                <label class="flex items-center gap-2.5 text-sm">
+                                    <input type="checkbox" name="occasions[]" value="<?= (int) $occasion['id'] ?>"
+                                           class="accent-mulberry" <?= $on ? 'checked' : '' ?>>
+                                    <span><?= esc($occasion['name']) ?></span>
+                                    <?php if (! $occasion['is_active']): ?>
+                                        <span class="rs-badge rs-badge--out">Off</span>
+                                    <?php endif; ?>
+                                </label>
+                            </li>
+                        <?php endforeach; ?>
+                    </ul>
+                    <p class="rs-help mt-3">A product can belong to several. This does not affect its category.</p>
+                <?php endif; ?>
+            </section>
+
+            <section class="border border-shell-line bg-white p-5">
                 <h2 class="rs-eyebrow rs-eyebrow--plain">Visibility</h2>
                 <label class="mt-4 flex items-center gap-2.5 text-sm">
                     <input type="checkbox" name="is_active" value="1" class="accent-mulberry"

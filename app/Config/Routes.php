@@ -247,6 +247,14 @@ $routes->group('admin', [
     // enough — a product editor needs images too.
     $routes->post('editor/upload', 'EditorUpload::store');
 
+    // ---- Occasions ----
+    $routes->match(['GET', 'HEAD'], 'occasions', 'Occasions::index', ['filter' => 'adminAuth:content.manage']);
+    $routes->match(['GET', 'HEAD'], 'occasions/new', 'Occasions::create', ['filter' => 'adminAuth:content.manage']);
+    $routes->post('occasions', 'Occasions::store', ['filter' => 'adminAuth:content.manage']);
+    $routes->match(['GET', 'HEAD'], 'occasions/(:num)/edit', 'Occasions::edit/$1', ['filter' => 'adminAuth:content.manage']);
+    $routes->post('occasions/(:num)', 'Occasions::update/$1', ['filter' => 'adminAuth:content.manage']);
+    $routes->post('occasions/(:num)/delete', 'Occasions::delete/$1', ['filter' => 'adminAuth:content.manage']);
+
     // ---- Shop identity ----
     $routes->match(['GET', 'HEAD'], 'brand', 'Brand::index');
     $routes->post('brand', 'Brand::save', ['filter' => 'adminAuth:settings.manage']);
@@ -274,3 +282,30 @@ $routes->group('admin', [
     // ---- Audit ----
     $routes->match(['GET', 'HEAD'], 'audit', 'Audit::index', ['filter' => 'adminAuth:audit.view']);
 });
+
+// =====================================================================
+// CATEGORY URLS AT THE SITE ROOT
+//
+// /teas-infusions and /gifting/teas-infusions/green both resolve here.
+//
+// THIS BLOCK MUST STAY LAST IN THE FILE. CodeIgniter matches routes in the
+// order they are defined, so a catch-all declared earlier would swallow /cart,
+// /checkout, /admin and everything else. Registering it after every real route
+// means those all win first, and only an unclaimed path reaches the category
+// resolver — which 404s when the path is not a category.
+//
+// The second line of defence is in the admin: a TOP-LEVEL category slug is
+// checked against the registered routes before it can be saved, so a category
+// can never be created that would shadow a real page.
+//
+// Depth is bounded by CategoryModel::MAX_DEPTH, and each segment is
+// (:segment), which excludes slashes — so these patterns cannot run away.
+// =====================================================================
+$routes->group('', ['namespace' => 'App\Controllers\Storefront'], static function (RouteCollection $routes): void {
+    $routes->match(['GET', 'HEAD'], '(:segment)/(:segment)/(:segment)/(:segment)/(:segment)', 'Shop::path/$1/$2/$3/$4/$5');
+    $routes->match(['GET', 'HEAD'], '(:segment)/(:segment)/(:segment)/(:segment)', 'Shop::path/$1/$2/$3/$4');
+    $routes->match(['GET', 'HEAD'], '(:segment)/(:segment)/(:segment)', 'Shop::path/$1/$2/$3');
+    $routes->match(['GET', 'HEAD'], '(:segment)/(:segment)', 'Shop::path/$1/$2');
+    $routes->match(['GET', 'HEAD'], '(:segment)', 'Shop::path/$1');
+});
+

@@ -30,7 +30,45 @@ class Shop extends StorefrontController
         ]);
     }
 
-    public function category(string $slug): string
+    /**
+     * A category at the site root, addressed by its full path.
+     *
+     * /teas-infusions and /gifting/teas-infusions/green both land here. The
+     * catch-all route that feeds this method is registered LAST, so every real
+     * route wins first; anything that is not a category falls through to a 404.
+     */
+    public function path(string ...$segments): string
+    {
+        $model = model(CategoryModel::class);
+        $path  = trim(implode('/', $segments), '/');
+
+        // Cheap rejections before touching the database: a path with a dot is a
+        // missing asset, not a category, and an over-long one is a probe.
+        if ($path === '' || strlen($path) > 512 || str_contains($path, '.')) {
+            throw PageNotFoundException::forPageNotFound();
+        }
+
+        // One authority decides what lives here, so a category and an occasion
+        // can never both answer on the same address.
+        $hit = service('rootUrls')->resolve($path);
+
+        if ($hit === null) {
+            throw PageNotFoundException::forPageNotFound();
+        }
+
+        return $hit['kind'] === 'occasion'
+            ? $this->renderOccasion($hit['entity'])
+            : $this->renderCategory($hit['entity']);
+    }
+
+    /**
+     * The old /shop/{slug} address.
+     *
+     * Kept as a permanent redirect rather than deleted: those URLs may already
+     * be in someone's history, a printed card, or a search index, and silently
+     * 404ing them loses traffic that was earned.
+     */
+    public function category(string $slug)
     {
         $category = model(CategoryModel::class)->findActiveBySlug($slug);
 
@@ -38,17 +76,60 @@ class Shop extends StorefrontController
             throw PageNotFoundException::forPageNotFound();
         }
 
+        return redirect()->to(site_url((string) ($category->path ?: $category->slug)), 301);
+    }
+
+    /**
+     * An occasion page: every product tagged to it.
+     *
+     * @param array<string, mixed> $occasion CollectionModel returns arrays,
+     *                                        unlike CategoryModel.
+     */
+    private function renderOccasion(array $occasion): string
+    {
+        $ends = $occasion['ends_at'] ?? null;
+
+        return $this->listing([
+            'heading'  => $occasion['name'],
+            'eyebrow'  => 'Occasion',
+            'intro'    => $occasion['description'],
+            'crumbs'   => [
+                ['label' => 'Shop', 'url' => site_url('shop')],
+                ['label' => $occasion['name'], 'url' => null],
+            ],
+            'seoTitle' => $occasion['meta_title'] ?: $occasion['name'],
+            'seoDesc'  => $occasion['meta_description'] ?: $occasion['description'],
+            'lockedCollection' => (int) $occasion['id'],
+            // Shown on the page so a seasonal occasion says how long is left,
+            // which is the whole reason someone is looking at it.
+            'endsAt'   => $ends,
+        ]);
+    }
+
+    /** @param object $category */
+    private function renderCategory($category): string
+    {
+        $model = model(CategoryModel::class);
+        $id    = (int) $category->id;
+
+        $crumbs = [['label' => 'Shop', 'url' => site_url('shop')]];
+
+        foreach ($model->ancestors($id) as $ancestor) {
+            $crumbs[] = ['label' => $ancestor->name, 'url' => site_url((string) $ancestor->path)];
+        }
+
+        $crumbs[] = ['label' => $category->name, 'url' => null];
+
         return $this->listing([
             'heading'  => $category->name,
             'eyebrow'  => 'Category',
             'intro'    => $category->description,
-            'crumbs'   => [
-                ['label' => 'Shop', 'url' => site_url('shop')],
-                ['label' => $category->name, 'url' => null],
-            ],
+            'crumbs'   => $crumbs,
             'seoTitle' => $category->meta_title ?: $category->name,
             'seoDesc'  => $category->meta_description ?: $category->description,
-            'lockedCategory' => $category->id,
+            // The category AND everything beneath it.
+            'lockedCategory' => $model->descendantIds($id),
+            'children'       => $model->childrenOf($id),
         ]);
     }
 
@@ -116,6 +197,9 @@ class Shop extends StorefrontController
             'categories'  => model(CategoryModel::class)->withProductCounts(),
             'priceRange'  => model(ProductModel::class)->priceRange(),
             'crumbs'      => $context['crumbs'] ?? [],
+            // Subcategories of the category being viewed, so a parent page
+            // offers a way down rather than only a flat product list.
+            'children'    => $context['children'] ?? [],
         ], [
             'title'       => ($context['seoTitle'] ?? $context['heading']) . ' · ' . $this->brand->brandName,
             'description' => rs_excerpt($context['seoDesc'] ?? $context['intro'] ?? $this->brand->brandTagline, 155),

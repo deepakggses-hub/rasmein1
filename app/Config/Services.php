@@ -12,6 +12,7 @@ use App\Services\HtmlSanitiser;
 use App\Services\CsvExporter;
 use App\Services\GoogleMailService;
 use App\Services\ImageUploadService;
+use App\Services\RootUrlService;
 use App\Services\MailService;
 use App\Services\NotificationService;
 use App\Services\OrderService;
@@ -352,6 +353,16 @@ class Services extends BaseService
         }
 
         return new GoogleMailService();
+    }
+
+    /** The single authority on what may live at the site root. */
+    public static function rootUrls(bool $getShared = true): RootUrlService
+    {
+        if ($getShared) {
+            return static::getSharedInstance('rootUrls');
+        }
+
+        return new RootUrlService();
     }
 
     /** Renders editable templates and drains the mail queue. */

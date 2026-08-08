@@ -150,20 +150,31 @@ class CatalogueSeeder extends Seeder
         echo "  Products: {$inserted} added (" . count($products) . " defined).\n";
 
         // -------------------------------------------------- collections
+        /*
+         * The trailing flag is the TYPE: an occasion gets a root URL (/diwali),
+         * a collection stays at /collections/{slug}.
+         *
+         * It has to live here rather than in the migration that added the
+         * column: on a --fresh rebuild the migration runs against an empty
+         * table, so its backfill matches nothing and Diwali comes back as a
+         * plain collection with a dead /diwali-2026 address. Caught by a
+         * from-zero rebuild, not by any admin test.
+         */
         $collections = [
-            ['Diwali 2026', 'diwali-2026', 'Boxes built around sweets, dry fruits and light.', 'chocolate', 1, ['mamra-almonds', 'assorted-bonbons', 'oudh-amber-candle', 'medjool-dates']],
-            ['For a New Home', 'for-a-new-home', 'Something for the kitchen, something for the shelf.', 'ceramics', 1, ['blue-pottery-platter', 'kulhad-cup-set', 'sandalwood-reed-diffuser', 'masala-chai-blend']],
-            ['The Tea Drinker', 'the-tea-drinker', 'Four teas and a cup worth drinking them from.', 'tea', 1, ['darjeeling-first-flush', 'nilgiri-frost-tea', 'masala-chai-blend', 'kulhad-cup-set']],
+            ['Diwali 2026', 'diwali-2026', 'Boxes built around sweets, dry fruits and light.', 'chocolate', 1, ['mamra-almonds', 'assorted-bonbons', 'oudh-amber-candle', 'medjool-dates'], 'occasion'],
+            ['For a New Home', 'for-a-new-home', 'Something for the kitchen, something for the shelf.', 'ceramics', 1, ['blue-pottery-platter', 'kulhad-cup-set', 'sandalwood-reed-diffuser', 'masala-chai-blend'], 'collection'],
+            ['The Tea Drinker', 'the-tea-drinker', 'Four teas and a cup worth drinking them from.', 'tea', 1, ['darjeeling-first-flush', 'nilgiri-frost-tea', 'masala-chai-blend', 'kulhad-cup-set'], 'collection'],
         ];
 
         $added = 0;
 
-        foreach ($collections as $index => [$name, $slug, $description, $motif, $featured, $productSlugs]) {
+        foreach ($collections as $index => [$name, $slug, $description, $motif, $featured, $productSlugs, $type]) {
             if ($this->db->table('collections')->where('slug', $slug)->countAllResults() > 0) {
                 continue;
             }
 
             $this->db->table('collections')->insert([
+                'type'        => $type,
                 'name'        => $name,
                 'slug'        => $slug,
                 'description' => $description,
@@ -196,5 +207,15 @@ class CatalogueSeeder extends Seeder
         }
 
         echo "  Collections: {$added} added.\n";
+
+        // Categories are inserted through the query builder above, which does
+        // not fire the model callback that computes path and depth. Without
+        // this every category on a fresh install has a NULL path and no
+        // reachable URL — caught by a from-zero rebuild, not by any admin test.
+        $rebuilt = model(\App\Models\CategoryModel::class)->rebuildAllPaths();
+
+        if ($rebuilt > 0) {
+            echo "  Category URLs: {$rebuilt} path(s) built.\n";
+        }
     }
 }

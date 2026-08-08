@@ -195,7 +195,19 @@ class ProductModel extends Model
         $this->withPrimaryImage()->scopeVisible();
 
         if (! empty($filters['category'])) {
-            $this->where('products.category_id', (int) $filters['category']);
+            // A list, not just an id: opening a parent category must show what
+            // is in its subcategories too, or a top-level page looks empty
+            // while everything sits one level down.
+            $ids = array_values(array_filter(
+                array_map('intval', (array) $filters['category']),
+                static fn (int $id): bool => $id > 0
+            ));
+
+            if ($ids !== []) {
+                count($ids) === 1
+                    ? $this->where('products.category_id', $ids[0])
+                    : $this->whereIn('products.category_id', $ids);
+            }
         }
 
         if (! empty($filters['collection'])) {
