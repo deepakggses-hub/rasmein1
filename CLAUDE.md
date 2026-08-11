@@ -849,14 +849,6 @@ Three changes:
 - The wordmark is NOT deleted when a logo is uploaded; it is the fallback, so a
   shop with no logo still looks deliberate.
 
-### rs_url() — stop re-introducing the esc-attr trap
-
-`esc($url, 'attr')` entity-encodes `/` and `:` into `&#x2F;` and `&#x3A;`.
-Browsers decode them, so the link works and the bug hides — which is exactly why
-this has now been introduced FOUR separate times (§15.9). Use `rs_url($path)`
-for asset URLs in attributes. It refuses traversal and absolute schemes, and
-does not mangle the slashes.
-
 ### Logo sizing — constrain BOTH dimensions
 
 An uploaded logo is an unknown quantity: it might be square or a 10:1 banner.
@@ -938,6 +930,227 @@ URLs are now /teas-infusions and /teas-infusions/green-teas/sencha.
   `diag-firstrun` now asserts an occasion resolves at the root and that no
   category and occasion share a URL. THIRD time this pattern has bitten — check
   it for any new column whose value a seeder must supply.
+
+### Appearance — layout driven by CSS custom properties
+
+- **`DesignService::cssVariables()` emits `--rs-*` into the page head**, and every
+  component is written against those variables. Generating Tailwind classes from
+  settings cannot work — Tailwind compiles at build time, the settings change at
+  runtime. This indirection is what makes width, grid density, corners and
+  palette adjustable from Admin → Appearance with no rebuild.
+- **Every value is clamped and pattern-checked before it reaches the style
+  block.** A colour that is not a hex colour, or a width carrying a semicolon,
+  would otherwise be a CSS injection point. Tested: `red; } body{display:none`
+  is refused and never reaches the stylesheet.
+- **Grids declare a MINIMUM CARD WIDTH, not a column count**
+  (`repeat(auto-fill, minmax(min(var(--rs-card-min), 100%), 1fr))`). The browser
+  fits as many columns as the screen allows, so one setting covers a phone
+  through an ultrawide. The `min(..., 100%)` guard is required — without it a
+  card minimum wider than a narrow viewport forces horizontal overflow.
+- `.rs-shell` is full-bleed by default: `max-width: var(--rs-container, none)`
+  with a `clamp()` gutter. `full` sets the variable to `none`.
+- **Product cards use a container query, not media queries.** The card sizes
+  itself from the space it is given, so the same component works in a wide grid,
+  a rail and a sidebar without knowing which.
+- `.rs-reveal` starts VISIBLE; the JS adds `rs-reveal-ready` to the root, which
+  is what arms the hidden state. The opposite order hides the whole page when a
+  script fails to load. Same principle for the density toggle, which stays
+  invisible until armed.
+- The main menu is the `design_nav` setting, one `Label | /path` per line.
+  Absolute URLs are REJECTED — an editable menu that accepted them would be a
+  way to point a shop's own navigation elsewhere.
+
+### The storefront design system
+
+- **Layout is driven by CSS custom properties, not Tailwind classes.** Tailwind
+  compiles at build time; the appearance settings change at runtime. So
+  `DesignService::cssVariables()` emits a `:root{}` block into the head and every
+  component is written against `var(--rs-*)`. Changing the page width or the
+  card minimum in the admin re-flows the whole site with no rebuild.
+- **That block lands inside `<style>`, so every value is clamped and
+  pattern-checked** before it gets there. Tested: `red; } body{display:none` is
+  refused at the form and would not survive the service either.
+- **Grids declare a minimum card width, never a column count.**
+  `repeat(auto-fill, minmax(min(var(--rs-card-min), 100%), 1fr))`. The `min()`
+  guard matters: without it a card minimum wider than a narrow phone forces
+  horizontal overflow. This is what makes full-bleed work from 320px to an
+  ultrawide with no breakpoint per size.
+- **The product card is a container query context**, so it sizes from the space
+  it is given rather than the viewport.
+- `.rs-shell` is full-bleed by default: `max-width: var(--rs-container, none)`,
+  where the variable is literally `none` unless an administrator caps it.
+- **Reveals start VISIBLE.** `.rs-reveal` is hidden only once JS adds
+  `.rs-reveal-ready` to the root. The opposite order hides the whole page when a
+  script fails to load.
+- The menu is the `design_nav` setting, one `Label | /path` per line. Absolute
+  URLs are rejected — an editable menu that accepted them is a way to point a
+  shop's own navigation elsewhere.
+- **"Buy now" must actually skip the basket.** A second submit on the same form
+  (so the chosen quantity carries), with `Cart::add()` redirecting to checkout
+  when `checkout` is posted.
+
+### The homepage template
+
+- Every section reads its heading from the `home` settings group. A BLANK
+  setting HIDES the section — which is why the values are read raw in
+  `Home::homeCopy()` rather than through `SettingsService::get()`, which treats
+  blank as absent.
+- A section with no content does not render at all. An empty best-sellers rail
+  looks broken; no section looks deliberate. Verified both ways: with banners
+  absent the feature band, clients and gallery vanish cleanly.
+- The closing two words of each display headline are set in gold italic by a
+  `$split()` helper, so nobody has to write HTML into a settings box. Falls back
+  to a plain heading under four words.
+- **`banners.position` is a database ENUM, not a varchar.** Widening only the
+  model's `in_list` rule made the app accept a value MySQL then silently
+  truncated — the banner saved with an empty position and appeared nowhere.
+  Migration 000017 widens the column. Change BOTH or neither.
+- The hero renders every slide server-side with the first marked current, so
+  without JavaScript the first slide simply stays. The rail is native
+  scroll-snap; its arrows are `hidden` until the script wires them, because a
+  button that does nothing is worse than no button.
+- The slider does not auto-advance under `prefers-reduced-motion`, and pauses on
+  hover, on focus, and when the tab is hidden.
+- Only the first hero image is `fetchpriority="high"`; everything else is lazy.
+- `testimonials` is its own table. Squeezing quotes into `banners` (quote in the
+  title, author in the subtitle) would have worked for a week.
+
+### Locked settings must name where they ARE edited
+
+`Config\SettingHomes` maps a locked setting to its real destination, and the
+Settings screen renders a link. The previous wording — "changed through its own
+guarded control" — named no destination, and for `payment_enabled` /
+`payment_gateway` it promised a screen that does not exist, because the gateway
+is still deferred. Those now say so plainly.
+
+- **Resolve destinations in the CONTROLLER, not the view.** A CodeIgniter
+  template's `$this` is the View renderer, so `$this->can()` there is a fatal
+  error the moment a locked row renders. `Settings::resolveHomes()` does it.
+- A destination the current role cannot open is described, not linked — a link
+  that bounces to a refusal is worse than a sentence.
+- The `design` group is excluded from the generic screen entirely; Appearance
+  owns it.
+- **The `home` copy settings were seeded LOCKED with no screen to edit them**,
+  making 15 settings unreachable. They are plain text, so they are unlocked and
+  edited on the generic Settings screen. Do not lock a group without building
+  its screen first.
+
+### Content → Homepage
+
+- All homepage content lives on one screen, sequenced top-to-bottom as the page
+  reads. Someone editing it thinks about the page, not an alphabetical list of
+  setting keys — which is what the generic Settings list gave them.
+- Behind its OWN permission, `homepage.manage`. "Edit the homepage" and "edit
+  the mail server" are not the same job. Granted to Store Manager in the seeder;
+  super-admin holds `*`.
+- The `home` group is excluded from the generic Settings screen now that it has
+  a home, and `Config\SettingHomes` points there for any locked row.
+- **`Config\Rasmein::$bannerPositions` is the single list of banner slots.** It
+  previously lived in three places — the database enum, the model's `in_list`
+  rule, and the admin dropdown — and the three new homepage slots were added to
+  two of them, so they could not be selected in the panel at all. Adding a slot
+  means changing the enum (migration) and this list; the model and views read
+  from it.
+- Testimonial CRUD sits on the same screen rather than its own menu entry: it is
+  homepage content, and a top-level "Testimonials" item for three quotes is
+  noise.
+
+### The listing page (shop, category, occasion)
+
+- **Facets are COMPUTED, never declared.** `FacetService` derives every option
+  and count from the same conditions as the listing, so a count is a promise:
+  ticking it returns that many things. A facet with fewer than two options is
+  dropped — one choice is not a choice.
+- Context reshapes the sidebar: inside a category the Category facet becomes its
+  SUBCATEGORIES (moving down the tree, not sideways out of it); on an occasion
+  page the Occasion facet disappears entirely.
+- **Card photographs are batched.** `ProductModel::imagesFor()` loads every
+  image for the page in ONE query. Asking per card is an N+1, and the grid can
+  show far more than a dozen cards.
+- All images sit in the markup rather than being fetched on hover: fetching
+  shows a blank frame for a few hundred milliseconds, which reads as broken.
+  They are lazy, so only scrolled-to cards pay for it.
+- Cycling respects `prefers-reduced-motion`, and on touch (no hover) it advances
+  while the card is on screen. The dots are real buttons — on a phone they are
+  the only way through the set.
+- The filter form is a plain GET, so filtered state lives in the URL: shareable,
+  bookmarkable, back-button-able, and working without JavaScript. Auto-submit is
+  layered on top and hides the Apply button only once armed.
+- **`esc($url, 'attr')` on a chip URL encodes `/ : ? =` into entities and the
+  link 404s.** Fifth occurrence of the same trap. Controller-built URLs go out raw.
+- `http_build_query` writes PHP's array keys, so a list carrying its original
+  offsets becomes `band[2]=4`. Re-index before building, or offsets accumulate
+  as filters are added and removed.
+- Pagination must repeat EVERY filter key in `$pager->only()`, or page 2 quietly
+  drops them.
+- `products.material` was added because the design shows a Material facet with
+  no column behind it. A filter with nothing to filter on is worse than none.
+
+### Three layout bugs from the listing rebuild
+
+1. **`rs_url(rs_image(...))` produced `src=""` on every product image.**
+   `rs_image()` already calls `base_url()`, and `rs_url()` rejected anything
+   carrying a scheme. Two helpers written for different jobs, composed.
+   `rs_url()` now passes a finished http(s) URL through and still refuses
+   `javascript:` and `data:`. Do not nest them — `rs_image()` alone is complete.
+2. **`.rs-sidebar` is the ADMIN's dark navigation column.** The storefront filter
+   column reused the name and inherited a near-black background on cream. Class
+   names are one global namespace; the storefront one is `.rs-filtercol`.
+3. A stray `" sizes="any">` fragment survived an edit to the favicon block in
+   `layouts/storefront.php` and rendered as visible text at the top of every page.
+
+Layout: the page title sits INSIDE the product column, not in a band above both,
+so the filter list starts level with it — matching the design and saving a
+screenful of scroll before the first product.
+
+### Editing by string index cuts in the wrong place
+
+Removing the listing's old header sliced from `<header ...>` to the first
+`<div class="rs-shell py-10 lg:py-14">` — but that div is INSIDE the header. Only
+the opening tag went; a second breadcrumb, the page title, the description and a
+whole search form were left orphaned with a stray `</header>`, and rendered
+above the real layout. Anchor on something that cannot appear inside the block
+being removed, and assert on the removed text before writing.
+
+`withPrimaryImage()` also selects `category_name` now, via a correlated
+subquery. The card renders a category eyebrow and the listing query never
+provided it, so it silently never appeared — a join would have to be repeated by
+every caller and interacts badly with the `whereIn` subqueries the filters use.
+
+### Replacing one wrapper with two needs the extra closing tag
+
+Moving the listing toolbar level with the title replaced a single wrapper div
+with a row div PLUS an inner controls div, and the row was never closed. The
+product grid and pagination then became flex items inside a
+`flex-wrap items-end justify-between` row — products collapsed into a narrow
+column one word per line, and the title rendered AFTER them.
+
+PHP lints fine either way; only the rendered output shows it. After any change to
+a view's element nesting, fetch the page and compare `<div` against `</div>`
+counts. Counting the SOURCE does not work: conditionals mean the source can be
+unbalanced while every rendered branch is correct, and vice versa.
+
+### esc($url, 'attr') on URLs — CORRECTED
+
+**Earlier notes in this file claimed this breaks links. It does not.**
+`esc($url, 'attr')` encodes `/` as `&#x2F;` and `:` as `&#x3A;`, and browsers
+decode entities in attribute values, so the link, image and `data-` attribute all
+work. Verified empirically: an og:image URL escaped this way fetches 200 once
+unescaped, and `getAttribute()` returns the decoded string.
+
+Every "the link 404s" / "the image never loads" claim came from a broken TEST —
+curl was handed the literal entity text scraped out of the HTML.
+
+The real rule is narrower: **do not `esc()` a URL you built yourself.** It is
+already safe, the encoding makes the output hard to read and impossible to grep,
+and it hides genuine problems. Use `rs_url()` for stored asset paths and output
+`site_url()` / `current_url()` / `rs_image()` raw.
+
+**The one genuine bug in this family** was `rs_url(rs_image(...))` returning an
+empty string, because `rs_image()` already calls `base_url()` and `rs_url()
+refused anything with a scheme. That produced a real `src=""`. `rs_url()` now
+passes finished http(s) URLs through.
+
 
 ### Outstanding security work (tracked, not yet done)
 

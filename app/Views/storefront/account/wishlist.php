@@ -22,7 +22,7 @@
                 <a href="<?= site_url('shop') ?>" class="rs-btn rs-btn--primary mt-5">Browse the shop</a>
             </div>
         <?php else: ?>
-            <ul class="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
+            <ul class="rs-grid">
                 <?php foreach ($items as $item): ?>
                     <li class="rs-card flex flex-col overflow-hidden bg-white">
                         <a href="<?= site_url('product/' . $item['slug']) ?>" class="block aspect-[4/5] overflow-hidden bg-shell-deep">

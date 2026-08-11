@@ -143,6 +143,15 @@ class Products extends AdminController
             'categories' => model(CategoryModel::class)->orderBy('name', 'ASC')->findAll(),
             'maxBytes'   => config(Rasmein::class)->maxImageBytes,
             'occasions'  => model(\App\Models\CollectionModel::class)->occasions(),
+            // Existing values, so the datalist suggests what is already in use
+            // rather than inviting a new spelling of the same thing.
+            'materials'  => array_values(array_filter(array_column(
+                db_connect()->table('products')->distinct()->select('material')
+                    ->where('material IS NOT NULL', null, false)
+                    ->where('material !=', '')->orderBy('material', 'ASC')
+                    ->get()->getResultArray(),
+                'material'
+            ))),
             'taggedOccasions' => $product !== null
                 ? model(\App\Models\CollectionModel::class)->occasionIdsForProduct((int) $product->id)
                 : [],
@@ -172,6 +181,18 @@ class Products extends AdminController
             'unit_label'          => trim((string) $this->request->getPost('unit_label')) ?: null,
             'weight_grams'        => (int) $this->request->getPost('weight_grams') ?: null,
             'sale_mode'           => (string) $this->request->getPost('sale_mode'),
+            'material'            => trim((string) $this->request->getPost('material')) ?: null,
+            'eyebrow_label'       => trim((string) $this->request->getPost('eyebrow_label')) ?: null,
+            'composition'         => trim((string) $this->request->getPost('composition')) ?: null,
+            'packaging_note'      => trim((string) $this->request->getPost('packaging_note')) ?: null,
+            'care_note'           => trim((string) $this->request->getPost('care_note')) ?: null,
+            'personalisation_note' => trim((string) $this->request->getPost('personalisation_note')) ?: null,
+            // Blank means "do not show the stars", so an empty string becomes
+            // NULL rather than 0 — a 0.0 rating would render five empty stars.
+            'rating_average'      => trim((string) $this->request->getPost('rating_average')) !== ''
+                ? (float) $this->request->getPost('rating_average')
+                : null,
+            'review_count'        => (int) $this->request->getPost('review_count'),
             'is_giftbox_eligible' => $this->request->getPost('is_giftbox_eligible') !== null ? 1 : 0,
             'giftbox_slots'       => max(1, (int) $this->request->getPost('giftbox_slots')),
             'is_featured'         => $this->request->getPost('is_featured') !== null ? 1 : 0,

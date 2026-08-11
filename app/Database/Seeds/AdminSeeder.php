@@ -38,7 +38,7 @@ class AdminSeeder extends Seeder
                     'orders.view', 'orders.manage',
                     'enquiries.view', 'enquiries.manage',
                     'coupons.manage', 'customers.view',
-                    'content.manage', 'reports.view', 'settings.view',
+                    'content.manage', 'homepage.manage', 'reports.view', 'settings.view',
                 ],
                 'is_system'   => 1,
             ],

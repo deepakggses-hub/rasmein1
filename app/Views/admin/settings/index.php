@@ -104,11 +104,42 @@ $isEnquire = $journeyMode === \Config\Rasmein::MODE_ENQUIRE;
 
                             <div class="w-56">
                                 <?php if ($locked): ?>
+                                    <?php
+                                    /*
+                                     * Name the destination AND link to it. The
+                                     * old wording said a control existed without
+                                     * saying where — and for the payment keys it
+                                     * promised a screen that does not exist.
+                                     */
+                                    $home = $homes[$setting['key_name']] ?? ['state' => 'unknown'];
+                                    ?>
                                     <p class="text-sm">
                                         <span class="num font-medium"><?= esc($setting['value'] ?: '—') ?></span>
-                                        <span class="rs-badge rs-badge--soft ml-2">Locked</span>
+                                        <span class="rs-badge rs-badge--soft ml-2">Read-only here</span>
                                     </p>
-                                    <p class="rs-help">Changed through its own guarded control.</p>
+
+                                    <?php if ($home['state'] === 'linked'): ?>
+                                        <p class="rs-help">
+                                            Change it in
+                                            <a href="<?= site_url((string) $home['url']) ?>" class="rs-link text-mulberry">
+                                                <?= esc((string) $home['label']) ?>
+                                            </a>.
+                                        </p>
+                                    <?php elseif ($home['state'] === 'blocked'): ?>
+                                        <?php /* A destination exists but this role cannot open it.
+                                                 Saying so beats a link that bounces to a refusal. */ ?>
+                                        <p class="rs-help">
+                                            Changed in <?= esc((string) $home['label']) ?>, which your role cannot open.
+                                        </p>
+                                    <?php elseif ($home['state'] === 'none'): ?>
+                                        <p class="rs-help"><?= esc((string) ($home['note'] ?? 'Not editable from the admin panel.')) ?></p>
+                                    <?php else: ?>
+                                        <p class="rs-help">Set during installation; not editable from the admin panel.</p>
+                                    <?php endif; ?>
+
+                                    <?php if ($home['state'] === 'linked' && ! empty($home['note'])): ?>
+                                        <p class="rs-help"><?= esc((string) $home['note']) ?></p>
+                                    <?php endif; ?>
                                 <?php elseif ($setting['value_type'] === 'bool'): ?>
                                     <label class="flex items-center gap-2.5 text-sm">
                                         <input type="checkbox" name="<?= esc($name, 'attr') ?>" value="1"

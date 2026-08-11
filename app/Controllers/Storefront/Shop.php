@@ -100,6 +100,9 @@ class Shop extends StorefrontController
             'seoTitle' => $occasion['meta_title'] ?: $occasion['name'],
             'seoDesc'  => $occasion['meta_description'] ?: $occasion['description'],
             'lockedCollection' => (int) $occasion['id'],
+            // On an occasion page the Occasion facet is dropped — it would
+            // only ever offer the page you are already on.
+            'facetOccasion'    => (int) $occasion['id'],
             // Shown on the page so a seasonal occasion says how long is left,
             // which is the whole reason someone is looking at it.
             'endsAt'   => $ends,
@@ -130,6 +133,8 @@ class Shop extends StorefrontController
             // The category AND everything beneath it.
             'lockedCategory' => $model->descendantIds($id),
             'children'       => $model->childrenOf($id),
+            // Inside a category the Category facet becomes its subcategories.
+            'facetCategory'  => $id,
         ]);
     }
 
@@ -184,9 +189,26 @@ class Shop extends StorefrontController
         $pager    = $products->pager;
 
         // Carry the active filters onto the page links, or paging resets them.
-        $pager->only(['q', 'sort', 'category', 'min_price', 'max_price', 'in_stock', 'giftable']);
+        // Every filter key, or page 2 silently drops them and the result count
+        // changes underfoot.
+        $pager->only([
+            'q', 'sort', 'category', 'min_price', 'max_price', 'in_stock', 'giftable',
+            'band', 'material', 'occasion', 'stock',
+        ]);
+
+        $productIds = array_map(static fn ($product): int => (int) $product->id, $rows);
 
         return $this->page('storefront/shop', [
+            // Computed from the current context, so the sidebar never offers a
+            // filter that leads nowhere — see FacetService.
+            'facets'      => service('facets')->build($filters, [
+                'category' => $context['facetCategory'] ?? null,
+                'occasion' => $context['facetOccasion'] ?? null,
+            ]),
+            'active'      => ['q' => $filters['q'] ?? null, 'sort' => $sort],
+            'chips'       => $this->activeChips($filters),
+            // One query for every card's photographs, rather than one per card.
+            'imageMap'    => model(ProductModel::class)->imagesFor($productIds),
             'context'     => $context,
             'products'    => $rows,
             'pager'       => $pager,
@@ -239,15 +261,129 @@ class Shop extends StorefrontController
             [$min, $max] = [$max, $min];
         }
 
+        // Price bands are indices into Config\Rasmein::$priceBands. Translating
+        // them here keeps the model taking plain numbers, and means a crafted
+        // index cannot become an arbitrary range.
+        $bands = array_filter(
+            array_map('intval', (array) ($get['band'] ?? [])),
+            static fn (int $i): bool => isset(config(\Config\Rasmein::class)->priceBands[$i])
+        );
+
+        if ($bands !== []) {
+            $lows  = [];
+            $highs = [];
+
+            foreach ($bands as $index) {
+                [$from, $to] = config(\Config\Rasmein::class)->priceBands[$index];
+                $lows[]  = (float) $from;
+                $highs[] = $to === null ? null : (float) $to;
+            }
+
+            // Several bands ticked means the span they cover between them.
+            $min = min($lows);
+            $max = in_array(null, $highs, true) ? null : max($highs);
+        }
+
+        $stock = array_map('strval', (array) ($get['stock'] ?? []));
+
         return [
             'category'   => $category,
             'collection' => $context['lockedCollection'] ?? null,
+            'material'   => array_slice(array_map('strval', (array) ($get['material'] ?? [])), 0, 20),
+            'occasion'   => array_slice(array_map('intval', (array) ($get['occasion'] ?? [])), 0, 20),
+            'made_to_order' => in_array('order', $stock, true),
             'min_price'  => $min,
             'max_price'  => $max,
-            'in_stock'   => ! empty($get['in_stock']),
+            'in_stock'   => ! empty($get['in_stock']) || in_array('in', $stock, true),
             'giftable'   => ! empty($get['giftable']),
             'q'          => isset($get['q']) ? trim((string) $get['q']) : null,
         ];
+    }
+
+    /**
+     * The filters currently applied, each with a link that removes just that one.
+     *
+     * Without this a person who ticked four things and got two results has no
+     * way to see why, short of reading the sidebar again. Removing one at a time
+     * beats a single "clear everything".
+     *
+     * @param array<string, mixed> $filters
+     *
+     * @return array<int, array{label: string, url: string}>
+     */
+    private function activeChips(array $filters): array
+    {
+        $get   = $this->request->getGet();
+        $chips = [];
+
+        $drop = static function (string $key, ?string $value) use ($get): string {
+            $next = $get;
+
+            if ($value === null) {
+                unset($next[$key]);
+            } elseif (isset($next[$key]) && is_array($next[$key])) {
+                $next[$key] = array_values(array_filter(
+                    $next[$key],
+                    static fn ($v): bool => (string) $v !== $value
+                ));
+
+                if ($next[$key] === []) {
+                    unset($next[$key]);
+                }
+            }
+
+            unset($next['page']);
+
+            /*
+             * Re-index every array before building the query.
+             *
+             * http_build_query writes the PHP key, so a list that still carries
+             * its original offsets comes out as band[2]=4 rather than band[]=4.
+             * PHP reads that back, but the offsets then accumulate as filters are
+             * added and removed, and the URL stops being something a person can
+             * read or edit.
+             */
+            foreach ($next as $key => $value) {
+                if (is_array($value)) {
+                    $next[$key] = array_values($value);
+                }
+            }
+
+            return current_url() . ($next === [] ? '' : '?' . http_build_query($next));
+        };
+
+        foreach ((array) ($get['material'] ?? []) as $material) {
+            $chips[] = ['label' => (string) $material, 'url' => $drop('material', (string) $material)];
+        }
+
+        foreach ((array) ($get['band'] ?? []) as $index) {
+            $band = config(Rasmein::class)->priceBands[(int) $index] ?? null;
+
+            if ($band !== null) {
+                $chips[] = ['label' => (string) $band[2], 'url' => $drop('band', (string) $index)];
+            }
+        }
+
+        foreach ((array) ($get['occasion'] ?? []) as $occasionId) {
+            $row = model(CollectionModel::class)->find((int) $occasionId);
+
+            if ($row !== null) {
+                $chips[] = ['label' => (string) $row['name'], 'url' => $drop('occasion', (string) $occasionId)];
+            }
+        }
+
+        foreach ((array) ($get['stock'] ?? []) as $state) {
+            $chips[] = [
+                'label' => $state === 'in' ? 'In stock' : 'Made to order',
+                'url'   => $drop('stock', (string) $state),
+            ];
+        }
+
+        if (! empty($get['q'])) {
+            $chips[] = ['label' => '“' . (string) $get['q'] . '”', 'url' => $drop('q', null)];
+        }
+
+        return $chips;
     }
 
     private function readSort(): string

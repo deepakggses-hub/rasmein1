@@ -26,6 +26,8 @@ class DatabaseSeeder extends Seeder
         $this->call(GiftBoxSeeder::class);
         $this->call(CouponSeeder::class);
         $this->call(BrandSettingSeeder::class);
+        $this->call(DesignSettingSeeder::class);
+        $this->call(HomeContentSeeder::class);
         $this->call(MailSettingSeeder::class);
         $this->call(EmailTemplateSeeder::class);
         $this->call(ContentSeeder::class);

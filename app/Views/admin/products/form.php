@@ -53,6 +53,22 @@ $checked = static fn (string $field, bool $fallback): string => (old($field) !==
                         </select>
                     </label>
                     <label>
+                        <span class="rs-label">Material</span>
+                        <input type="text" name="material" class="rs-input" maxlength="80" list="rs-materials"
+                               placeholder="Brass" value="<?= $v('material', $product->material ?? '') ?>">
+                        <?php /* A datalist rather than a select: a shop can type
+                                 something new without an administrator creating it
+                                 first, and the shop filter is built from whatever
+                                 is actually in use. */ ?>
+                        <datalist id="rs-materials">
+                            <?php foreach ($materials ?? [] as $known): ?>
+                                <option value="<?= esc($known, 'attr') ?>"></option>
+                            <?php endforeach; ?>
+                        </datalist>
+                        <span class="rs-help">Shown as a filter on the shop.</span>
+                    </label>
+
+                    <label>
                         <span class="rs-label">Unit label</span>
                         <input type="text" name="unit_label" class="rs-input" maxlength="40" placeholder="250 g jar"
                                value="<?= $v('unit_label', $product->unit_label ?? '') ?>">
@@ -73,6 +89,70 @@ $checked = static fn (string $field, bool $fallback): string => (old($field) !==
                                 . 'removed when you save.',
                         ]) ?>
                     </div>
+                </div>
+            </section>
+
+            <!-- ============================ the panels ==================== -->
+            <section class="border border-shell-line bg-white p-5">
+                <h2 class="rs-eyebrow rs-eyebrow--plain">What the product page shows</h2>
+                <p class="rs-help mt-2 max-w-2xl">
+                    Each of these becomes an expandable panel on the product page. Leave one
+                    blank and that panel does not appear &mdash; better than an empty heading a
+                    customer opens for nothing.
+                </p>
+
+                <div class="mt-5 grid gap-4">
+                    <label>
+                        <span class="rs-label">Eyebrow label</span>
+                        <input type="text" name="eyebrow_label" class="rs-input" maxlength="60"
+                               placeholder="Signature hamper"
+                               value="<?= $v('eyebrow_label', $product->eyebrow_label ?? '') ?>">
+                        <span class="rs-help">
+                            Shown above the title after the category, as
+                            <span class="font-mono">WEDDING &middot; SIGNATURE HAMPER</span>.
+                        </span>
+                    </label>
+
+                    <label>
+                        <span class="rs-label">The composition</span>
+                        <textarea name="composition" class="rs-textarea" rows="4" maxlength="2000"
+                                  placeholder="Banarasi silk stole (100% mulberry silk), two hand-cast brass diyas…"><?= esc(old('composition') ?? $product->composition ?? '') ?></textarea>
+                        <span class="rs-help">What is inside. Opens by default on the product page.</span>
+                    </label>
+
+                    <label>
+                        <span class="rs-label">Packaging &amp; delivery</span>
+                        <textarea name="packaging_note" class="rs-textarea" rows="3" maxlength="2000"><?= esc(old('packaging_note') ?? $product->packaging_note ?? '') ?></textarea>
+                    </label>
+
+                    <label>
+                        <span class="rs-label">Care instructions</span>
+                        <textarea name="care_note" class="rs-textarea" rows="3" maxlength="2000"><?= esc(old('care_note') ?? $product->care_note ?? '') ?></textarea>
+                    </label>
+
+                    <label>
+                        <span class="rs-label">Personalise this item</span>
+                        <textarea name="personalisation_note" class="rs-textarea" rows="3" maxlength="2000"
+                                  placeholder="Hand-lettered cards, monogramming and bulk ordering — write to us."><?= esc(old('personalisation_note') ?? $product->personalisation_note ?? '') ?></textarea>
+                    </label>
+                </div>
+
+                <div class="mt-6 grid gap-4 border-t border-shell-line pt-5 sm:grid-cols-2">
+                    <label>
+                        <span class="rs-label">Rating shown (0&ndash;5)</span>
+                        <input type="number" name="rating_average" class="rs-input num" min="0" max="5" step="0.1"
+                               value="<?= $v('rating_average', (string) ($product->rating_average ?? '')) ?>">
+                    </label>
+                    <label>
+                        <span class="rs-label">Number of reviews shown</span>
+                        <input type="number" name="review_count" class="rs-input num" min="0" max="1000000"
+                               value="<?= $v('review_count', (string) ($product->review_count ?? '')) ?>">
+                    </label>
+                    <p class="rs-help sm:col-span-2">
+                        <strong>These are typed in, not calculated.</strong> There is no customer
+                        review system yet, so whatever you enter is what shows. Leave both blank
+                        and the stars do not appear at all.
+                    </p>
                 </div>
             </section>
 

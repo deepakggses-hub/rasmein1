@@ -1,61 +1,125 @@
 <?php
 /**
+ * A product card.
+ *
+ * Declares a container query context, so it sizes from the space it is GIVEN
+ * rather than the viewport — the same component then works in a wide grid, a
+ * narrow rail and a two-up mobile layout without knowing which it is in.
+ *
+ * Several photographs cycle on hover, with dots beneath. Every image is in the
+ * markup: the alternative — fetching on hover — shows a blank frame for the
+ * first few hundred milliseconds, which reads as broken. They are lazy, so the
+ * cost is only paid for cards the person actually scrolls to.
+ *
  * @var \App\Entities\Product $product
+ * @var array<int, array<string, mixed>>|null $images  Pre-loaded, to avoid an N+1
+ * @var bool $showQuick
  */
-?>
-<article class="rs-card group flex flex-col overflow-hidden">
-    <a href="<?= $product->url() ?>" class="relative block aspect-[4/5] overflow-hidden bg-shell-deep">
-        <img src="<?= esc($product->imageUrl(), 'attr') ?>"
-             alt="<?= esc($product->name, 'attr') ?>"
-             loading="lazy"
-             decoding="async"
-             class="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.04]">
+$showQuick = $showQuick ?? true;
+$inStock   = $product->inStock();
+$isEnquire = rs_is_enquire_mode($product->sale_mode ?? 'inherit');
+$url       = site_url('product/' . $product->slug);
 
-        <?php if ($product->hasDiscount()): ?>
-            <span class="rs-badge rs-badge--brass absolute left-3 top-3">
-                <?= $product->discountPercent() ?>% off
+// Fall back to the single primary image when a caller has not batched them.
+$shots = $images ?? [];
+
+if ($shots === []) {
+    $shots = [['path' => null, 'alt_text' => $product->name]];
+}
+
+$shots  = array_slice($shots, 0, 5);
+$hasMany = count($shots) > 1;
+
+$flag = null;
+
+if (! $inStock) {
+    $flag = ['Sold out', 'rs-product__flag--plain'];
+} elseif (! empty($product->is_featured)) {
+    $flag = ['Best seller', ''];
+} elseif (! empty($product->created_at) && strtotime((string) $product->created_at) > strtotime('-21 days')) {
+    $flag = ['New', 'rs-product__flag--new'];
+}
+?>
+<article class="rs-product group" <?= $hasMany ? 'data-shots' : '' ?>>
+    <div class="rs-product__frame">
+        <a href="<?= $url ?>" class="absolute inset-0 z-10" tabindex="-1" aria-hidden="true"></a>
+
+        <?php foreach ($shots as $index => $shot): ?>
+            <img src="<?= rs_url(rs_image($shot['path'] ?? null, 'products')) ?>"
+                 alt="<?= $index === 0 ? '' : esc($shot['alt_text'] ?? '', 'attr') ?>"
+                 class="rs-product__img <?= $index === 0 ? 'is-current' : '' ?>"
+                 data-shot="<?= $index ?>"
+                 loading="lazy" decoding="async" width="600" height="732">
+        <?php endforeach; ?>
+
+        <?php if ($flag !== null): ?>
+            <span class="rs-product__flag <?= $flag[1] ?>"><?= esc($flag[0]) ?></span>
+        <?php endif; ?>
+
+        <?php if (! $inStock): ?>
+            <span class="absolute inset-0 z-20 grid place-items-center bg-shell/55">
+                <span class="rs-badge rs-badge--out">Sold out</span>
             </span>
         <?php endif; ?>
 
-        <?php if (! $product->inStock()): ?>
-            <span class="rs-badge rs-badge--out absolute right-3 top-3">Sold out</span>
-        <?php elseif ($product->isLowStock()): ?>
-            <span class="rs-badge rs-badge--soft absolute right-3 top-3"><?= esc($product->stockLabel()) ?></span>
-        <?php endif; ?>
-    </a>
-
-    <div class="flex flex-1 flex-col p-4">
-        <?php if ($product->unit_label !== null && $product->unit_label !== ''): ?>
-            <p class="font-mono text-[0.625rem] tracking-[0.14em] text-ink-muted uppercase">
-                <?= esc($product->unit_label) ?>
-            </p>
-        <?php endif; ?>
-
-        <h3 class="mt-1 text-base leading-snug font-semibold">
-            <a href="<?= $product->url() ?>" class="rs-link"><?= esc($product->name) ?></a>
-        </h3>
-
-        <?php if ($product->short_description !== null && $product->short_description !== ''): ?>
-            <p class="mt-1.5 text-sm text-ink-muted"><?= esc(rs_excerpt($product->short_description, 72)) ?></p>
+        <?php if ($hasMany): ?>
+            <?php /* Dots are buttons, not decoration: a touch device has no
+                     hover, so this is the only way to reach the other
+                     photographs without opening the product. */ ?>
+            <div class="rs-product__dots" data-shot-dots>
+                <?php foreach ($shots as $index => $shot): ?>
+                    <button type="button" class="rs-product__dot <?= $index === 0 ? 'is-current' : '' ?>"
+                            data-shot-dot="<?= $index ?>"
+                            aria-label="Photograph <?= $index + 1 ?> of <?= count($shots) ?>"></button>
+                <?php endforeach; ?>
+            </div>
         <?php endif; ?>
 
-        <div class="mt-auto flex items-end justify-between gap-3 pt-4">
-            <p class="num">
-                <span class="text-lg font-bold text-mulberry"><?= esc($product->formattedPrice()) ?></span>
-                <?php if ($product->hasDiscount()): ?>
-                    <span class="ml-1.5 text-sm text-ink-muted line-through">
-                        <?= esc($product->formattedCompareAtPrice()) ?>
-                    </span>
+        <?php if ($showQuick && $inStock): ?>
+            <div class="rs-product__quick">
+                <form method="post" action="<?= site_url('cart/add') ?>" class="flex-1">
+                    <?= csrf_field() ?>
+                    <input type="hidden" name="product_id" value="<?= (int) $product->id ?>">
+                    <input type="hidden" name="quantity" value="1">
+                    <input type="hidden" name="return_to" value="<?= esc(uri_string(), 'attr') ?>">
+                    <button type="submit" class="rs-btn rs-btn--primary rs-btn--sm w-full">
+                        <?= esc(rs_cta_label($product->sale_mode ?? 'inherit', 'add')) ?>
+                    </button>
+                </form>
+
+                <?php if (session('customer_id') !== null): ?>
+                    <form method="post" action="<?= site_url('wishlist/toggle') ?>">
+                        <?= csrf_field() ?>
+                        <input type="hidden" name="product_id" value="<?= (int) $product->id ?>">
+                        <input type="hidden" name="return_to" value="<?= esc(uri_string(), 'attr') ?>">
+                        <button type="submit" class="rs-iconpill"
+                                aria-label="Save <?= esc($product->name, 'attr') ?> for later">
+                            <?= rs_icon('heart', 'h-4 w-4') ?>
+                        </button>
+                    </form>
                 <?php endif; ?>
-            </p>
-
-            <?php if ($product->inStock()): ?>
-                <a href="<?= $product->url() ?>" class="rs-btn rs-btn--outline rs-btn--sm">
-                    <?= esc($product->ctaLabel('short')) ?>
-                </a>
-            <?php else: ?>
-                <span class="rs-btn rs-btn--outline rs-btn--sm" aria-disabled="true">Sold out</span>
-            <?php endif; ?>
-        </div>
+            </div>
+        <?php endif; ?>
     </div>
+
+    <?php if (! empty($product->category_name)): ?>
+        <p class="rs-product__eyebrow"><?= esc($product->category_name) ?></p>
+    <?php endif; ?>
+
+    <h3 class="rs-product__name">
+        <a href="<?= $url ?>" class="after:absolute after:inset-0 hover:text-mulberry">
+            <?= esc($product->name) ?>
+        </a>
+    </h3>
+
+    <p class="rs-product__price num">
+        <?php if ($isEnquire): ?>
+            <span class="text-ink-muted">Price on enquiry</span>
+        <?php else: ?>
+            <?php if ($product->compare_at_price !== null && (float) $product->compare_at_price > (float) $product->price): ?>
+                <span class="rs-product__was"><?= rs_money($product->compare_at_price) ?></span>
+            <?php endif; ?>
+            <span class="font-semibold"><?= esc($product->formattedPrice()) ?></span>
+        <?php endif; ?>
+    </p>
 </article>

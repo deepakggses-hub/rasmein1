@@ -1,222 +1,184 @@
 <?= $this->extend('layouts/storefront') ?>
-
 <?= $this->section('content') ?>
-
 <?php
 /**
- * @var array|null $hero
- * @var array<int, \App\Entities\GiftBox>  $giftBoxes
- * @var array<int, \App\Entities\Product>  $featured
- * @var array<int, \App\Entities\Product>  $newArrivals
- * @var array<int, \App\Entities\Product>  $trayProducts
- * @var array<int, \App\Entities\Category> $categories
- * @var array<int, array<string, mixed>>   $collections
- * @var int  $boxCount
- * @var bool $isEnquire
+ * The homepage.
+ *
+ * Built from the supplied design. Conventions that run through it:
+ *
+ *  - Every section reads its heading from the `home` settings group, so a shop
+ *    can rewrite its own copy. A BLANK setting hides the section rather than
+ *    rendering an empty band — which is why the values are read raw rather than
+ *    through SettingsService::get(), which treats blank as absent.
+ *  - A section with nothing to show does not render at all. An empty "best
+ *    sellers" rail looks broken; no section at all looks deliberate.
+ *  - The closing two words of each display headline are set in gold italic, as
+ *    in the design, without asking anyone to write HTML into a settings box.
+ *
+ * @var array<string, string> $copy
  */
+$c = static fn (string $key, string $fallback = ''): string => trim($copy[$key] ?? $fallback);
+
+/** Split a headline so the last two words can carry the accent. */
+$split = static function (string $text): array {
+    $words = preg_split('/\s+/', trim($text)) ?: [];
+
+    return count($words) >= 4
+        ? [implode(' ', array_slice($words, 0, -2)), implode(' ', array_slice($words, -2))]
+        : [$text, ''];
+};
+
+$heroSlides = $heroSlides ?? [];
+$multiSlide = count($heroSlides) > 1;
 ?>
 
-<!-- ==================================================================
-     HERO
-     The thesis: gifting here is an act of composition. So the hero is
-     the tray itself, mid-assembly, rather than a photograph of a
-     finished product. The headline names the act; the tray shows it.
-     ================================================================== -->
-<section class="relative overflow-hidden bg-mulberry-deep text-shell">
-    <!-- Brass rule that anchors the panel to the page below -->
-    <div class="absolute inset-x-0 bottom-0 h-px bg-brass/40" aria-hidden="true"></div>
-
-    <div class="rs-shell grid items-center gap-12 py-16 lg:grid-cols-[1.05fr_0.95fr] lg:gap-20 lg:py-24">
-
-        <div>
-            <p class="rs-eyebrow rs-eyebrow--on-dark">
-                <?= esc($hero['eyebrow'] ?? 'Build your own') ?>
-            </p>
-
-            <h1 class="mt-5 font-display text-[2.5rem] leading-[1.02] font-semibold sm:text-5xl lg:text-6xl">
-                <?php if (! empty($hero['title'])): ?>
-                    <?= esc($hero['title']) ?>
-                <?php else: ?>
-                    Fill the box<br>
-                    <span class="text-brass-bright">with the feeling</span><br>
-                    you mean.
-                <?php endif; ?>
-            </h1>
-
-            <p class="mt-6 max-w-md text-base leading-relaxed text-shell/80 sm:text-lg">
-                <?= esc($hero['subtitle'] ?? 'Choose a box, fill each compartment yourself, add a note in your own words. Or send one of our ready hampers as it is.') ?>
-            </p>
-
-            <div class="mt-9 flex flex-wrap items-center gap-3">
-                <a href="<?= esc($hero['link_url'] ?? site_url('build'), 'attr') ?>" class="rs-btn rs-btn--brass">
-                    <?= esc($hero['cta_label'] ?? 'Start a box') ?>
-                    <svg class="h-3.5 w-3.5" viewBox="0 0 14 14" fill="none" aria-hidden="true">
-                        <path d="M2 7h9M7.5 3.5 11 7l-3.5 3.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
-                    </svg>
-                </a>
-                <a href="<?= site_url('gift-boxes') ?>" class="rs-btn rs-btn--on-dark">
-                    See ready hampers
-                </a>
+<!-- ================================================================ HERO -->
+<section class="rs-hero" <?= $multiSlide ? 'data-hero' : '' ?>>
+    <?php if ($heroSlides === []): ?>
+        <?php /* No banner uploaded yet: a typeset hero rather than a blank
+                 rectangle, so a fresh install still looks finished. */ ?>
+        <div class="rs-hero__slide rs-hero__slide--bare is-current">
+            <div class="rs-shell rs-hero__inner">
+                <p class="rs-kicker"><?= esc($brand->brandName) ?></p>
+                <h1 class="rs-display rs-display--xl mt-5 text-shell">Customize your <em>Gift</em></h1>
+                <p class="rs-hero__lede">
+                    Luxury wedding gifts, ritual collections and premium hampers inspired by Indian
+                    heritage. Hand-finished, thoughtfully packaged, and made to be remembered.
+                </p>
+                <div class="rs-hero__actions">
+                    <a href="<?= site_url('shop') ?>" class="rs-btn rs-btn--gold">Explore collection</a>
+                    <a href="<?= site_url('build') ?>" class="rs-btn rs-btn--ghost">Build your gift box</a>
+                </div>
             </div>
-
-            <!-- Three facts, not three adjectives. -->
-            <dl class="mt-12 grid max-w-lg grid-cols-3 gap-6 border-t border-brass/25 pt-6">
-                <div>
-                    <dt class="font-mono text-[0.625rem] tracking-[0.16em] text-brass-bright uppercase">Boxes</dt>
-                    <dd class="num mt-1 font-display text-2xl font-semibold"><?= esc((string) $boxCount) ?></dd>
-                </div>
-                <div>
-                    <dt class="font-mono text-[0.625rem] tracking-[0.16em] text-brass-bright uppercase">Dispatch</dt>
-                    <dd class="num mt-1 font-display text-2xl font-semibold">48 hrs</dd>
-                </div>
-                <div>
-                    <dt class="font-mono text-[0.625rem] tracking-[0.16em] text-brass-bright uppercase">Delivery</dt>
-                    <dd class="mt-1 font-display text-2xl font-semibold">Pan-India</dd>
-                </div>
-            </dl>
         </div>
+    <?php else: ?>
+        <?php foreach ($heroSlides as $index => $slide): ?>
+            <?php [$head, $tail] = $split((string) ($slide['title'] ?? 'Customize your Gift')); ?>
+            <div class="rs-hero__slide <?= $index === 0 ? 'is-current' : '' ?>" data-hero-slide
+                 <?= $index === 0 ? '' : 'aria-hidden="true"' ?>>
+                <?php /* Decorative: everything the image conveys is in the
+                         heading beside it, so an empty alt is correct. */ ?>
+                <img src="<?= rs_url(rs_image($slide['image'] ?? null, 'banners')) ?>" alt=""
+                     class="rs-hero__img"
+                     <?= $index === 0 ? 'fetchpriority="high"' : 'loading="lazy"' ?>
+                     decoding="async" width="1920" height="900">
 
-        <!-- The Tray -->
-        <div class="relative mx-auto w-full max-w-md lg:max-w-none">
-            <?= view('partials/tray', [
-                'capacity' => 6,
-                'filled'   => array_slice($trayProducts, 0, 4),
-                'columns'  => 3,
-                'animate'  => true,
-            ]) ?>
-
-            <p class="mt-4 flex items-center justify-between gap-4 font-mono text-[0.6875rem] tracking-[0.14em] text-brass-bright uppercase">
-                <span>Six compartments</span>
-                <span class="num">4 / 6 filled</span>
-            </p>
-        </div>
-    </div>
-</section>
-
-<!-- ==================================================================
-     HOW IT WORKS — the only place numbering is used, because these
-     four steps genuinely are a sequence the customer moves through.
-     ================================================================== -->
-<section class="rs-shell py-16 lg:py-20">
-    <div class="max-w-xl">
-        <p class="rs-eyebrow">How a box comes together</p>
-        <h2 class="mt-4 text-3xl sm:text-[2.125rem]">Four steps, no guesswork.</h2>
-    </div>
-
-    <ol class="mt-12 grid gap-x-8 gap-y-10 sm:grid-cols-2 lg:grid-cols-4">
-        <?php
-        $steps = [
-            ['Choose a box', 'Pick a size, a theme, or a budget. The box sets how many compartments you have to play with.'],
-            ['Fill it', 'Add products one by one. The tray shows what is left, so you always know where you stand.'],
-            ['Make it yours', 'Add a greeting card message and any special request. Both optional, neither an afterthought.'],
-            ['Review and send', $isEnquire
-                ? 'Check the box over, then send it to us as an enquiry and we will come back with a quote.'
-                : 'Check the box over, then check out. We pack it by hand and dispatch within 48 hours.'],
-        ];
-        foreach ($steps as $index => [$title, $body]):
-        ?>
-            <li class="relative">
-                <span class="num font-mono text-[0.6875rem] tracking-[0.18em] text-brass">
-                    <?= str_pad((string) ($index + 1), 2, '0', STR_PAD_LEFT) ?>
-                </span>
-                <hr class="rs-rule mt-3">
-                <h3 class="mt-4 text-lg font-semibold"><?= esc($title) ?></h3>
-                <p class="mt-2 text-sm leading-relaxed text-ink-muted"><?= esc($body) ?></p>
-            </li>
-        <?php endforeach; ?>
-    </ol>
-</section>
-
-<!-- ==================================================================
-     GIFT BOXES
-     ================================================================== -->
-<?php if ($giftBoxes !== []): ?>
-    <section class="bg-shell-deep py-16 lg:py-20">
-        <div class="rs-shell">
-            <div class="flex flex-wrap items-end justify-between gap-4">
-                <div class="max-w-lg">
-                    <p class="rs-eyebrow">Start here</p>
-                    <h2 class="mt-4 text-3xl sm:text-[2.125rem]">Pick the box, then fill it.</h2>
-                </div>
-                <a href="<?= site_url('gift-boxes') ?>" class="rs-link font-mono text-[0.6875rem] tracking-[0.16em] text-brass uppercase">
-                    All boxes
-                </a>
-            </div>
-
-            <div class="mt-10 grid gap-6 md:grid-cols-3">
-                <?php foreach ($giftBoxes as $box): ?>
-                    <article class="rs-card flex flex-col overflow-hidden bg-white">
-                        <a href="<?= $box->builderUrl() ?>" class="block aspect-[3/2] overflow-hidden bg-shell-deep">
-                            <img src="<?= esc($box->imageUrl(), 'attr') ?>"
-                                 alt="<?= esc($box->name, 'attr') ?>"
-                                 loading="lazy" decoding="async"
-                                 class="h-full w-full object-cover">
+                <div class="rs-shell rs-hero__inner">
+                    <?php if (! empty($slide['eyebrow'])): ?>
+                        <p class="rs-kicker"><?= esc($slide['eyebrow']) ?></p>
+                    <?php endif; ?>
+                    <h1 class="rs-display rs-display--xl mt-5 text-shell">
+                        <?= esc($head) ?><?php if ($tail !== ''): ?> <em><?= esc($tail) ?></em><?php endif; ?>
+                    </h1>
+                    <?php if (! empty($slide['subtitle'])): ?>
+                        <p class="rs-hero__lede"><?= esc($slide['subtitle']) ?></p>
+                    <?php endif; ?>
+                    <div class="rs-hero__actions">
+                        <a href="<?= rs_url(ltrim((string) ($slide['link_url'] ?: 'shop'), '/')) ?>" class="rs-btn rs-btn--gold">
+                            <?= esc($slide['cta_label'] ?: 'Explore collection') ?>
                         </a>
+                        <a href="<?= site_url('build') ?>" class="rs-btn rs-btn--ghost">Build your gift box</a>
+                    </div>
+                </div>
+            </div>
+        <?php endforeach; ?>
 
-                        <div class="flex flex-1 flex-col p-6">
-                            <div class="flex items-center gap-2">
-                                <?php if ($box->size_label !== null && $box->size_label !== ''): ?>
-                                    <span class="rs-badge rs-badge--soft"><?= esc($box->size_label) ?></span>
-                                <?php endif; ?>
-                                <span class="rs-badge rs-badge--brass"><?= esc($box->capacityLabel()) ?></span>
-                            </div>
-
-                            <h3 class="mt-3 font-display text-xl font-semibold">
-                                <a href="<?= $box->builderUrl() ?>" class="rs-link"><?= esc($box->name) ?></a>
-                            </h3>
-
-                            <p class="mt-2 text-sm leading-relaxed text-ink-muted">
-                                <?= esc(rs_excerpt($box->description, 100)) ?>
-                            </p>
-
-                            <div class="mt-auto flex items-center justify-between gap-4 pt-6">
-                                <p class="text-sm text-ink-muted">
-                                    Box
-                                    <span class="num font-semibold text-ink"><?= esc($box->formattedBasePrice()) ?></span>
-                                    <span class="text-ink-muted">+ contents</span>
-                                </p>
-                                <a href="<?= $box->builderUrl() ?>" class="rs-btn rs-btn--primary rs-btn--sm">
-                                    Fill it
-                                </a>
-                            </div>
-                        </div>
-                    </article>
+        <?php if ($multiSlide): ?>
+            <div class="rs-hero__dots">
+                <?php foreach ($heroSlides as $index => $slide): ?>
+                    <button type="button" class="rs-hero__dot <?= $index === 0 ? 'is-current' : '' ?>"
+                            data-hero-dot="<?= $index ?>" aria-label="Slide <?= $index + 1 ?>"></button>
                 <?php endforeach; ?>
+            </div>
+        <?php endif; ?>
+    <?php endif; ?>
+</section>
+
+<?php
+/*
+ * The promise strip.
+ *
+ * Duplicated content plus a -50% translate is what makes the loop seamless
+ * with no JavaScript, and aria-hidden on the copy stops a screen reader
+ * announcing everything twice.
+ */
+$rsMarquee = service('design');
+?>
+<?php if ($rsMarquee->flag('design_marquee')): ?>
+    <?php
+    $phrases = array_values(array_filter(array_map(
+        'trim',
+        preg_split('/[·|]/u', $rsMarquee->get('design_marquee_text', '')) ?: []
+    )));
+    ?>
+    <?php if ($phrases !== []): ?>
+        <div class="rs-marquee rs-bleed">
+            <div class="rs-marquee__track">
+                <?php for ($pass = 0; $pass < 2; $pass++): ?>
+                    <span class="rs-marquee__item" <?= $pass === 1 ? 'aria-hidden="true"' : '' ?>>
+                        <?php foreach ($phrases as $phrase): ?>
+                            <span><?= esc($phrase) ?></span>
+                            <span class="text-brass" aria-hidden="true">&middot;</span>
+                        <?php endforeach; ?>
+                    </span>
+                <?php endfor; ?>
+            </div>
+        </div>
+    <?php endif; ?>
+<?php endif; ?>
+
+<!-- ========================================================== PHILOSOPHY -->
+<?php $philosophy = $c('home_philosophy_title'); ?>
+<?php if ($philosophy !== ''): ?>
+    <?php [$pHead, $pTail] = $split($philosophy); ?>
+    <section class="rs-shell rs-section">
+        <div class="grid gap-x-[clamp(2rem,6vw,6rem)] gap-y-8 lg:grid-cols-[1fr_1.15fr] lg:items-start">
+            <div class="rs-reveal">
+                <p class="rs-kicker"><?= esc($c('home_philosophy_kicker', 'Our philosophy')) ?></p>
+                <h2 class="rs-display rs-display--lg mt-5">
+                    <?= esc($pHead) ?><?php if ($pTail !== ''): ?> <em><?= esc($pTail) ?></em><?php endif; ?>
+                </h2>
+            </div>
+            <div class="rs-reveal lg:pt-3">
+                <?php foreach (preg_split('/\R{2,}/', $c('home_philosophy_body')) ?: [] as $para): ?>
+                    <?php if (trim((string) $para) === '') { continue; } ?>
+                    <p class="mb-5 text-[1.0625rem] leading-[1.75] text-ink-soft last:mb-0"><?= esc(trim((string) $para)) ?></p>
+                <?php endforeach; ?>
+                <a href="<?= site_url('page/about') ?>" class="rs-arrowlink mt-7">
+                    Our story <?= rs_icon('arrow-right', 'h-4 w-4') ?>
+                </a>
             </div>
         </div>
     </section>
 <?php endif; ?>
 
-<!-- ==================================================================
-     CATEGORIES — counts are real, pulled from the catalogue.
-     ================================================================== -->
+<!-- ================================================ FEATURED COLLECTIONS -->
 <?php if ($categories !== []): ?>
-    <section class="rs-shell py-16 lg:py-20">
-        <p class="rs-eyebrow">What goes in</p>
-        <h2 class="mt-4 max-w-lg text-3xl sm:text-[2.125rem]">Everything is chosen to sit well beside something else.</h2>
+    <?php [$cHead, $cTail] = $split($c('home_collections_title', 'A collection for every occasion.')); ?>
+    <section class="rs-shell rs-section rs-section--tight">
+        <div class="flex flex-wrap items-end justify-between gap-x-8 gap-y-4">
+            <div>
+                <p class="rs-kicker"><?= esc($c('home_collections_kicker', 'Featured collections')) ?></p>
+                <h2 class="rs-display rs-display--lg mt-4">
+                    <?= esc($cHead) ?><?php if ($cTail !== ''): ?> <em><?= esc($cTail) ?></em><?php endif; ?>
+                </h2>
+            </div>
+            <a href="<?= site_url('collections') ?>" class="rs-arrowlink shrink-0">
+                All collections <?= rs_icon('arrow-right', 'h-4 w-4') ?>
+            </a>
+        </div>
 
-        <ul class="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <ul class="rs-mosaic mt-10">
             <?php foreach ($categories as $category): ?>
-                <li>
-                    <a href="<?= $category->url() ?>"
-                       class="rs-card flex items-center gap-5 bg-white p-4">
-                        <span class="block h-20 w-20 shrink-0 overflow-hidden bg-shell-deep">
-                            <img src="<?= esc($category->imageUrl(), 'attr') ?>"
-                                 alt="" loading="lazy" decoding="async"
-                                 class="h-full w-full object-cover">
+                <li class="rs-reveal">
+                    <a href="<?= rs_url((string) ($category->path ?? $category->slug)) ?>" class="rs-tile">
+                        <img src="<?= rs_url($category->imageUrl()) ?>" alt="" class="rs-tile__img"
+                             loading="lazy" decoding="async" width="640" height="480">
+                        <span class="rs-tile__veil" aria-hidden="true"></span>
+                        <span class="rs-tile__body">
+                            <span class="rs-tile__name"><?= esc($category->name) ?></span>
+                            <span class="rs-tile__go" aria-hidden="true"><?= rs_icon('arrow-right', 'h-4 w-4') ?></span>
                         </span>
-                        <span class="min-w-0">
-                            <span class="block font-display text-lg leading-tight font-semibold"><?= esc($category->name) ?></span>
-                            <?php if ($category->productCount() !== null): ?>
-                                <span class="num mt-1 block font-mono text-[0.625rem] tracking-[0.14em] text-ink-muted uppercase">
-                                    <?= esc((string) $category->productCount()) ?>
-                                    <?= $category->productCount() === 1 ? 'product' : 'products' ?>
-                                </span>
-                            <?php endif; ?>
-                        </span>
-                        <svg class="ml-auto h-4 w-4 shrink-0 text-brass" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-                            <path d="M3 8h8M8 4.5 11.5 8 8 11.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-                        </svg>
                     </a>
                 </li>
             <?php endforeach; ?>
@@ -224,77 +186,234 @@
     </section>
 <?php endif; ?>
 
-<!-- ==================================================================
-     FEATURED PRODUCTS
-     ================================================================== -->
+<!-- ============================================== THE EDIT — BEST SELLERS -->
 <?php if ($featured !== []): ?>
-    <section class="bg-shell-deep py-16 lg:py-20">
-        <div class="rs-shell">
-            <div class="flex flex-wrap items-end justify-between gap-4">
-                <div class="max-w-lg">
-                    <p class="rs-eyebrow">Favourites</p>
-                    <h2 class="mt-4 text-3xl sm:text-[2.125rem]">What people keep reaching for.</h2>
+    <?php [$eHead, $eTail] = $split($c('home_edit_title', 'Loved by our patrons.')); ?>
+    <section class="rs-band">
+        <div class="rs-shell rs-section rs-section--tight">
+            <div class="flex flex-wrap items-end justify-between gap-x-8 gap-y-4">
+                <div>
+                    <p class="rs-kicker"><?= esc($c('home_edit_kicker', 'The edit — best sellers')) ?></p>
+                    <h2 class="rs-display rs-display--lg mt-4">
+                        <?= esc($eHead) ?><?php if ($eTail !== ''): ?> <em><?= esc($eTail) ?></em><?php endif; ?>
+                    </h2>
                 </div>
-                <a href="<?= site_url('shop') ?>" class="rs-link font-mono text-[0.6875rem] tracking-[0.16em] text-brass uppercase">
-                    Shop everything
-                </a>
+                <?php /* Hidden until the script arms them: arrows that do
+                         nothing are worse than no arrows. */ ?>
+                <div class="rs-railnav" data-rail-nav hidden>
+                    <button type="button" class="rs-railnav__btn" data-rail-prev aria-label="Previous products">
+                        <?= rs_icon('arrow-left', 'h-4 w-4') ?>
+                    </button>
+                    <button type="button" class="rs-railnav__btn" data-rail-next aria-label="More products">
+                        <?= rs_icon('arrow-right', 'h-4 w-4') ?>
+                    </button>
+                </div>
             </div>
 
-            <div class="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+            <div class="rs-rail rs-rail--cards mt-9" data-rail>
                 <?php foreach ($featured as $product): ?>
-                    <?= view('partials/product_card', ['product' => $product]) ?>
+                    <div><?= view('partials/product_card', ['product' => $product]) ?></div>
                 <?php endforeach; ?>
             </div>
         </div>
     </section>
 <?php endif; ?>
 
-<!-- ==================================================================
-     COLLECTIONS
-     ================================================================== -->
-<?php if ($collections !== []): ?>
-    <section class="rs-shell py-16 lg:py-20">
-        <p class="rs-eyebrow">Curated</p>
-        <h2 class="mt-4 max-w-lg text-3xl sm:text-[2.125rem]">Boxes built for a moment.</h2>
+<!-- ===================================================== SHOP BY OCCASION -->
+<?php if ($occasions !== []): ?>
+    <?php [$oHead, $oTail] = $split($c('home_occasion_title', 'Celebrate every moment worth remembering.')); ?>
+    <section class="rs-shell rs-section">
+        <div class="mx-auto max-w-2xl text-center">
+            <p class="rs-kicker rs-kicker--centred"><?= esc($c('home_occasion_kicker', 'Shop by occasion')) ?></p>
+            <h2 class="rs-display rs-display--lg mt-5">
+                <?= esc($oHead) ?><?php if ($oTail !== ''): ?> <em><?= esc($oTail) ?></em><?php endif; ?>
+            </h2>
+        </div>
 
-        <div class="mt-10 grid gap-6 md:grid-cols-3">
-            <?php foreach ($collections as $collection): ?>
-                <a href="<?= site_url('collections/' . $collection['slug']) ?>"
-                   class="group relative block aspect-[4/3] overflow-hidden bg-ink">
-                    <img src="<?= esc(rs_image($collection['image'] ?? null, 'products'), 'attr') ?>"
-                         alt="<?= esc($collection['name'], 'attr') ?>"
-                         loading="lazy" decoding="async"
-                         class="h-full w-full object-cover opacity-80 transition duration-500 group-hover:scale-105 group-hover:opacity-70">
-                    <span class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-ink/95 to-transparent p-5">
-                        <span class="block font-display text-xl font-semibold text-shell"><?= esc($collection['name']) ?></span>
-                        <?php if (! empty($collection['description'])): ?>
-                            <span class="mt-1 block text-sm text-shell/75"><?= esc(rs_excerpt($collection['description'], 64)) ?></span>
-                        <?php endif; ?>
-                    </span>
+        <div class="rs-rail rs-rail--occasions mt-10">
+            <?php foreach ($occasions as $occasion): ?>
+                <a href="<?= rs_url((string) $occasion['slug']) ?>" class="rs-occasion">
+                    <img src="<?= rs_url(rs_image($occasion['image'] ?? null, 'products')) ?>" alt=""
+                         class="rs-occasion__img" loading="lazy" decoding="async" width="440" height="320">
+                    <span class="rs-occasion__label"><?= esc($occasion['name']) ?></span>
                 </a>
             <?php endforeach; ?>
         </div>
     </section>
 <?php endif; ?>
 
-<!-- ==================================================================
-     CLOSING — the copy changes with the journey mode, because what
-     happens next genuinely differs.
-     ================================================================== -->
-<section class="bg-ink py-16 text-shell lg:py-20">
-    <div class="rs-shell grid items-center gap-10 lg:grid-cols-[1fr_auto]">
-        <div class="max-w-xl">
-            <p class="rs-eyebrow rs-eyebrow--on-dark">Gifting at scale</p>
-            <h2 class="mt-4 text-3xl sm:text-[2.125rem]">Sending more than a few?</h2>
-            <p class="mt-4 text-shell/80">
-                Diwali hampers for a team, welcome kits for new joiners, client boxes with your
-                own branding. Tell us the brief and the quantity, and we will put together a
-                quote with samples.
-            </p>
+<!-- ====================================================== FEATURE BANNER -->
+<?php if ($feature !== null): ?>
+    <?php [$fHead, $fTail] = $split((string) ($feature['title'] ?? '')); ?>
+    <section class="rs-feature">
+        <img src="<?= rs_url(rs_image($feature['image'] ?? null, 'banners')) ?>" alt=""
+             class="rs-feature__img" loading="lazy" decoding="async" width="1920" height="720">
+        <div class="rs-shell rs-feature__inner">
+            <h2 class="rs-display rs-display--lg text-shell">
+                <em><?= esc($fHead) ?><?= $fTail !== '' ? ' ' . esc($fTail) : '' ?></em>
+            </h2>
+            <?php if (! empty($feature['subtitle'])): ?>
+                <p class="mx-auto mt-5 max-w-xl leading-relaxed text-shell/80"><?= esc($feature['subtitle']) ?></p>
+            <?php endif; ?>
+            <a href="<?= rs_url(ltrim((string) ($feature['link_url'] ?: 'collections'), '/')) ?>"
+               class="rs-btn rs-btn--gold mt-8">
+                <?= esc($feature['cta_label'] ?: 'Discover the collection') ?>
+            </a>
         </div>
-        <a href="<?= site_url('page/corporate-gifting') ?>" class="rs-btn rs-btn--brass shrink-0">
-            Talk to us about bulk
-        </a>
+    </section>
+<?php endif; ?>
+
+<!-- ======================================================== TESTIMONIALS -->
+<?php if ($testimonials !== []): ?>
+    <?php [$tHead, $tTail] = $split($c('home_reviews_title', 'Words that warm us.')); ?>
+    <section class="rs-shell rs-section">
+        <div class="flex flex-wrap items-end justify-between gap-x-8 gap-y-4">
+            <div>
+                <p class="rs-kicker"><?= esc($c('home_reviews_kicker', 'From our patrons')) ?></p>
+                <h2 class="rs-display rs-display--lg mt-4">
+                    <?= esc($tHead) ?><?php if ($tTail !== ''): ?> <em><?= esc($tTail) ?></em><?php endif; ?>
+                </h2>
+            </div>
+            <?php if ($reviewStats['count'] > 0): ?>
+                <p class="num font-mono text-[0.625rem] tracking-[0.16em] text-ink-muted uppercase">
+                    <?= esc((string) $reviewStats['average']) ?> / 5 &middot;
+                    <?= (int) $reviewStats['count'] ?> review<?= $reviewStats['count'] === 1 ? '' : 's' ?>
+                </p>
+            <?php endif; ?>
+        </div>
+
+        <ul class="rs-grid rs-grid--wide mt-10">
+            <?php foreach ($testimonials as $quote): ?>
+                <li class="rs-quote rs-reveal">
+                    <p class="rs-quote__stars" aria-label="<?= (int) $quote['rating'] ?> out of 5">
+                        <?php for ($star = 0; $star < (int) $quote['rating']; $star++): ?>
+                            <span aria-hidden="true"><?= rs_icon('star', 'h-3.5 w-3.5') ?></span>
+                        <?php endfor; ?>
+                    </p>
+                    <blockquote class="rs-quote__text">&ldquo;<?= esc($quote['quote']) ?>&rdquo;</blockquote>
+                    <footer class="rs-quote__who">
+                        <span class="rs-quote__avatar" aria-hidden="true"><?= esc(mb_strtoupper(mb_substr((string) $quote['author'], 0, 1))) ?></span>
+                        <span>
+                            <span class="block text-sm font-medium text-ink"><?= esc($quote['author']) ?></span>
+                            <?php if (! empty($quote['role'])): ?>
+                                <span class="block text-xs text-ink-muted"><?= esc($quote['role']) ?></span>
+                            <?php endif; ?>
+                        </span>
+                    </footer>
+                </li>
+            <?php endforeach; ?>
+        </ul>
+    </section>
+<?php endif; ?>
+
+<!-- ====================================================== NOTABLE CLIENTS -->
+<?php if ($c('home_clients_title') !== '' && $clients !== []): ?>
+    <section class="rs-clients">
+        <div class="rs-shell rs-section rs-section--tight text-center">
+            <h2 class="font-display text-[clamp(1.15rem,2.2vw,1.75rem)] tracking-[0.16em] text-shell uppercase">
+                <?= esc($c('home_clients_title')) ?>
+            </h2>
+            <ul class="mt-10 grid grid-cols-2 items-center gap-x-8 gap-y-10 sm:grid-cols-3 lg:grid-cols-4">
+                <?php foreach ($clients as $client): ?>
+                    <li>
+                        <?php if (! empty($client['image'])): ?>
+                            <img src="<?= rs_url($client['image']) ?>" alt="<?= esc($client['title'] ?? '', 'attr') ?>"
+                                 class="mx-auto max-h-12 w-auto object-contain opacity-80 transition-opacity hover:opacity-100"
+                                 loading="lazy" decoding="async">
+                        <?php else: ?>
+                            <span class="font-display text-[clamp(1.15rem,2.4vw,1.9rem)] text-shell/85">
+                                <?= esc($client['title'] ?? '') ?>
+                            </span>
+                        <?php endif; ?>
+                    </li>
+                <?php endforeach; ?>
+            </ul>
+        </div>
+    </section>
+<?php endif; ?>
+
+<!-- ====================================================== BESPOKE JOURNEY -->
+<?php if ($c('home_gallery_title') !== '' && $gallery !== []): ?>
+    <section class="rs-shell rs-section">
+        <h2 class="rs-display rs-display--md"><?= esc($c('home_gallery_title')) ?></h2>
+        <ul class="rs-gallery mt-8">
+            <?php foreach ($gallery as $shot): ?>
+                <li>
+                    <img src="<?= rs_url(rs_image($shot['image'] ?? null, 'banners')) ?>"
+                         alt="<?= esc($shot['alt_text'] ?? '', 'attr') ?>"
+                         loading="lazy" decoding="async" width="400" height="400">
+                </li>
+            <?php endforeach; ?>
+        </ul>
+    </section>
+<?php endif; ?>
+
+<!-- ==================================================== ENQUIRY / SIGN-UP -->
+<?php [$sHead, $sTail] = $split($c('home_signup_title', 'Enter our world, unhurried.')); ?>
+<section class="rs-band">
+    <div class="rs-shell rs-section">
+        <div class="grid gap-x-[clamp(2rem,6vw,5rem)] gap-y-10 lg:grid-cols-2 lg:items-center">
+            <div class="text-center lg:text-left">
+                <?php if (! empty($brand->identity['logo'])): ?>
+                    <img src="<?= rs_url($brand->identity['logo']) ?>" alt=""
+                         class="rs-logo rs-logo--footer mx-auto lg:mx-0" loading="lazy">
+                <?php endif; ?>
+                <h2 class="rs-display rs-display--lg mt-6">
+                    <?= esc($sHead) ?><?php if ($sTail !== ''): ?> <em><?= esc($sTail) ?></em><?php endif; ?>
+                </h2>
+                <p class="mx-auto mt-5 max-w-md text-ink-muted lg:mx-0"><?= esc($c('home_signup_body')) ?></p>
+            </div>
+
+            <?php /* Posted to the existing enquiry endpoint, so a submission
+                     lands in the admin pipeline with every other lead. */ ?>
+            <form method="post" action="<?= site_url('enquiry') ?>" class="rs-formcard">
+                <?= csrf_field() ?>
+                <input type="hidden" name="source" value="homepage">
+                <h3 class="font-display text-xl">Let&rsquo;s craft something special</h3>
+
+                <div class="mt-5 grid gap-4 sm:grid-cols-2">
+                    <label>
+                        <span class="rs-label">Name <span class="text-bad">*</span></span>
+                        <input type="text" name="name" class="rs-input" required maxlength="120" autocomplete="name">
+                    </label>
+                    <label>
+                        <span class="rs-label">Occasion</span>
+                        <input type="text" name="occasion" class="rs-input" maxlength="120" placeholder="Wedding, Diwali, corporate…">
+                    </label>
+                    <label>
+                        <span class="rs-label">Contact <span class="text-bad">*</span></span>
+                        <input type="tel" name="phone" class="rs-input" required maxlength="40" autocomplete="tel">
+                    </label>
+                    <label>
+                        <span class="rs-label">Email address <span class="text-bad">*</span></span>
+                        <input type="email" name="email" class="rs-input" required maxlength="191" autocomplete="email">
+                    </label>
+                    <label>
+                        <span class="rs-label">Estimated no. of gifts</span>
+                        <input type="number" name="quantity" class="rs-input num" min="1" max="100000" inputmode="numeric">
+                    </label>
+                    <label>
+                        <span class="rs-label">Budget</span>
+                        <input type="text" name="budget" class="rs-input" maxlength="60" placeholder="&#8377; per gift">
+                    </label>
+                    <label class="sm:col-span-2">
+                        <span class="rs-label">Product brief</span>
+                        <textarea name="message" class="rs-textarea" rows="3" maxlength="2000"
+                                  placeholder="Tell us who it is for and what it should feel like."></textarea>
+                    </label>
+                </div>
+
+                <div class="mt-6 flex flex-wrap gap-3">
+                    <button type="submit" class="rs-btn rs-btn--primary flex-1">Submit project details</button>
+                    <?php if (! empty($brand->identity['whatsapp'])): ?>
+                        <a href="https://wa.me/<?= esc(preg_replace('/[^0-9]/', '', (string) $brand->identity['whatsapp']), 'attr') ?>"
+                           class="rs-btn rs-btn--outline" target="_blank" rel="noopener noreferrer">
+                            <?= rs_icon('whatsapp', 'h-4 w-4') ?> Direct message
+                        </a>
+                    <?php endif; ?>
+                </div>
+            </form>
+        </div>
     </div>
 </section>
 

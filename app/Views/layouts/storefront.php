@@ -42,13 +42,27 @@
     <?php if ($rsOg !== ''): ?>
         <meta property="og:image" content="<?= rs_url($rsOg) ?>">
         <meta name="twitter:card" content="summary_large_image">
-    <?php endif; ?>" sizes="any">
+    <?php endif; ?>
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Eczar:wght@400;500;600;700&family=Karla:ital,wght@0,400;0,500;0,700;1,400&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 
     <link rel="stylesheet" href="<?= rs_asset('assets/css/app.css') ?>">
+    <?php
+    /*
+     * Appearance settings as CSS custom properties.
+     *
+     * Inline rather than in the stylesheet because these are runtime values —
+     * Tailwind compiles at build time and cannot know them. Every component is
+     * written against these variables, so changing the page width or the card
+     * minimum in the admin panel re-flows the site with no rebuild.
+     *
+     * DesignService clamps and pattern-checks every value before it gets here,
+     * because this lands inside a style block.
+     */
+    ?>
+    <style><?= service('design')->cssVariables() ?></style>
 </head>
 <body class="bg-shell text-ink">
 

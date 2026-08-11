@@ -1,10 +1,7 @@
 <?= $this->extend('admin/layouts/admin') ?>
 <?= $this->section('content') ?>
 <?php
-$positions = [
-    'home_hero' => 'Homepage hero', 'home_strip' => 'Homepage strip',
-    'category_top' => 'Category top', 'gift_builder' => 'Gift builder',
-];
+$positions = config(\Config\Rasmein::class)->bannerPositions;
 ?>
 
 <?= view('admin/partials/header', [

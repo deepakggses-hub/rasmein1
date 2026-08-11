@@ -25,6 +25,42 @@ class Rasmein extends BaseConfig
      *
      * @var array<string, string>
      */
+    /**
+     * Where a banner can appear.
+     *
+     * One list, because it previously lived in three: the database enum, the
+     * model's in_list rule, and the admin dropdown. Adding a slot to two of
+     * them left it uncreatable from the panel.
+     *
+     * @var array<string, string>
+     */
+    public array $bannerPositions = [
+        'home_hero'     => 'Homepage — hero slide',
+        'home_strip'    => 'Homepage — strip',
+        'home_feature'  => 'Homepage — feature band',
+        'home_client'   => 'Homepage — client logo',
+        'home_gallery'  => 'Homepage — gallery',
+        'category_top'  => 'Category page — top',
+        'gift_builder'  => 'Gift box builder',
+    ];
+
+    /**
+     * Price bands for the shop filter: [from, to (exclusive) or null, label].
+     *
+     * Fixed bands rather than a slider: a slider on a catalogue with a long
+     * tail is unusable, and a band can carry a count so the person knows what
+     * they will get before clicking.
+     *
+     * @var array<int, array{0: float, 1: float|null, 2: string}>
+     */
+    public array $priceBands = [
+        [0, 2000, 'Under 2,000'],
+        [2000, 5000, '2,000 — 5,000'],
+        [5000, 12000, '5,000 — 12,000'],
+        [12000, 25000, '12,000 — 25,000'],
+        [25000, null, 'Above 25,000'],
+    ];
+
     public array $identity = [];
 
     /** @var array<string, string> Social links that are actually set. */

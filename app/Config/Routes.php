@@ -255,6 +255,21 @@ $routes->group('admin', [
     $routes->post('occasions/(:num)', 'Occasions::update/$1', ['filter' => 'adminAuth:content.manage']);
     $routes->post('occasions/(:num)/delete', 'Occasions::delete/$1', ['filter' => 'adminAuth:content.manage']);
 
+    // ---- Homepage ----
+    $routes->match(['GET', 'HEAD'], 'homepage', 'Homepage::index', ['filter' => 'adminAuth:homepage.manage']);
+    $routes->post('homepage', 'Homepage::save', ['filter' => 'adminAuth:homepage.manage']);
+    $routes->post('homepage/restore', 'Homepage::restore', ['filter' => 'adminAuth:homepage.manage']);
+    $routes->match(['GET', 'HEAD'], 'homepage/testimonials/new', 'Homepage::testimonial', ['filter' => 'adminAuth:homepage.manage']);
+    $routes->post('homepage/testimonials', 'Homepage::saveTestimonial', ['filter' => 'adminAuth:homepage.manage']);
+    $routes->match(['GET', 'HEAD'], 'homepage/testimonials/(:num)', 'Homepage::testimonial/$1', ['filter' => 'adminAuth:homepage.manage']);
+    $routes->post('homepage/testimonials/(:num)', 'Homepage::saveTestimonial/$1', ['filter' => 'adminAuth:homepage.manage']);
+    $routes->post('homepage/testimonials/(:num)/delete', 'Homepage::deleteTestimonial/$1', ['filter' => 'adminAuth:homepage.manage']);
+
+    // ---- Appearance ----
+    $routes->match(['GET', 'HEAD'], 'appearance', 'Appearance::index');
+    $routes->post('appearance', 'Appearance::save', ['filter' => 'adminAuth:settings.manage']);
+    $routes->post('appearance/reset', 'Appearance::reset', ['filter' => 'adminAuth:settings.manage']);
+
     // ---- Shop identity ----
     $routes->match(['GET', 'HEAD'], 'brand', 'Brand::index');
     $routes->post('brand', 'Brand::save', ['filter' => 'adminAuth:settings.manage']);

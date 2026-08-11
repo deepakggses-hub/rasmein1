@@ -11,6 +11,8 @@ use App\Services\GiftBoxBuilderService;
 use App\Services\HtmlSanitiser;
 use App\Services\CsvExporter;
 use App\Services\GoogleMailService;
+use App\Services\DesignService;
+use App\Services\FacetService;
 use App\Services\ImageUploadService;
 use App\Services\RootUrlService;
 use App\Services\MailService;
@@ -353,6 +355,26 @@ class Services extends BaseService
         }
 
         return new GoogleMailService();
+    }
+
+    /** Appearance settings, emitted as CSS custom properties. */
+    public static function design(bool $getShared = true): DesignService
+    {
+        if ($getShared) {
+            return static::getSharedInstance('design');
+        }
+
+        return new DesignService();
+    }
+
+    /** The shop's filter sidebar, computed from the current results. */
+    public static function facets(bool $getShared = true): FacetService
+    {
+        if ($getShared) {
+            return static::getSharedInstance('facets');
+        }
+
+        return new FacetService();
     }
 
     /** The single authority on what may live at the site root. */

@@ -66,10 +66,11 @@ $dt = static fn (?string $x): string => $x !== null ? date('Y-m-d\TH:i', strtoti
                 <label class="mt-4 block">
                     <span class="rs-label">Slot</span>
                     <select name="position" class="rs-select">
-                        <?php foreach ([
-                            'home_hero' => 'Homepage hero', 'home_strip' => 'Homepage strip',
-                            'category_top' => 'Category top', 'gift_builder' => 'Gift builder',
-                        ] as $k => $label): ?>
+                        <?php /* One shared list — see Config\Rasmein::$bannerPositions.
+                                 It previously lived here as well as in the model and
+                                 the database enum, so three new slots existed in two
+                                 of the three and could not be chosen. */ ?>
+                        <?php foreach (config(\Config\Rasmein::class)->bannerPositions as $k => $label): ?>
                             <option value="<?= $k ?>" <?= (old('position') ?? $banner['position'] ?? 'home_hero') === $k ? 'selected' : '' ?>>
                                 <?= esc($label) ?>
                             </option>

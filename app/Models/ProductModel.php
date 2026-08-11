@@ -18,7 +18,9 @@ class ProductModel extends Model
     protected $allowedFields = [
         'category_id', 'sku', 'name', 'slug', 'short_description', 'description',
         'price', 'compare_at_price', 'stock_qty', 'low_stock_threshold',
-        'track_inventory', 'weight_grams', 'unit_label', 'sale_mode',
+        'track_inventory', 'weight_grams', 'unit_label', 'material',
+        'eyebrow_label', 'composition', 'packaging_note', 'care_note',
+        'personalisation_note', 'rating_average', 'review_count', 'sale_mode',
         'is_giftbox_eligible', 'giftbox_slots', 'is_featured', 'is_active',
         'sort_order', 'meta_title', 'meta_description',
     ];
@@ -85,7 +87,13 @@ class ProductModel extends Model
             . ' WHERE pi.product_id = products.id'
             . ' ORDER BY pi.is_primary DESC, pi.sort_order ASC, pi.id ASC'
             . ' LIMIT 1'
-            . ') AS primary_image',
+            . ') AS primary_image, ('
+            // The card shows a category eyebrow (RITUAL · PUJA in the design).
+            // A correlated select rather than a join: a join here would have to
+            // be repeated by every caller that adds its own, and a LEFT JOIN
+            // interacts badly with the whereIn subqueries the filters use.
+            . 'SELECT c.name FROM categories c WHERE c.id = products.category_id'
+            . ') AS category_name',
             false
         );
 
@@ -217,6 +225,26 @@ class ProductModel extends Model
                 'inner',
                 false
             );
+        }
+
+        if (! empty($filters['material'])) {
+            $materials = array_values(array_filter(array_map('strval', (array) $filters['material'])));
+
+            if ($materials !== []) {
+                $this->whereIn('products.material', $materials);
+            }
+        }
+
+        if (! empty($filters['occasion'])) {
+            // Occasions live in the collections pivot; a subquery keeps this a
+            // filter rather than a join that would duplicate rows.
+            $this->whereIn('products.id', static function ($sub) use ($filters) {
+                return $sub->select('cp.product_id')
+                    ->from('collection_products cp')
+                    ->join('collections c', 'c.id = cp.collection_id')
+                    ->where('c.type', 'occasion')
+                    ->whereIn('cp.collection_id', array_map('intval', (array) $filters['occasion']));
+            });
         }
 
         if (isset($filters['min_price']) && $filters['min_price'] !== null) {
@@ -393,5 +421,40 @@ class ProductModel extends Model
             ->findAll($limit - count($related));
 
         return array_merge($related, $filler);
+    }
+
+    /**
+     * Every image for a set of products, in ONE query.
+     *
+     * The listing card cycles through a product's photographs on hover, which
+     * means it needs them all. Asking per card is an N+1 — twelve products on a
+     * page is twelve extra queries, and the shop grid can show far more than
+     * twelve. One query, grouped in PHP, costs the same at any page size.
+     *
+     * @param list<int> $productIds
+     *
+     * @return array<int, array<int, array<string, mixed>>> Keyed by product id
+     */
+    public function imagesFor(array $productIds): array
+    {
+        $ids = array_values(array_unique(array_filter(array_map('intval', $productIds))));
+
+        if ($ids === []) {
+            return [];
+        }
+
+        $out = [];
+
+        foreach ($this->db->table('product_images')
+            ->select('product_id, path, alt_text')
+            ->whereIn('product_id', $ids)
+            ->orderBy('is_primary', 'DESC')
+            ->orderBy('sort_order', 'ASC')
+            ->orderBy('id', 'ASC')
+            ->get()->getResultArray() as $row) {
+            $out[(int) $row['product_id']][] = $row;
+        }
+
+        return $out;
     }
 }

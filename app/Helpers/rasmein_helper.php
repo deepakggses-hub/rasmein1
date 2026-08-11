@@ -233,6 +233,21 @@ if (! function_exists('rs_icon')) {
             'audit'        => '<path d="M12 8v4l3 2"/><path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z"/>',
             'search'       => '<path d="M11 18a7 7 0 1 0 0-14 7 7 0 0 0 0 14ZM21 21l-5-5"/>',
             'menu'         => '<path d="M3 6h18M3 12h18M3 18h18"/>',
+            'heart'        => '<path d="M12 20s-7-4.5-9-9a5 5 0 0 1 9-3 5 5 0 0 1 9 3c-2 4.5-9 9-9 9Z"/>',
+            'bag'          => '<path d="M5 8h14l-1 12H6L5 8Z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/>',
+            'user'         => '<path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z"/><path d="M4 20a8 8 0 0 1 16 0"/>',
+            'arrow-right'  => '<path d="M5 12h14M13 6l6 6-6 6"/>',
+            'arrow-left'   => '<path d="M19 12H5M11 18l-6-6 6-6"/>',
+            'chevron-down' => '<path d="m6 9 6 6 6-6"/>',
+            'star'         => '<path d="m12 3 2.6 5.6 6 .8-4.4 4.2 1.1 6L12 16.8 6.7 19.6l1.1-6L3.4 9.4l6-.8L12 3Z"/>',
+            'check'        => '<path d="m5 12 5 5L20 7"/>',
+            'grid'         => '<path d="M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z"/>',
+            'rows'         => '<path d="M3 6h18M3 12h18M3 18h18"/>',
+            'instagram'    => '<path d="M4 8a4 4 0 0 1 4-4h8a4 4 0 0 1 4 4v8a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4V8Z"/><path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7ZM17 7h.01"/>',
+            'facebook'     => '<path d="M14 8h3V4h-3a4 4 0 0 0-4 4v3H7v4h3v6h4v-6h3l1-4h-4V8.5A.5.5 0 0 1 14 8Z"/>',
+            'pinterest'    => '<path d="M12 3a9 9 0 0 0-3.3 17.4c-.1-.8-.1-2 .1-2.9l1.2-5s-.3-.6-.3-1.5c0-1.4.8-2.5 1.8-2.5.9 0 1.3.6 1.3 1.4 0 .9-.6 2.2-.9 3.4-.2 1 .5 1.9 1.5 1.9 1.9 0 3.2-2.4 3.2-5.2 0-2.2-1.4-3.8-4-3.8a4.6 4.6 0 0 0-4.8 4.6c0 .9.3 1.5.7 2 .2.2.2.3.1.5l-.2.8c-.1.3-.2.4-.5.2-1.3-.5-1.9-2-1.9-3.6 0-2.7 2.3-6 6.8-6 3.6 0 6 2.6 6 5.4 0 3.7-2 6.4-5 6.4-1 0-2-.5-2.3-1.2l-.6 2.4c-.2.8-.7 1.8-1.1 2.4A9 9 0 1 0 12 3Z"/>',
+            'linkedin'     => '<path d="M4 9h4v11H4zM6 4a2 2 0 1 1 0 4 2 2 0 0 1 0-4ZM11 20V9h4v1.6a4 4 0 0 1 6 3.4V20h-4v-5a2 2 0 0 0-4 0v5h-2Z"/>',
+            'whatsapp'     => '<path d="M3 21l1.7-4.5A8 8 0 1 1 8 20.3L3 21Z"/><path d="M9 10c0 3 2 5 5 5"/>',
             'close'        => '<path d="M6 6l12 12M18 6 6 18"/>',
             'store'        => '<path d="M4 9h16v11H4z"/><path d="M4 9 5.5 4h13L20 9M9 20v-6h6v6"/>',
             'logout'       => '<path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3"/><path d="M10 17l-5-5 5-5M5 12h10"/>',
@@ -269,7 +284,23 @@ if (! function_exists('rs_url')) {
     {
         $path = trim((string) $path);
 
-        if ($path === '' || str_contains($path, '..') || preg_match('#^[a-z]+://#i', $path) === 1) {
+        if ($path === '' || str_contains($path, '..')) {
+            return '';
+        }
+
+        /*
+         * An absolute URL is already finished — most often because it came from
+         * rs_image(), which calls base_url() itself. Returning '' here meant
+         * rs_url(rs_image(...)) produced src="" and every product image on the
+         * shop was blank. Pass it through instead; the traversal guard above is
+         * what actually matters.
+         */
+        if (preg_match('#^https?://#i', $path) === 1) {
+            return $path;
+        }
+
+        // Any other scheme (javascript:, data:) has no business in an asset URL.
+        if (preg_match('#^[a-z][a-z0-9+.-]*:#i', $path) === 1) {
             return '';
         }
 

@@ -6,6 +6,7 @@ namespace App\Controllers\Admin;
 
 use App\Models\SettingModel;
 use Config\Rasmein;
+use Config\SettingHomes;
 
 /**
  * Runtime settings.
@@ -26,10 +27,17 @@ class Settings extends AdminController
         $model  = model(SettingModel::class);
         $groups = [];
 
-        // The mail group is excluded: it has a dedicated screen that knows to
-        // encrypt the SMTP password. Rendering it here would show ciphertext in
-        // a text input and re-save it as if it were plain.
-        foreach ($model->whereNotIn('group_name', ['mail', 'brand', 'store', 'social'])
+        /*
+         * Groups with a screen of their own are excluded rather than shown as a
+         * wall of read-only rows. Mail is the clearest case: rendering it here
+         * would put the encrypted SMTP password in a text input and re-save the
+         * ciphertext as if it were plain. Appearance and Shop identity need
+         * colour pickers and image uploads this screen cannot offer.
+         *
+         * Anything still locked and visible gets a link to where it IS edited —
+         * see Config\SettingHomes.
+         */
+        foreach ($model->whereNotIn('group_name', ['mail', 'brand', 'store', 'social', 'design', 'home'])
             ->orderBy('group_name', 'ASC')->orderBy('sort_order', 'ASC')->findAll() as $row) {
             $groups[$row['group_name']][] = $row;
         }
@@ -40,10 +48,58 @@ class Settings extends AdminController
             'journeyModes'  => config(Rasmein::class)->journeyModes,
             'canManage'     => $this->can('settings.manage'),
             'canSwitchMode' => $this->can('settings.journey_mode'),
+            'homes'         => $this->resolveHomes($groups),
         ], 'Settings');
     }
 
     /** The master switch. Deliberately its own endpoint and its own permission. */
+    /**
+     * Work out, for each locked setting, where it is edited and whether this
+     * administrator can get there.
+     *
+     * Resolved here rather than in the view: a CodeIgniter template's $this is
+     * the View renderer, not the controller, so calling $this->can() there
+     * would be a fatal error the moment a locked row rendered.
+     *
+     * @param array<string, array<int, array<string, mixed>>> $groups
+     *
+     * @return array<string, array<string, mixed>>
+     */
+    private function resolveHomes(array $groups): array
+    {
+        $map   = config(SettingHomes::class);
+        $homes = [];
+
+        foreach ($groups as $groupName => $rows) {
+            foreach ($rows as $row) {
+                if ((int) ($row['is_locked'] ?? 0) !== 1) {
+                    continue;
+                }
+
+                $home = $map->forSetting((string) $row['key_name'], (string) $groupName);
+
+                if ($home === null) {
+                    $homes[$row['key_name']] = ['state' => 'unknown'];
+
+                    continue;
+                }
+
+                $permitted = $home['permission'] === null || $this->can((string) $home['permission']);
+
+                $homes[$row['key_name']] = [
+                    'state' => ! empty($home['url']) && $permitted
+                        ? 'linked'
+                        : (! empty($home['label']) ? 'blocked' : 'none'),
+                    'label' => $home['label'] ?? null,
+                    'url'   => $home['url'] ?? null,
+                    'note'  => $home['note'] ?? null,
+                ];
+            }
+        }
+
+        return $homes;
+    }
+
     public function switchJourney()
     {
         if ($denied = $this->deny('settings.journey_mode')) {

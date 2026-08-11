@@ -85,7 +85,7 @@ foreach ($state['components'] as $component) {
                 <div class="mt-10">
                     <h2 class="rs-eyebrow"><?= esc($group['category']) ?></h2>
 
-                    <ul class="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                    <ul class="mt-5 rs-grid">
                         <?php foreach ($group['products'] as $product): ?>
                             <?php
                             $inBox    = $state['chosen'][$product->id] ?? 0;

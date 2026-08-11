@@ -147,6 +147,7 @@ abstract class AdminController extends BaseController
                 'items' => [
                     ['label' => 'Pages', 'url' => 'admin/pages', 'match' => 'admin/pages', 'icon' => 'pages', 'permission' => 'content.manage'],
                     ['label' => 'Email templates', 'url' => 'admin/email-templates', 'match' => 'admin/email-templates', 'icon' => 'mailtemplate', 'permission' => 'content.manage'],
+                    ['label' => 'Homepage', 'url' => 'admin/homepage', 'match' => 'admin/homepage', 'icon' => 'store', 'permission' => 'homepage.manage'],
                     ['label' => 'Banners', 'url' => 'admin/banners', 'match' => 'admin/banners', 'icon' => 'banners', 'permission' => 'content.manage'],
                 ],
             ],
@@ -168,6 +169,7 @@ abstract class AdminController extends BaseController
                 'group' => 'System',
                 'items' => [
                     ['label' => 'Shop identity', 'url' => 'admin/brand', 'match' => 'admin/brand', 'icon' => 'store', 'permission' => 'settings.view'],
+                    ['label' => 'Appearance', 'url' => 'admin/appearance', 'match' => 'admin/appearance', 'icon' => 'banners', 'permission' => 'settings.view'],
                     ['label' => 'Settings', 'url' => 'admin/settings', 'match' => 'admin/settings', 'icon' => 'settings', 'permission' => 'settings.view'],
                     ['label' => 'Mail', 'url' => 'admin/mail', 'match' => 'admin/mail', 'icon' => 'mail', 'permission' => 'settings.view'],
                     ['label' => 'Audit log', 'url' => 'admin/audit', 'match' => 'admin/audit', 'icon' => 'audit', 'permission' => 'audit.view'],

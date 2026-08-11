@@ -1,174 +1,161 @@
 <?php
 /**
- * @var array<int, \App\Entities\Category> $navCategories
- * @var bool   $isEnquire
- * @var object $brand
+ * Storefront header.
+ *
+ * Dark band, wordmark or uploaded logo, centred navigation, search, and the
+ * three account icons. Below 1100px the navigation collapses into a drawer —
+ * that breakpoint is where six uppercase items plus a search field stop fitting
+ * honestly rather than where a device category begins.
+ *
+ * The menu comes from the `design_nav` setting so it can be edited without a
+ * developer.
  */
-$cartLabel = rs_cta_label(null, 'cart');
+$design = service('design');
+
+$navItems = [];
+
+foreach (preg_split('/\R/', $design->get('design_nav', '')) ?: [] as $line) {
+    $line = trim((string) $line);
+
+    if ($line === '' || ! str_contains($line, '|')) {
+        continue;
+    }
+
+    [$label, $path] = array_map('trim', explode('|', $line, 2));
+
+    if ($label === '' || $path === '') {
+        continue;
+    }
+
+    // Only same-site paths: an editable menu that accepts absolute URLs is a
+    // way to point a shop's own navigation at somewhere else.
+    if (preg_match('#^[a-z]+://#i', $path) === 1) {
+        continue;
+    }
+
+    $navItems[] = ['label' => $label, 'path' => '/' . ltrim($path, '/')];
+}
+
+if ($navItems === []) {
+    $navItems = [
+        ['label' => 'Home', 'path' => '/'],
+        ['label' => 'Shop', 'path' => '/shop'],
+        ['label' => 'Collections', 'path' => '/collections'],
+    ];
+}
+
+$cartCount = 0;
+
+try {
+    $cartCount = service('cart')->itemCount();
+} catch (Throwable) {
+    // A header must never be the thing that takes a page down.
+}
+
+$rsLogo    = $brand->identity['logo'] ?? '';
+$signedIn  = session('customer_id') !== null;
+$current   = '/' . trim((string) uri_string(), '/');
 ?>
-<header class="sticky top-0 z-40">
+<header class="rs-head <?= $design->flag('design_sticky_header') ? 'rs-head--sticky' : '' ?>">
+    <div class="rs-shell">
+        <div class="rs-head__bar">
 
-    <!-- Announcement strip. In Enquire mode it states plainly what will
-         happen when you add something, so the change of journey is never
-         a surprise at checkout. -->
-    <div class="bg-ink text-shell/85">
-        <div class="rs-shell flex flex-wrap items-center justify-between gap-x-6 gap-y-1 py-2 text-xs">
-            <p class="flex items-center gap-2">
-                <?php if ($isEnquire): ?>
-                    <span class="rs-badge rs-badge--enquire">Enquiry mode</span>
-                    <span>Add what you like and we'll send you a quote — nothing is charged online.</span>
+            <!-- Menu trigger, below the navigation breakpoint only. -->
+            <button type="button" class="rs-iconbtn shrink-0 min-[1100px]:hidden" data-drawer-open
+                    aria-label="Open the menu" aria-controls="rs-drawer" aria-expanded="false">
+                <?= rs_icon('menu', 'h-5 w-5') ?>
+            </button>
+
+            <a href="<?= site_url('/') ?>" class="shrink-0" aria-label="<?= esc($brand->brandName, 'attr') ?> — home">
+                <?php if ($rsLogo !== ''): ?>
+                    <img src="<?= rs_url($rsLogo) ?>" alt="<?= esc($brand->brandName, 'attr') ?>"
+                         class="rs-logo rs-logo--header" width="180" height="44">
                 <?php else: ?>
-                    <span class="rs-badge rs-badge--brass">Free delivery</span>
-                    <span>On orders above <?= rs_money(1500) ?>. Packed and dispatched within 48 hours.</span>
-                <?php endif; ?>
-            </p>
-            <p class="hidden font-mono tracking-wider sm:block">
-                <a class="rs-link" href="tel:<?= esc(preg_replace('/\s+/', '', $brand->supportPhone), 'attr') ?>">
-                    <?= esc($brand->supportPhone) ?>
-                </a>
-            </p>
-        </div>
-    </div>
-
-    <!-- Main bar -->
-    <div class="border-b border-shell-line bg-shell/95 backdrop-blur-sm">
-        <div class="rs-shell flex items-center justify-between gap-4 py-4">
-
-            <!-- Wordmark. Set in Eczar with a brass diacritic dot over the 'i'
-                 stem — the one piece of lettering detail we allow ourselves. -->
-            <?php /* min-w-0 rather than shrink-0: the logo is capped by CSS, but the
-         anchor must still be allowed to give way on a narrow screen instead of
-         forcing the row wider than the viewport. */ ?>
-                <a href="<?= site_url('/') ?>" class="group min-w-0" aria-label="<?= esc($brand->brandName) ?> home">
-                <span class="block font-display text-2xl leading-none font-semibold tracking-tight text-mulberry md:text-[1.75rem]">
-                    <?php
-                        /*
-                         * An uploaded logo replaces the wordmark. The wordmark
-                         * is not deleted — a shop without a logo file should
-                         * still look deliberate rather than empty, and this is
-                         * what it looked like before anyone uploaded anything.
-                         */
-                        $rsLogo = $brand->identity['logo'] ?? '';
-                        
-                    ?>
-                    <?php if ($rsLogo !== ''): ?>
-                        <img src="<?= rs_url($rsLogo) ?>"
-                             alt="<?= esc($brand->brandName, 'attr') ?>"
-                             class="rs-logo rs-logo--header">
-                    <?php else: ?>
+                    <span class="block font-display text-2xl leading-none font-semibold text-shell sm:text-[1.75rem]">
                         Rasme<span class="relative">i<span class="absolute -top-px left-1/2 h-1 w-1 -translate-x-1/2 rounded-full bg-brass"></span></span>n
-                    <?php endif; ?>
-                </span>
-                <?php if ($rsLogo === ''): ?>
-                    <?php /* Part of the wordmark lock-up. A real logo carries its
-                             own descriptor, so this would read as a stray caption
-                             sitting underneath it. */ ?>
-                    <span class="mt-0.5 block font-mono text-[0.5625rem] tracking-[0.28em] text-ink-muted uppercase">
-                        Gifting studio
+                    </span>
+                    <span class="mt-0.5 block font-mono text-[0.5rem] tracking-[0.3em] text-brass uppercase">
+                        <?= esc(rs_excerpt($brand->brandTagline, 26)) ?>
                     </span>
                 <?php endif; ?>
             </a>
 
-            <!-- Desktop nav -->
-            <nav class="hidden items-center gap-7 text-sm font-medium lg:flex" aria-label="Main">
-                <a href="<?= site_url('build') ?>" class="rs-link <?= rs_active('build', 'text-mulberry') ?>">
-                    Build a box
-                </a>
-                <a href="<?= site_url('gift-boxes') ?>" class="rs-link <?= rs_active('gift-boxes', 'text-mulberry') ?>">
-                    Ready hampers
-                </a>
-
-                <?php if ($navCategories !== []): ?>
-                    <div class="relative" data-dropdown>
-                        <button type="button"
-                                class="rs-link flex items-center gap-1.5 <?= rs_active('shop', 'text-mulberry') ?>"
-                                aria-expanded="false"
-                                aria-haspopup="true"
-                                data-dropdown-trigger>
-                            Shop
-                            <svg class="h-3 w-3 transition-transform" viewBox="0 0 12 12" fill="none" aria-hidden="true" data-dropdown-chevron>
-                                <path d="M2.5 4.5 6 8l3.5-3.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
-                            </svg>
-                        </button>
-                        <div class="absolute left-0 top-full hidden w-60 pt-3" data-dropdown-panel>
-                            <ul class="border border-shell-line bg-white py-2 shadow-[var(--shadow-lift)]">
-                                <?php foreach ($navCategories as $category): ?>
-                                    <li>
-                                        <a href="<?= $category->url() ?>"
-                                           class="block px-4 py-2 text-sm hover:bg-shell-deep hover:text-mulberry">
-                                            <?= esc($category->name) ?>
-                                        </a>
-                                    </li>
-                                <?php endforeach; ?>
-                                <li class="mt-1 border-t border-shell-line pt-1">
-                                    <a href="<?= site_url('shop') ?>" class="block px-4 py-2 font-mono text-[0.6875rem] tracking-widest text-brass uppercase hover:bg-shell-deep">
-                                        Everything
-                                    </a>
-                                </li>
-                            </ul>
-                        </div>
-                    </div>
-                <?php endif; ?>
-
-                <a href="<?= site_url('collections') ?>" class="rs-link <?= rs_active('collections', 'text-mulberry') ?>">
-                    Collections
-                </a>
-                <a href="<?= site_url('page/corporate-gifting') ?>" class="rs-link">Corporate</a>
+            <nav class="rs-head__nav" aria-label="Primary">
+                <?php foreach ($navItems as $item): ?>
+                    <?php
+                    $isActive = $item['path'] === '/'
+                        ? $current === '/'
+                        : str_starts_with($current, rtrim($item['path'], '/'));
+                    ?>
+                    <a href="<?= site_url(ltrim($item['path'], '/')) ?>"
+                       class="rs-head__link <?= $isActive ? 'is-active' : '' ?>"
+                       <?= $isActive ? 'aria-current="page"' : '' ?>>
+                        <?= esc($item['label']) ?>
+                    </a>
+                <?php endforeach; ?>
             </nav>
 
-            <!-- Actions -->
-            <div class="flex items-center gap-1">
-                <a href="<?= site_url('search') ?>" class="p-2.5 text-ink-soft hover:text-mulberry" aria-label="Search">
-                    <svg class="h-5 w-5" viewBox="0 0 20 20" fill="none" aria-hidden="true">
-                        <circle cx="9" cy="9" r="5.5" stroke="currentColor" stroke-width="1.5"/>
-                        <path d="M13.5 13.5 17 17" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-                    </svg>
-                </a>
-                <a href="<?= site_url('wishlist') ?>" class="hidden p-2.5 text-ink-soft hover:text-mulberry sm:block" aria-label="Wishlist">
-                    <svg class="h-5 w-5" viewBox="0 0 20 20" fill="none" aria-hidden="true">
-                        <path d="M10 16.5S3.5 12.7 3.5 8.4A3.4 3.4 0 0 1 10 6.6a3.4 3.4 0 0 1 6.5 1.8c0 4.3-6.5 8.1-6.5 8.1Z"
-                              stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
-                    </svg>
-                </a>
-                <a href="<?= $isEnquire ? site_url('enquiry') : site_url('cart') ?>"
-                   class="flex items-center gap-2 p-2.5 text-ink-soft hover:text-mulberry"
-                   aria-label="<?= esc($cartLabel) ?>">
-                    <svg class="h-5 w-5" viewBox="0 0 20 20" fill="none" aria-hidden="true">
-                        <path d="M3.5 6h13l-1.1 8.4a1.5 1.5 0 0 1-1.5 1.3H6.1a1.5 1.5 0 0 1-1.5-1.3L3.5 6Z"
-                              stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
-                        <path d="M7.2 6V4.8a2.8 2.8 0 0 1 5.6 0V6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-                    </svg>
-                    <span class="hidden font-mono text-[0.6875rem] tracking-widest uppercase xl:inline">
-                        <?= esc($cartLabel) ?>
-                    </span>
+            <form action="<?= site_url('search') ?>" method="get" class="rs-head__search" role="search">
+                <label for="rs-search" class="sr-only">Search the shop</label>
+                <input id="rs-search" type="search" name="q" class="rs-head__input"
+                       placeholder="What are you looking for?" autocomplete="off">
+                <button type="submit" class="rs-head__submit" aria-label="Search">
+                    <?= rs_icon('search', 'h-4 w-4') ?>
+                </button>
+            </form>
+
+            <div class="rs-head__icons">
+                <!-- Search, for the widths where the field is hidden. -->
+                <a href="<?= site_url('search') ?>" class="rs-iconbtn min-[900px]:hidden" aria-label="Search">
+                    <?= rs_icon('search', 'h-5 w-5') ?>
                 </a>
 
-                <button type="button"
-                        class="ml-1 p-2.5 text-ink-soft lg:hidden"
-                        aria-label="Open menu"
-                        aria-expanded="false"
-                        aria-controls="mobile-nav"
-                        data-menu-trigger>
-                    <svg class="h-5 w-5" viewBox="0 0 20 20" fill="none" aria-hidden="true">
-                        <path d="M3 6h14M3 10h14M3 14h14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-                    </svg>
-                </button>
+                <a href="<?= site_url('wishlist') ?>" class="rs-iconbtn" aria-label="Wishlist">
+                    <?= rs_icon('heart', 'h-5 w-5') ?>
+                </a>
+
+                <a href="<?= site_url('cart') ?>" class="rs-iconbtn" aria-label="Basket<?= $cartCount > 0 ? ', ' . $cartCount . ' items' : '' ?>">
+                    <?= rs_icon('bag', 'h-5 w-5') ?>
+                    <?php if ($cartCount > 0): ?>
+                        <span class="rs-iconbtn__count" data-cart-count><?= $cartCount > 99 ? '99+' : $cartCount ?></span>
+                    <?php endif; ?>
+                </a>
+
+                <a href="<?= site_url($signedIn ? 'account' : 'account/login') ?>" class="rs-iconbtn"
+                   aria-label="<?= $signedIn ? 'Your account' : 'Sign in' ?>">
+                    <?= rs_icon('user', 'h-5 w-5') ?>
+                </a>
             </div>
         </div>
     </div>
-
-    <!-- Mobile nav -->
-    <div id="mobile-nav" class="hidden border-b border-shell-line bg-white lg:hidden" data-menu-panel>
-        <nav class="rs-shell flex flex-col py-2" aria-label="Mobile">
-            <a href="<?= site_url('build') ?>" class="border-b border-shell-line py-3 font-medium">Build a box</a>
-            <a href="<?= site_url('gift-boxes') ?>" class="border-b border-shell-line py-3 font-medium">Ready hampers</a>
-            <?php foreach ($navCategories as $category): ?>
-                <a href="<?= $category->url() ?>" class="border-b border-shell-line py-3 text-ink-soft">
-                    <?= esc($category->name) ?>
-                </a>
-            <?php endforeach; ?>
-            <a href="<?= site_url('collections') ?>" class="border-b border-shell-line py-3 font-medium">Collections</a>
-            <a href="<?= site_url('page/corporate-gifting') ?>" class="py-3 font-medium">Corporate gifting</a>
-        </nav>
-    </div>
 </header>
+
+<!-- Drawer, rendered once and moved by CSS rather than injected by script. -->
+<div id="rs-drawer" class="rs-drawer" data-drawer hidden>
+    <div class="flex items-center justify-between pb-3">
+        <span class="rs-kicker rs-kicker--bare text-brass">Menu</span>
+        <button type="button" class="rs-iconbtn" data-drawer-close aria-label="Close the menu">
+            <?= rs_icon('close', 'h-5 w-5') ?>
+        </button>
+    </div>
+
+    <form action="<?= site_url('search') ?>" method="get" class="relative mb-4" role="search">
+        <label for="rs-search-drawer" class="sr-only">Search the shop</label>
+        <input id="rs-search-drawer" type="search" name="q" class="rs-head__input"
+               placeholder="What are you looking for?">
+        <button type="submit" class="rs-head__submit" aria-label="Search">
+            <?= rs_icon('search', 'h-4 w-4') ?>
+        </button>
+    </form>
+
+    <nav aria-label="Primary, mobile">
+        <?php foreach ($navItems as $item): ?>
+            <a href="<?= site_url(ltrim($item['path'], '/')) ?>" class="rs-drawer__link"><?= esc($item['label']) ?></a>
+        <?php endforeach; ?>
+        <a href="<?= site_url('build') ?>" class="rs-drawer__link">Build a gift box</a>
+        <a href="<?= site_url($signedIn ? 'account' : 'account/login') ?>" class="rs-drawer__link">
+            <?= $signedIn ? 'Your account' : 'Sign in' ?>
+        </a>
+    </nav>
+</div>
+<div class="rs-scrim" data-drawer-scrim hidden></div>

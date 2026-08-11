@@ -46,7 +46,8 @@ class Permissions extends BaseConfig
             'customers.view' => ['See customers', 'Read customer records and their order history.'],
         ],
         'Content' => [
-            'content.manage' => ['Edit content', 'Pages, banners and email templates.'],
+            'content.manage'  => ['Edit content', 'Pages, banners and email templates.'],
+            'homepage.manage' => ['Edit the homepage', 'Headings, hero slides, testimonials and the gallery.'],
         ],
         'Insight' => [
             'reports.view' => ['See reports', 'Revenue, best sellers, and CSV exports.'],

@@ -17,67 +17,49 @@
 $term = $filters['q'] ?? null;
 ?>
 
-<header class="border-b border-shell-line bg-shell-deep">
-    <div class="rs-shell py-10 lg:py-14">
-        <?= view('partials/breadcrumbs', ['crumbs' => $crumbs]) ?>
+<div class="rs-shell pt-6">
+    <?= view('partials/breadcrumbs', ['crumbs' => $crumbs]) ?>
+</div>
 
-        <p class="rs-eyebrow mt-6"><?= esc($context['eyebrow'] ?? 'The shop') ?></p>
-        <h1 class="mt-4 max-w-2xl text-4xl sm:text-[2.75rem]"><?= esc($context['heading']) ?></h1>
-
-        <?php if (! empty($context['intro'])): ?>
-            <p class="mt-4 max-w-xl leading-relaxed text-ink-muted"><?= esc($context['intro']) ?></p>
-        <?php endif; ?>
-
-        <!-- Search sits in the header of every listing page, pre-filled. -->
-        <form method="get" action="<?= site_url('search') ?>" class="mt-8 flex max-w-md gap-2" role="search">
-            <label class="flex-1">
-                <span class="sr-only">Search products</span>
-                <input type="search" name="q" class="rs-input" placeholder="Search for chocolate, tea, candles…"
-                       value="<?= esc($term ?? '', 'attr') ?>">
-            </label>
-            <button type="submit" class="rs-btn rs-btn--primary">Search</button>
-        </form>
-    </div>
-</header>
 
 <div class="rs-shell py-10 lg:py-14">
     <div class="lg:grid lg:grid-cols-[16rem_1fr] lg:gap-12">
 
         <!-- Filters. Collapsed into a disclosure on small screens. -->
-        <aside class="lg:sticky lg:top-32 lg:self-start">
-            <details class="lg:hidden" <?= $total === 0 ? 'open' : '' ?>>
-                <summary class="rs-btn rs-btn--outline w-full cursor-pointer justify-between">
-                    Filters
-                    <span class="num font-mono text-[0.625rem]"><?= (int) $total ?> items</span>
-                </summary>
-                <div class="mt-6 border-t border-shell-line pt-6">
-                    <?= view('partials/filters', [
-                        'filters' => $filters, 'categories' => $categories,
-                        'priceRange' => $priceRange, 'context' => $context, 'sort' => $sort,
-                    ]) ?>
-                </div>
-            </details>
-
-            <div class="hidden lg:block">
-                <?= view('partials/filters', [
-                    'filters' => $filters, 'categories' => $categories,
-                    'priceRange' => $priceRange, 'context' => $context, 'sort' => $sort,
-                ]) ?>
+        <aside class="rs-filtercol lg:sticky lg:top-28 lg:self-start" data-sidebar>
+            <div class="mb-4 flex items-center justify-between lg:hidden">
+                <span class="rs-facet__head">Filter</span>
+                <button type="button" class="rs-iconbtn text-ink" data-sidebar-close aria-label="Close filters">
+                    <?= rs_icon('close', 'h-5 w-5') ?>
+                </button>
             </div>
+
+            <?= view('partials/filters', ['facets' => $facets, 'active' => $active]) ?>
         </aside>
 
         <section class="mt-8 lg:mt-0">
-            <!-- Result count + sort -->
-            <div class="flex flex-wrap items-center justify-between gap-4 border-b border-shell-line pb-4">
-                <p class="num text-sm text-ink-muted">
-                    <?php if ($total === 0): ?>
-                        No matches
-                    <?php else: ?>
-                        <span class="font-semibold text-ink"><?= (int) $total ?></span>
-                        <?= $total === 1 ? 'product' : 'products' ?>
-                    <?php endif; ?>
-                </p>
+            <?php /* The title sits over the products rather than in a band
+                     above both columns, so the filter list starts level with
+                     it — matching the design and saving a screen of scroll
+                     before the first product. */ ?>
+            <?php /* Title and controls share a row, as in the design: the
+                     controls sit against the right edge of the grid rather
+                     than on a band of their own. They wrap underneath on a
+                     narrow screen. */ ?>
+            <div class="flex flex-wrap items-end justify-between gap-x-8 gap-y-5 border-b border-shell-line pb-5">
+                <header>
+                    <h1 class="rs-display rs-display--lg"><?= esc($context['heading']) ?></h1>
+                    <p class="mt-3 font-mono text-[0.625rem] tracking-[0.18em] text-ink-muted uppercase">
+                        <span class="num"><?= (int) $total ?></span>
+                        <?= $total === 1 ? 'piece' : 'pieces' ?>
+                        <?php if (! empty($context['intro'])): ?>
+                            <span class="mx-2 text-brass" aria-hidden="true">&middot;</span>
+                            <?= esc(rs_excerpt($context['intro'], 52)) ?>
+                        <?php endif; ?>
+                    </p>
+                </header>
 
+                <div class="flex flex-wrap items-center gap-3">
                 <form method="get" class="flex items-center gap-2">
                     <?php /* Keep every active filter when sort changes. */ ?>
                     <?php foreach (['q', 'category', 'min_price', 'max_price', 'in_stock', 'giftable'] as $key): ?>
@@ -89,8 +71,8 @@ $term = $filters['q'] ?? null;
                         <?php endif; ?>
                     <?php endforeach; ?>
 
-                    <label for="sort" class="font-mono text-[0.625rem] tracking-[0.14em] text-ink-muted uppercase">Sort</label>
-                    <select id="sort" name="sort" class="rs-select w-auto py-2 text-sm" data-auto-submit>
+                    <label for="sort" class="sr-only">Sort</label>
+                    <select id="sort" name="sort" class="rs-sortpill" data-auto-submit>
                         <?php foreach ($sortOptions as $key => $label): ?>
                             <option value="<?= esc($key, 'attr') ?>" <?= $sort === $key ? 'selected' : '' ?>>
                                 <?= esc($label) ?>
@@ -99,7 +81,31 @@ $term = $filters['q'] ?? null;
                     </select>
                     <noscript><button type="submit" class="rs-btn rs-btn--outline rs-btn--sm">Go</button></noscript>
                 </form>
-            </div>
+
+                <?php /* Progressive: without JavaScript the grid keeps its
+                         default density and these simply are not shown. */ ?>
+                <button type="button" class="rs-btn rs-btn--outline rs-btn--sm rs-filterbar" data-sidebar-open>
+                    <?= rs_icon('rows', 'h-4 w-4') ?> Filter
+                    <?php if ($chips !== []): ?>
+                        <span class="num rs-badge rs-badge--brass"><?= count($chips) ?></span>
+                    <?php endif; ?>
+                </button>
+
+                <div class="hidden items-center gap-1 sm:flex" role="group" aria-label="Grid density" data-density-group>
+                    <?php foreach ([
+                        'comfortable' => ['grid', 'Comfortable'],
+                        'dense'       => ['rows', 'Compact'],
+                        'list'        => ['rows', 'One per row'],
+                    ] as $mode => [$icon, $label]): ?>
+                        <button type="button" class="rs-density" data-density="<?= $mode ?>"
+                                aria-pressed="false" title="<?= esc($label, 'attr') ?>">
+                            <?= rs_icon($icon, 'h-4 w-4') ?>
+                            <span class="sr-only"><?= esc($label) ?></span>
+                        </button>
+                    <?php endforeach; ?>
+                </div>
+                </div><?php /* controls */ ?>
+            </div><?php /* title + controls row */ ?>
 
             <?php if ($products === []): ?>
                 <!-- Empty state: an invitation, not an apology. -->
@@ -121,9 +127,42 @@ $term = $filters['q'] ?? null;
                     </div>
                 </div>
             <?php else: ?>
-                <div class="mt-8 grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
+                <?php if ($chips !== []): ?>
+                    <?php /* Removing one at a time beats a single "clear all":
+                             a person who ticked four things and got two results
+                             needs to see which one to loosen. */ ?>
+                    <ul class="mt-5 flex flex-wrap items-center gap-2">
+                        <?php foreach ($chips as $chip): ?>
+                            <li>
+                                <?php /* NOT esc(..., 'attr'): that encodes / : ? and = into entities and
+                                     the link 404s (CLAUDE.md §15.9, fifth occurrence).
+                                     The URL is assembled by the controller from
+                                     current_url() and http_build_query, which has already
+                                     encoded every value. */ ?>
+                                <a href="<?= $chip['url'] ?>" class="rs-chip">
+                                    <?= esc($chip['label']) ?>
+                                    <span aria-hidden="true">&times;</span>
+                                    <span class="sr-only">Remove this filter</span>
+                                </a>
+                            </li>
+                        <?php endforeach; ?>
+                        <li>
+                            <a href="<?= site_url(uri_string()) ?>" class="rs-link text-xs text-ink-muted">Clear all</a>
+                        </li>
+                    </ul>
+                <?php endif; ?>
+
+                <div class="rs-grid mt-8" data-grid>
                     <?php foreach ($products as $product): ?>
-                        <?= view('partials/product_card', ['product' => $product]) ?>
+                        <div class="rs-reveal">
+                            <?= view('partials/product_card', [
+                                'product' => $product,
+                                // Batched in the controller — see
+                                // ProductModel::imagesFor(). Asking per card
+                                // would be one query per product on the page.
+                                'images'  => $imageMap[(int) $product->id] ?? [],
+                            ]) ?>
+                        </div>
                     <?php endforeach; ?>
                 </div>
 

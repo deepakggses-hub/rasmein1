@@ -92,6 +92,16 @@ class Cart extends StorefrontController
 
         $target = (string) ($this->request->getPost('return_to') ?? '');
 
+        /*
+         * "Buy now" skips the basket. It is a separate submit button on the same
+         * form rather than a second form, so the quantity the person chose
+         * carries over — and it must actually behave differently, or the button
+         * is a lie.
+         */
+        if ($this->request->getPost('checkout') !== null) {
+            $target = 'checkout';
+        }
+
         // Only ever redirect within this site — a posted URL is not trusted.
         $safe = $target !== '' && ! preg_match('#^[a-z]+://#i', $target) && ! str_starts_with($target, '//')
             ? site_url(ltrim($target, '/'))
