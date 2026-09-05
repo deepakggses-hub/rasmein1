@@ -59,11 +59,25 @@ class CartItemModel extends Model
             . ' gift_boxes.min_slots AS box_min_slots, gift_boxes.image AS box_image,'
             . ' gift_boxes.allow_gift_message, gift_boxes.gift_message_max_chars,'
             . ' gift_boxes.sale_mode AS box_sale_mode, gift_boxes.is_active AS box_active,'
+            /*
+             * The chosen variant's own price, stock and picture.
+             *
+             * Without this join every line was priced from products.price, so a
+             * variant carrying a premium was SHOWN one number on the product
+             * page and CHARGED another at checkout. The columns are aliased
+             * rather than overwriting the product's, so PricingService can tell
+             * "the variant sets this" from "it inherits".
+             */
+            . ' pv.id AS variant_id_row, pv.label AS variant_label,'
+            . ' pv.price AS variant_price, pv.compare_at_price AS variant_compare_at,'
+            . ' pv.stock_qty AS variant_stock, pv.image AS variant_image,'
+            . ' pv.is_active AS variant_active, pv.variant_key,'
             . ' (SELECT pi.path FROM product_images pi WHERE pi.product_id = products.id'
             . '  ORDER BY pi.is_primary DESC, pi.sort_order ASC LIMIT 1) AS product_image',
             false
         )
             ->join('products', 'products.id = cart_items.product_id', 'left')
+            ->join('product_variants pv', 'pv.id = cart_items.variant_id', 'left')
             ->join('gift_boxes', 'gift_boxes.id = cart_items.gift_box_id', 'left')
             ->where('cart_items.cart_id', $cartId)
             ->orderBy('cart_items.id', 'ASC')

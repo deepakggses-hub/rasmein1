@@ -48,7 +48,7 @@
                                 </div>
                             </td>
                             <td class="px-4 py-2.5">
-                                <a href="<?= rs_url((string) $occasion['slug']) ?>" target="_blank" rel="noopener"
+                                <a href="<?= rs_collection_url((string) $occasion['slug']) ?>" target="_blank" rel="noopener"
                                    class="rs-link font-mono text-xs text-ink-muted">/<?= esc($occasion['slug']) ?></a>
                             </td>
                             <td class="num px-4 py-2.5 text-right <?= $count === 0 ? 'text-bad' : '' ?>">

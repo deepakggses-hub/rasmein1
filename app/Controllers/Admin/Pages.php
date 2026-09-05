@@ -218,6 +218,25 @@ class Pages extends AdminController
             foreach ($section['fields'] as $fieldKey => $field) {
                 $value = $posted[$sectionKey][$fieldKey] ?? null;
 
+                if ($field['type'] === 'occasions') {
+                    /*
+                     * A list of ids, filtered to ones that exist.
+                     *
+                     * Stored as ints so the view can compare without casting,
+                     * and validated because a posted id that no longer names an
+                     * occasion would render an empty tile forever.
+                     */
+                    $ids = array_values(array_unique(array_filter(array_map('intval', (array) $value))));
+
+                    $out[$sectionKey][$fieldKey] = $ids === [] ? [] : array_map('intval', array_column(
+                        db_connect()->table('collections')->select('id')->whereIn('id', $ids)
+                            ->get()->getResultArray(),
+                        'id'
+                    ));
+
+                    continue;
+                }
+
                 if ($field['type'] === 'list') {
                     $rows = [];
 

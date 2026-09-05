@@ -490,17 +490,32 @@ class CartService
      *
      * @return array<string, mixed>
      */
-    public function setProductQuantity(int $productId, int $quantity): array
+    /**
+     * Set a product's quantity to an ABSOLUTE number.
+     *
+     * `$variantId` scopes it. Without that, choosing Gold when Silver was
+     * already in the basket found the Silver line and incremented THAT — the
+     * customer received a colour they never picked. The old query also had no
+     * `orderBy`, so with two lines it took whichever the database handed back
+     * first.
+     */
+    public function setProductQuantity(int $productId, int $quantity, ?int $variantId = null): array
     {
         $cart = $this->currentOrCreate();
 
-        $line = db_connect()->table('cart_items')
+        $builder = db_connect()->table('cart_items')
             ->where('cart_id', $cart['id'])
             ->where('product_id', $productId)
             // A configured gift box is a different line from a loose product of
             // the same id, and the stepper must never touch one.
-            ->where('gift_box_id', null)
-            ->get()->getRowArray();
+            ->where('gift_box_id', null);
+
+        $variantId === null
+            ? $builder->where('variant_id', null)
+            : $builder->where('variant_id', $variantId);
+
+        // Deterministic: the oldest matching line, never an arbitrary one.
+        $line = $builder->orderBy('id', 'ASC')->get()->getRowArray();
 
         if ($quantity < 1) {
             return $line === null
@@ -509,6 +524,8 @@ class CartService
         }
 
         if ($line === null) {
+            $this->pendingVariant = $variantId;
+
             return $this->addProduct($productId, $quantity);
         }
 

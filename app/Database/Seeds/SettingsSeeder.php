@@ -96,6 +96,14 @@ class SettingsSeeder extends Seeder
 
         cache()->delete('rasmein_settings');
 
+        /*
+         * The cached settings array is stale the moment a row is written.
+         * SettingsService::all() caches the whole thing, so without this a
+         * seeded value sits in the table while get() keeps returning the old
+         * one — or nothing at all.
+         */
+        service('settings')->flush();
+
         echo "  Settings: {$added} added, " . (count($settings) - $added) . " already present.\n";
     }
 }

@@ -99,6 +99,14 @@ class BrandSettingSeeder extends Seeder
             echo "  Brand settings: {$moved} row(s) moved to the correct group.\n";
         }
 
+        /*
+         * The cached settings array is stale the moment a row is written.
+         * SettingsService::all() caches the whole thing, so without this a
+         * seeded value sits in the table while get() keeps returning the old
+         * one — or nothing at all.
+         */
+        service('settings')->flush();
+
         echo "  Brand settings: {$added} added (" . count($rows) . " defined).\n";
     }
 }

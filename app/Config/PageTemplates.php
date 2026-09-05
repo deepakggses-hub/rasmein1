@@ -28,6 +28,102 @@ class PageTemplates extends BaseConfig
             'sections'    => [],
         ],
 
+        'collections' => [
+            /*
+             * This template needs data the generic page route cannot supply —
+             * the occasion tiles and their products come from a dedicated
+             * action. `route` sends /page/{slug} there instead of rendering a
+             * half-empty copy at a second address.
+             */
+            'route'       => 'collection',
+            'label'       => 'Collections page',
+            'description' => 'The landing page at /collection — hero, ethos, festival tiles, '
+                . 'a product edit, a season feature and an enquiry form.',
+            'view'        => 'storefront/pages/collections',
+            'sections'    => [
+        'hero' => [
+            'label'  => 'Hero band',
+            'fields' => [
+                'eyebrow'  => ['type' => 'text', 'label' => 'Small heading', 'help' => 'e.g. Collection III · Festive'],
+                'title'    => ['type' => 'text', 'label' => 'Heading',
+                    'help' => 'The second word from the end is set in gold italic.'],
+                'intro'    => ['type' => 'textarea', 'label' => 'Introduction'],
+                'aside'    => ['type' => 'text', 'label' => 'Quiet line, right side'],
+                'image'    => ['type' => 'image', 'label' => 'Background photograph',
+                    'help' => 'Sits behind the heading, under a dark scrim.'],
+            ],
+        ],
+
+        'ethos' => [
+            'label'  => 'The ethos',
+            'fields' => [
+                'eyebrow'    => ['type' => 'text', 'label' => 'Small heading', 'default' => 'The ethos'],
+                'title'      => ['type' => 'text', 'label' => 'Heading'],
+                'paragraphs' => [
+                    'type'   => 'list',
+                    'label'  => 'Paragraphs',
+                    'max'    => 6,
+                    'fields' => ['body' => ['type' => 'textarea', 'label' => 'Paragraph']],
+                ],
+            ],
+        ],
+
+        'tiles' => [
+            'label'  => 'By festival',
+            'help'   => 'A row of image tiles. Each links wherever you point it.',
+            'fields' => [
+                'eyebrow' => ['type' => 'text', 'label' => 'Small heading', 'default' => 'By festival'],
+                'title'   => ['type' => 'text', 'label' => 'Heading'],
+                'occasions' => [
+                    'type'  => 'occasions',
+                    'label' => 'Which occasions',
+                    'help'  => 'Tick the ones to show, in the order they are listed. '
+                        . 'Tick none and every live occasion appears.',
+                ],
+            ],
+        ],
+
+        'edit' => [
+            'label'  => 'The pieces',
+            'fields' => [
+                'eyebrow'  => ['type' => 'text', 'label' => 'Small heading', 'default' => 'The pieces'],
+                'title'    => ['type' => 'text', 'label' => 'Heading'],
+                'link_label' => ['type' => 'text', 'label' => 'Link text', 'default' => 'View all'],
+                'source'     => [
+                    'type'  => 'occasions',
+                    'label' => 'Pieces from which occasions',
+                    'help'  => 'Tick none and the pieces come from whatever is ticked above, '
+                        . 'or from every occasion if that is empty too.',
+                ],
+            ],
+        ],
+
+        'feature' => [
+            'label'  => 'Season feature',
+            'help'   => 'The deep band. Leave the heading blank to hide it.',
+            'fields' => [
+                'eyebrow'   => ['type' => 'text', 'label' => 'Small heading', 'default' => 'This season'],
+                'title'     => ['type' => 'text', 'label' => 'Heading'],
+                'body'      => ['type' => 'textarea', 'label' => 'Paragraph'],
+                'image'     => ['type' => 'image', 'label' => 'Image'],
+                'cta_label' => ['type' => 'text', 'label' => 'Button text'],
+                'cta_link'  => ['type' => 'text', 'label' => 'Button links to'],
+            ],
+        ],
+
+        'invite' => [
+            'label'  => 'Enquiry form',
+            'help'   => 'Leave the heading blank to hide this section.',
+            'fields' => [
+                'title'      => ['type' => 'text', 'label' => 'Heading'],
+                'body'       => ['type' => 'textarea', 'label' => 'Paragraph'],
+                'form_title' => ['type' => 'text', 'label' => 'Form heading', 'default' => 'Let us craft something special'],
+                'whatsapp'   => ['type' => 'text', 'label' => 'WhatsApp number'],
+            ],
+        ],
+            ],
+        ],
+
         'about' => [
             'label'       => 'About / story page',
             'description' => 'A long-form story: chapters, principles, a timeline and a founder note.',

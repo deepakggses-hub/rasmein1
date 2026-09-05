@@ -247,7 +247,7 @@ $rsMarquee = service('design');
             <ul class="rs-loop__track rs-loop__track--tiles" data-loop-track>
                 <?php foreach ($occasions as $occasion): ?>
                     <li class="rs-loop__item">
-                        <a href="<?= rs_url((string) $occasion['slug']) ?>" class="rs-tile">
+                        <a href="<?= rs_collection_url((string) $occasion['slug']) ?>" class="rs-tile">
                             <img src="<?= rs_url(rs_image($occasion['image'] ?? null, 'products')) ?>"
                                  alt="<?= esc((string) ($occasion['alt_text'] ?? ''), 'attr') ?>"
                                  class="rs-tile__img"
@@ -331,7 +331,7 @@ $rsMarquee = service('design');
                 <ul class="rs-loop__track rs-loop__track--small" data-loop-track>
                     <?php foreach ($occasions as $occasion): ?>
                         <li>
-                            <a href="<?= rs_url((string) $occasion['slug']) ?>" class="rs-occasion">
+                            <a href="<?= rs_collection_url((string) $occasion['slug']) ?>" class="rs-occasion">
                                 <img src="<?= rs_url(rs_image($occasion['image'] ?? null, 'products')) ?>" alt=""
                                      class="rs-occasion__img" loading="lazy" decoding="async" width="440" height="320">
                                 <span class="rs-occasion__label"><?= esc($occasion['name']) ?></span>

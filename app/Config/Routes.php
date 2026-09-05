@@ -49,8 +49,22 @@ $routes->group('', ['namespace' => 'App\Controllers\Storefront'], static functio
     // ---- Catalogue (Phase 2) ----
     $routes->match(['GET', 'HEAD'], 'shop', 'Shop::index', ['as' => 'shop']);
     $routes->match(['GET', 'HEAD'], 'search', 'Shop::search', ['as' => 'search']);
+    /*
+     * /collection is the designed landing page; /collections stays as the plain
+     * index it always was, so nothing that already links there breaks.
+     */
+    $routes->match(['GET', 'HEAD'], 'collection', 'Pages::collections');
     $routes->match(['GET', 'HEAD'], 'collections', 'Collections::index', ['as' => 'collections']);
     $routes->match(['GET', 'HEAD'], 'collections/(:segment)', 'Shop::collection/$1', ['as' => 'collection']);
+
+    /*
+     * The singular form, which is what gets typed and shared.
+     *
+     * An occasion used to live at the ROOT — /diwali-2026 — which put it in the
+     * same namespace as every category and page, so a new occasion could
+     * silently shadow one. Under /collection it cannot.
+     */
+    $routes->match(['GET', 'HEAD'], 'collection/(:segment)', 'Shop::collection/$1');
     // A variant has its own URL, so one colour can be linked to directly.
     // Declared FIRST: routes match in order, and the single-segment rule would
     // otherwise swallow the two-segment URL.

@@ -15,7 +15,7 @@ class CollectionModel extends Model
     protected $useSoftDeletes = true;
 
     protected $allowedFields = [
-        'type', 'name', 'slug', 'description', 'image', 'alt_text', 'is_featured',
+        'type', 'name', 'slug', 'description', 'image', 'hero_image', 'data', 'alt_text', 'is_featured',
         'sort_order', 'is_active', 'starts_at', 'ends_at', 'meta_title', 'meta_description',
     ];
 
@@ -60,10 +60,20 @@ class CollectionModel extends Model
     // was not worth two copies of the root-URL collision check.
     // =================================================================
 
-    /** @return array<int, array<string, mixed>> */
-    public function occasions(bool $activeOnly = false): array
+    /**
+     * Occasions, or every kind.
+     *
+     * The admin edits both from one screen, so it asks for both. The storefront
+     * still asks for occasions only, because the two are shown in different
+     * places — an occasion strip and a collections index.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function occasions(bool $activeOnly = false, bool $allKinds = false): array
     {
-        $query = $this->where('type', 'occasion');
+        $query = $allKinds
+            ? $this->whereIn('type', ['occasion', 'collection'])
+            : $this->where('type', 'occasion');
 
         if ($activeOnly) {
             $query->where('is_active', 1);

@@ -156,7 +156,16 @@ class PricingService
         $name     = (string) ($line['product_name'] ?? 'Unavailable item');
 
         // Price comes from the products table, never from the cart row.
-        $unit = (float) ($line['product_price'] ?? 0);
+        /*
+         * The variant's price when it sets one, the product's otherwise.
+         *
+         * `?? null` is not enough — a variant that inherits stores NULL, and
+         * `(float) null` is 0.00. A basket priced at zero is worse than one
+         * priced wrongly.
+         */
+        $unit = $line['variant_price'] !== null
+            ? (float) $line['variant_price']
+            : (float) ($line['product_price'] ?? 0);
 
         $missing = ($line['product_id'] ?? null) === null
             || (int) ($line['product_active'] ?? 0) !== 1;
@@ -193,6 +202,10 @@ class PricingService
             'sku'          => (string) ($line['product_sku'] ?? ''),
             'slug'         => $line['product_slug'] ?? null,
             'unit_label'   => $line['unit_label'] ?? null,
+            // Carried through so the cart, the drawer and the ORDER all name
+            // the same thing the customer chose.
+            'variant_id'    => isset($line['variant_id']) ? (int) $line['variant_id'] : null,
+            'variant_label' => $line['variant_label'] ?? null,
             'image'        => $line['product_image'] ?? null,
             'unit_price'   => $this->round($unit),
             'quantity'     => $quantity,
@@ -200,6 +213,11 @@ class PricingService
             'slots_used'   => 0,
             'capacity'     => null,
             'sale_mode'    => $this->settings->resolveItemMode($line['product_sale_mode'] ?? null),
+            // Collected in the builder and stored on cart_items, but it was
+            // never put in this array — so OrderService's read of it always
+            // resolved to null and the person the gift is FOR never reached
+            // the order.
+            'gift_recipient' => $line['gift_recipient'] ?? null,
             'gift_message' => $line['gift_message'] ?? null,
             'special_note' => $line['special_note'] ?? null,
             'components'   => [],
@@ -375,6 +393,7 @@ class PricingService
             'box_charge'     => $this->round($boxCharge),
             'adjustment'     => $this->round($adjust),
             'sale_mode'      => $this->settings->resolveItemMode($line['box_sale_mode'] ?? null),
+            'gift_recipient' => $line['gift_recipient'] ?? null,
             'gift_message'   => $line['gift_message'] ?? null,
             'special_note'   => $line['special_note'] ?? null,
             'components'     => $contents,
@@ -504,6 +523,17 @@ class PricingService
     {
         if ((int) ($line['track_inventory'] ?? 0) !== 1) {
             return null;
+        }
+
+        /*
+         * A variant has its own stock, and it is the LIMIT.
+         *
+         * Reading the product row let silver sell out while gold's count kept
+         * the line valid — one variant could be oversold without limit because
+         * nothing ever looked at its column.
+         */
+        if (($line['variant_id'] ?? null) !== null && isset($line['variant_stock'])) {
+            return max(0, (int) $line['variant_stock']);
         }
 
         return max(0, (int) ($line['stock_qty'] ?? 0));

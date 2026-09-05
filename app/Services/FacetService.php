@@ -196,7 +196,7 @@ class FacetService
                 // Always a link. An occasion is a page with its own copy and
                 // banner; ticking it as a filter would show the same products
                 // stripped of all of that.
-                'url'      => site_url((string) $row['slug']),
+                'url'      => rs_collection_url((string) $row['slug']),
                 'selected' => $this->occasionId === (int) $row['id']
                     || in_array((string) $row['id'], $chosen, true),
             ];

@@ -140,6 +140,25 @@ class Cart extends StorefrontController
      */
     public function addJson()
     {
+        /*
+         * The chosen variant, validated against the product.
+         *
+         * This is the path the product page actually posts to, and it was
+         * dropping the variant entirely — so 25 of 29 cart lines carried NULL
+         * and every one of them was priced from the base product.
+         */
+        $variantId = (int) $this->request->getPost('variant_id');
+
+        if ($variantId > 0 && model(\App\Models\ProductVariantModel::class)
+            ->where('id', $variantId)
+            ->where('product_id', (int) $this->request->getPost('product_id'))
+            ->where('is_active', 1)
+            ->countAllResults() === 0) {
+            // A posted id that does not belong to this product is ignored
+            // rather than trusted.
+            $variantId = 0;
+        }
+
         $productId = (int) $this->request->getPost('product_id');
         $quantity  = (int) $this->request->getPost('quantity');
 
@@ -152,10 +171,10 @@ class Cart extends StorefrontController
 
         try {
             if ($quantity < 1) {
-                service('cart')->setProductQuantity($productId, 0);
+                service('cart')->setProductQuantity($productId, 0, $variantId ?: null);
                 $quantity = 0;
             } else {
-                $result = service('cart')->setProductQuantity($productId, $quantity);
+                $result = service('cart')->setProductQuantity($productId, $quantity, $variantId ?: null);
 
                 if (($result['ok'] ?? true) === false) {
                     return $this->response->setStatusCode(422)->setJSON([

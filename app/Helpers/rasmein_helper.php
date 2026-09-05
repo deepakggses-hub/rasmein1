@@ -198,6 +198,20 @@ if (! function_exists('rs_user_agent')) {
     }
 }
 
+if (! function_exists('rs_collection_url')) {
+    /**
+     * Where an occasion or collection lives.
+     *
+     * ONE place decides, so moving the address again is one edit rather than a
+     * hunt through views, facets and the sitemap — which is exactly how the old
+     * root URL ended up hard-coded in four of them.
+     */
+    function rs_collection_url(string $slug): string
+    {
+        return site_url('collection/' . trim($slug, '/'));
+    }
+}
+
 if (! function_exists('rs_icon')) {
     /**
      * An inline SVG icon.

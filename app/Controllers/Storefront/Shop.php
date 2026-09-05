@@ -37,7 +37,7 @@ class Shop extends StorefrontController
      * catch-all route that feeds this method is registered LAST, so every real
      * route wins first; anything that is not a category falls through to a 404.
      */
-    public function path(string ...$segments): string
+    public function path(string ...$segments)
     {
         $model = model(CategoryModel::class);
         $path  = trim(implode('/', $segments), '/');
@@ -56,9 +56,19 @@ class Shop extends StorefrontController
             throw PageNotFoundException::forPageNotFound();
         }
 
-        return $hit['kind'] === 'occasion'
-            ? $this->renderOccasion($hit['entity'])
-            : $this->renderCategory($hit['entity']);
+        /*
+         * An occasion has moved to /collection/{slug}.
+         *
+         * A PERMANENT redirect, not a 404 and not a silent re-render: the old
+         * root address may be in someone's history, a printed card or a search
+         * index, and both of those alternatives throw away traffic that was
+         * already earned. 301 also tells a search engine to update its record.
+         */
+        if ($hit['kind'] === 'occasion') {
+            return redirect()->to(site_url('collection/' . $hit['entity']['slug']), 301);
+        }
+
+        return $this->renderCategory($hit['entity']);
     }
 
     /**
@@ -102,7 +112,6 @@ class Shop extends StorefrontController
             'lockedCollection' => (int) $occasion['id'],
             // On an occasion page the Occasion facet is dropped — it would
             // only ever offer the page you are already on.
-            'facetOccasion'    => (int) $occasion['id'],
             // Shown on the page so a seasonal occasion says how long is left,
             // which is the whole reason someone is looking at it.
             'endsAt'   => $ends,
@@ -145,6 +154,7 @@ class Shop extends StorefrontController
         if ($collection === null) {
             throw PageNotFoundException::forPageNotFound();
         }
+
 
         return $this->listing([
             'heading'  => $collection['name'],
@@ -203,7 +213,15 @@ class Shop extends StorefrontController
             // filter that leads nowhere — see FacetService.
             'facets'      => service('facets')->build($filters, [
                 'category' => $context['facetCategory'] ?? null,
-                'occasion' => $context['facetOccasion'] ?? null,
+                /*
+                 * The collection this page is locked to.
+                 *
+                 * `lockedCollection` is what the product query already uses;
+                 * reading a SECOND key here meant collection() — which set only
+                 * the first — got whole-catalogue facet counts on a page showing
+                 * six products. One key, one meaning.
+                 */
+                'occasion' => $context['lockedCollection'] ?? ($context['facetOccasion'] ?? null),
             ]),
             'active'      => ['q' => $filters['q'] ?? null, 'sort' => $sort],
             'chips'       => $this->activeChips($filters),
@@ -432,4 +450,6 @@ class Shop extends StorefrontController
 
         return array_key_exists($sort, ProductModel::SORTS) ? $sort : 'featured';
     }
+
+
 }

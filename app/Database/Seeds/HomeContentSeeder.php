@@ -88,6 +88,14 @@ class HomeContentSeeder extends Seeder
             $seeded++;
         }
 
+        /*
+         * The cached settings array is stale the moment a row is written.
+         * SettingsService::all() caches the whole thing, so without this a
+         * seeded value sits in the table while get() keeps returning the old
+         * one — or nothing at all.
+         */
+        service('settings')->flush();
+
         echo "  Home content: {$added} setting(s), {$seeded} testimonial(s).\n";
     }
 }

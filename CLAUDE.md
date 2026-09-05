@@ -2401,6 +2401,167 @@ The drawer opens from every add-to-cart — product detail, listing and wishlist
 because they all use the same `[data-cart]` form and the same handler. Verified
 on all three: panel 448x1000, white, with the checkout button.
 
+### Collections moved to /collection/{slug}
+
+An occasion used to live at the ROOT — `/diwali-2026` — sharing a namespace with
+every category and page, so a new occasion could silently shadow one. The old
+address now returns a **301**, not a 404: those URLs may be in a history, a
+printed card or a search index, and both a 404 and a silent re-render throw away
+traffic that was already earned.
+
+`rs_collection_url()` is the ONE place that builds the address. The old form was
+hard-coded in four files — facets, two homepage rows and the admin preview link
+— which is exactly why moving it was a hunt rather than an edit.
+
+### /collection is a PAGE; /collection/{slug} is a LISTING
+
+The designed landing page lives at `/collection` as a `pages` row with the
+`collections` template — so it edits under Pages with the same editor as About
+and Contact, rather than needing a screen of its own.
+
+An individual occasion at `/collection/{slug}` is a plain filtered listing. It
+was briefly given the landing layout, which was wrong: that page exists to browse
+the products in a collection, and a hero band with an ethos paragraph is in the
+way of that.
+
+The tiles and the product rail both PICK OCCASIONS — an `occasions` field type
+rendering a tick list, not free-typed rows. An occasion already has a name, a
+photograph and a URL; asking someone to retype all three is three chances to get
+it wrong and no way to notice when the occasion is later renamed.
+
+**Ticking none means ALL of them.** A page called "collections" listing none is
+the one failure it cannot have, and a fresh install must work before anyone
+opens the editor. The product rail falls back to the tiles' own list, so ticking
+"Diwali" once drives both.
+
+Both sections were empty at first because they depended on data that did not
+exist: the rail used `is_featured` and the tiles needed configured rows. A
+section whose content comes from somewhere the shop has not filled in yet should
+default to something real, not to nothing.
+
+### One context key, one meaning
+
+`Shop::listing()` took the collection scope from `lockedCollection` for the
+product query and `facetOccasion` for the facets. `renderOccasion()` set both;
+`collection()` set only the first — so a collection page showed six products
+beside facet counts for the whole catalogue (Silver 146, Serving Trays 41).
+
+The facets now read `lockedCollection`, the same key the query uses. **Two names
+for one thing is a bug waiting for the second caller.**
+
+### The variant chain must reach MONEY, not just the page
+
+A variant system that only feeds the product page is worse than none: the
+customer is shown one number and charged another. Four links were missing, and
+all four had to be added together.
+
+- `CartItemModel::forCart()` now LEFT JOINs `product_variants`. Without it every
+  line was priced from `products.price` — 291 variants carrying a premium were
+  displayed correctly and billed at base.
+- `PricingService` prices from the variant when it sets one. The test is
+  `!== null`, not `??` — a variant that inherits stores NULL, and `(float) null`
+  is 0.00. A basket priced at zero is worse than one priced wrongly.
+- `OrderService::writeLines()` writes `variant_id` AND `variant_label`. The id
+  alone leaves an order unreadable once a variant is renamed; the label is a
+  snapshot for the same reason `name_snapshot` is.
+- Variant stock is checked in `availableStock()` and decremented in
+  `reserveStock()`. Use `affectedRows()`, not `update()`'s return — that reports
+  whether the STATEMENT ran, so a sold-out variant would pass silently.
+
+**`setProductQuantity()` takes the variant.** `findProductLine()` was
+variant-aware and this was not, so the AJAX path — the one the product page
+actually uses — found the Silver line when Gold was chosen and incremented it.
+It also had no `orderBy`, so with two lines it took whichever the database
+happened to return.
+
+### FormData does not carry the submit button
+
+Only `e.submitter` has the button's name/value. The product page's "Buy now"
+(`name="checkout"`) never reached the server, so it behaved exactly like Add to
+cart. The drawer handler read `e.submitter` and this one did not — the same bug
+fixed in one place and not the other.
+
+The same handler hard-coded `quantity` to 1, which made the stepper decorative.
+
+### Idempotency: use the POSTED key
+
+`Checkout` generated a fresh random key when the session key was absent — and
+the session key is REMOVED after a successful order. Back, resubmit, new random
+key, duplicate check passes, second order for the same basket. The hidden field
+existed and was inert. It is format-checked before use, since it lands in a
+unique index.
+
+### Notifications go AFTER the commit
+
+`queueNotifications()` inserts into `notification_log` and
+`admin_notifications`. Inside the transaction, any failed insert there sets
+`transStatus()` false; the internal `catch` swallows the exception but cannot
+reset that flag — so a mail problem rolled back a COMPLETED order. An order
+without its email is a nuisance; an order that vanishes because of an email is a
+lost sale.
+
+### PricingService builds an EXPLICIT line array
+
+`gift_recipient` was collected in the builder, stored on `cart_items` and read
+by `OrderService` — but never put in the array between them, so it always
+resolved to null. Third time this shape of bug has appeared: a column added at
+one end does not travel unless the array in the middle names it.
+
+### One screen owns both kinds of collection
+
+`collections` holds `type = 'occasion'` (dated: Diwali 2026) and
+`type = 'collection'` (ongoing: The Tea Drinker). `Admin\Occasions` was locked
+to `'occasion'`, so the collection rows appeared on the storefront and could be
+edited only in SQL.
+
+The screen now lists and edits both, and **preserves the kind on save** — the
+payload used to hard-code `'occasion'`, which would have quietly reclassified a
+collection the first time someone touched its copy and dropped it out of the
+collections index. `save()` takes only an id, so the current kind is looked up
+rather than assumed.
+
+The kind is chosen when creating and shown read-only afterwards: changing it
+later moves the page out from under its own URL.
+
+`CollectionPageSeeder` fills the landing copy and is CONSERVATIVE — a row that
+already has `data` is left exactly as the shop has it. Overwriting edited copy
+on every deploy is how people learn to stop running seeders.
+
+### A template needing extra data declares its own route
+
+`/collection` is served by a dedicated action that builds the occasion tiles and
+their products. `/page/collections` — the generic route — rendered the SAME
+layout with only `page` and `data`, so sections three and four were silently
+empty. Two addresses for one page, one of them broken.
+
+A template can now carry `'route' => 'collection'`, and `Pages::show()` sends
+those slugs there with a **301**. One address, and the next template that needs
+its own data cannot repeat the mistake.
+
+**If a view needs more than the generic renderer passes, the generic renderer
+must not be able to reach it.**
+
+### An empty section is a data problem, not a layout one
+
+The product rail was empty because no occasion had any products tagged — a
+legitimate state that reads as a broken page. `CollectionsPageSeeder` now tags
+eight pieces into any occasion that has NONE, offset by the collection id so the
+three do not all show the same eight. A curated occasion is never touched.
+
+### The rail's width lives on the TRACK
+
+`rs-loop` needs `<ul class="rs-loop__track rs-loop__track--x" data-loop-track>`
+inside it. The card width comes from `grid-auto-columns` on that track — put the
+items straight into `[data-loop]` and they have no column size, so each one takes
+the full width and arrives one at a time.
+
+Reusing a component means copying its STRUCTURE, not just its outer class. The
+class turned the scroller on; the track is what made it a row.
+
+`--cards` is a new track variant: narrower than `--tiles` because a product card
+carries a name and a price under the photograph, so more of them have to be
+visible before the row reads as a row. 70vw → 38vw → 24vw → 19rem.
+
 ### Outstanding security work (tracked, not yet done)
 
 - [ ] **CSP is written but not enabled.** `Config/ContentSecurityPolicy.php`

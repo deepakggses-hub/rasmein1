@@ -28,11 +28,6 @@ class DatabaseSeeder extends Seeder
         $this->call(BrandSettingSeeder::class);
         $this->call(DesignSettingSeeder::class);
         $this->call(HomeContentSeeder::class);
-        // Sign-in copy and the Google credential keys. Missing from this chain
-        // meant a fresh install had no google_auth_* rows at all, so
-        // isConfigured() was false and the button silently never rendered.
-        // In the chain, or a fresh install has no contact page at all — the
-        // mistake made with AuthContentSeeder.
         $this->call(AttributeSeeder::class);
         /*
          * The real catalogue. Runs AFTER AttributeSeeder — it looks values up
@@ -40,9 +35,28 @@ class DatabaseSeeder extends Seeder
          * CatalogueSeeder, whose demo products it deliberately replaces.
          */
         $this->call(ProductCatalogueSeeder::class);
+
+        /*
+         * Variants, built from the attributes the catalogue just attached.
+         *
+         * MUST run after ProductCatalogueSeeder, which truncates products — and
+         * it was the only seeder missing from this chain, so `db:seed
+         * DatabaseSeeder` produced zero variants, the selector never rendered
+         * and the export's variant columns were empty with nothing saying why.
+         *
+         * ProductCatalogueSeeder calls it too, for the case where that seeder is
+         * run alone. It truncates its own tables first, so running twice is
+         * harmless.
+         */
+        $this->call(VariantSeeder::class);
+        // The landing page at /collection.
+        $this->call(CollectionsPageSeeder::class);
         $this->call(AboutPageSeeder::class);
         $this->call(ContactPageSeeder::class);
         $this->call(ChromeSeeder::class);
+        // Sign-in copy and the Google credential keys. Missing from this chain
+        // once meant a fresh install had no google_auth_* rows at all, so
+        // isConfigured() was false and the button silently never rendered.
         $this->call(AuthContentSeeder::class);
         $this->call(MailSettingSeeder::class);
         $this->call(EmailTemplateSeeder::class);

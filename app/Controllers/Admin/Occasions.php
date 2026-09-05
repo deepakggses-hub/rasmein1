@@ -18,6 +18,9 @@ use CodeIgniter\Exceptions\PageNotFoundException;
  */
 class Occasions extends AdminController
 {
+    /** Both kinds this screen edits. */
+    private const TYPES = ['occasion', 'collection'];
+
     public function index()
     {
         if ($denied = $this->deny('content.manage')) {
@@ -27,7 +30,8 @@ class Occasions extends AdminController
         $model = model(CollectionModel::class);
 
         return $this->adminPage('admin/occasions/index', [
-            'occasions' => $model->occasions(),
+            // Both kinds: this screen owns them, so the list must show them.
+            'occasions' => $model->occasions(false, true),
             'counts'    => $model->productCounts(),
         ], 'Occasions');
     }
@@ -49,7 +53,10 @@ class Occasions extends AdminController
 
         $occasion = model(CollectionModel::class)->find($id);
 
-        if ($occasion === null || ($occasion['type'] ?? '') !== 'occasion') {
+        // Both kinds live in this table and both need the same editor. Locking
+        // to 'occasion' left the 'collection' rows with no screen at all —
+        // visible on the storefront, editable only in SQL.
+        if ($occasion === null || ! in_array($occasion['type'] ?? '', self::TYPES, true)) {
             throw PageNotFoundException::forPageNotFound();
         }
 
@@ -73,7 +80,7 @@ class Occasions extends AdminController
 
         $existing = model(CollectionModel::class)->find($id);
 
-        if ($existing === null || ($existing['type'] ?? '') !== 'occasion') {
+        if ($existing === null || ! in_array($existing['type'] ?? '', self::TYPES, true)) {
             throw PageNotFoundException::forPageNotFound();
         }
 
@@ -89,7 +96,7 @@ class Occasions extends AdminController
         $model    = model(CollectionModel::class);
         $occasion = $model->find($id);
 
-        if ($occasion === null || ($occasion['type'] ?? '') !== 'occasion') {
+        if ($occasion === null || ! in_array($occasion['type'] ?? '', self::TYPES, true)) {
             throw PageNotFoundException::forPageNotFound();
         }
 
@@ -110,6 +117,7 @@ class Occasions extends AdminController
     {
         $model = model(CollectionModel::class);
         $id    = $occasion !== null ? (int) $occasion['id'] : 0;
+
 
         return $this->adminPage('admin/occasions/form', [
             'occasion' => $occasion,
@@ -150,8 +158,26 @@ class Occasions extends AdminController
             return redirect()->back()->withInput()->with('error', 'The end date falls before the start date.');
         }
 
+        // The kind this row already is, if it is an existing one. `save()` takes
+        // only an id, so it has to be looked up rather than assumed.
+        $currentType = null;
+
+        if ($id !== null) {
+            $row = model(CollectionModel::class)->find($id);
+            $currentType = $row['type'] ?? null;
+        }
+
         $payload = [
-            'type'             => 'occasion',
+            /*
+             * Keep whatever kind this row already is. Forcing 'occasion' would
+             * quietly reclassify a collection the first time someone edited its
+             * copy, and it would vanish from the collections listing.
+             */
+            'type'             => $currentType ?? (
+                in_array((string) $this->request->getPost('type'), self::TYPES, true)
+                    ? (string) $this->request->getPost('type')
+                    : 'occasion'
+            ),
             'name'             => $name,
             'slug'             => $slug,
             'description'      => trim((string) $this->request->getPost('description')) ?: null,
@@ -205,4 +231,5 @@ class Occasions extends AdminController
                     . $tagged . ' product' . ($tagged === 1 ? '' : 's') . ' tagged.'
             );
     }
+
 }

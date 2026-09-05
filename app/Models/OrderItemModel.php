@@ -20,7 +20,7 @@ class OrderItemModel extends Model
 
     protected $allowedFields = [
         'order_id', 'item_type', 'product_id', 'gift_box_id',
-        'name_snapshot', 'sku_snapshot', 'unit_price', 'quantity',
+        'name_snapshot', 'sku_snapshot', 'unit_price', 'quantity', 'variant_id', 'variant_label',
         'line_total', 'slots_used', 'gift_recipient', 'gift_message', 'special_note',
     ];
 

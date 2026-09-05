@@ -19,6 +19,24 @@ $oldPicks = old('products');
       action="<?= $isNew ? site_url('admin/occasions') : site_url('admin/occasions/' . $occasion['id']) ?>">
     <?= csrf_field() ?>
 
+    <?php /* An occasion is dated (Diwali 2026); a collection is not (The Tea
+             Drinker). Both live in the same table and use this screen, so the
+             kind is chosen here rather than guessed. Locked once saved: changing
+             it would move the page out from under its own URL. */ ?>
+    <?php if ($occasion === null): ?>
+        <label class="mb-5 block max-w-xs">
+            <span class="rs-label">Kind</span>
+            <select name="type" class="rs-select">
+                <option value="occasion">Occasion &mdash; dated, like Diwali 2026</option>
+                <option value="collection">Collection &mdash; ongoing, like The Tea Drinker</option>
+            </select>
+        </label>
+    <?php else: ?>
+        <p class="rs-help mb-5">
+            Kind: <strong><?= esc($occasion['type']) ?></strong>
+        </p>
+    <?php endif; ?>
+
     <div class="grid gap-6 lg:grid-cols-[1fr_20rem] lg:items-start">
         <div class="space-y-5">
             <section class="border border-shell-line bg-white p-5">
@@ -159,6 +177,9 @@ $oldPicks = old('products');
             </button>
         </aside>
     </div>
+
+
+
 </form>
 
 <?php if (! $isNew): ?>

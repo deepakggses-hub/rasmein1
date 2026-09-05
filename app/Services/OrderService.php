@@ -138,14 +138,24 @@ class OrderService
             // ------------------------------------------------------- cart
             $this->cart->markConverted((int) $snapshot['cart']['id'], $orderId);
 
-            // ---------------------------------------------- notifications
-            $this->queueNotifications($orderId, $input, $isEnquiry);
-
             if ($db->transStatus() === false) {
                 throw new \RuntimeException('Transaction reported failure.');
             }
 
             $db->transCommit();
+
+            /*
+             * Notifications AFTER the commit, deliberately.
+             *
+             * They insert into notification_log and admin_notifications, and
+             * inside the transaction any failed insert — an over-long body, a
+             * bad enum — sets transStatus() to false. The internal catch
+             * swallowed the exception but could not reset that flag, so a mail
+             * problem rolled back a COMPLETED order and told the customer it had
+             * failed. An order that exists without its email is a nuisance; an
+             * order that vanishes because of an email is a lost sale.
+             */
+            $this->queueNotifications($orderId, $input, $isEnquiry);
         } catch (Throwable $e) {
             $db->transRollback();
 
@@ -274,6 +284,16 @@ class OrderService
                 'quantity'       => $line['quantity'],
                 'line_total'     => $line['line_total'],
                 'slots_used'     => $line['slots_used'],
+                /*
+                 * Which variant, and what it was CALLED at the time.
+                 *
+                 * The id alone is not enough: a variant renamed or retired a
+                 * year later would leave the order unreadable, and an order is
+                 * a record of what was agreed. The label is a snapshot for the
+                 * same reason name_snapshot is.
+                 */
+                'variant_id'     => $line['variant_id'] ?? null,
+                'variant_label'  => $line['variant_label'] ?? null,
                 'gift_recipient' => $line['gift_recipient'] ?? null,
                 'gift_message'   => $line['gift_message'] ?? null,
                 'special_note'   => $line['special_note'] ?? null,
@@ -310,6 +330,37 @@ class OrderService
 
         foreach ($lines as $line) {
             if ($line['type'] === 'product' && $line['product_id'] !== null) {
+                /*
+                 * A variant holds its own stock, so that is what comes down.
+                 *
+                 * Decrementing only the product row let one variant be oversold
+                 * without limit — its column was written by the seeder, read for
+                 * display, and never touched again.
+                 *
+                 * The product row still moves too: it is the total across
+                 * variants, and the listing pages read it.
+                 */
+                if (($line['variant_id'] ?? null) !== null) {
+                    // db_connect() inline: OrderService has no $db property,
+                    // and the connection is the same one the transaction holds.
+                    $db = db_connect();
+
+                    $taken = $db->table('product_variants')
+                        ->where('id', (int) $line['variant_id'])
+                        ->where('stock_qty >=', (int) $line['quantity'])
+                        ->set('stock_qty', 'stock_qty - ' . (int) $line['quantity'], false)
+                        ->update();
+
+                    // affectedRows(), not the return value: update() reports
+                    // whether the STATEMENT ran, not whether a row matched, so
+                    // a sold-out variant would pass silently.
+                    if (! $taken || $db->affectedRows() < 1) {
+                        throw new \RuntimeException(
+                            'Stock no longer available for variant ' . $line['variant_id']
+                        );
+                    }
+                }
+
                 if (! $products->reserveStock((int) $line['product_id'], (int) $line['quantity'])) {
                     throw new \RuntimeException(
                         'Stock no longer available for product ' . $line['product_id']

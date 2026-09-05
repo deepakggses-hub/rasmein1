@@ -1403,8 +1403,27 @@
     var form = e.target.closest('[data-cart]');
     if (!form) return;
 
+    /*
+     * "Buy now" is a different act, and it lives on the submit button.
+     *
+     * FormData does NOT carry the submitter's name/value — only `e.submitter`
+     * has it. Without reading it the checkout flag never left the browser, and
+     * Buy now behaved exactly like Add to cart. It must also SKIP the basket,
+     * so it is left to submit normally rather than intercepted.
+     */
+    if (e.submitter && e.submitter.name === 'checkout') return;
+
     e.preventDefault();
-    send(form, 1);
+
+    /*
+     * The quantity the person actually set. This was hard-coded to 1, which
+     * made the stepper on the product page decorative — setting five and
+     * clicking Add gave you one.
+     */
+    var field = form.querySelector('[name="quantity"]');
+    var want = field ? parseInt(field.value, 10) : 1;
+
+    send(form, want > 0 ? want : 1);
   });
 
   document.addEventListener('click', function (e) {

@@ -70,6 +70,50 @@
                         </div>
                     </div>
 
+                <?php elseif ($field['type'] === 'occasions'): ?>
+                    <?php
+                    /*
+                     * A tick list of the live occasions.
+                     *
+                     * Not free-typed rows: an occasion already has a name, a
+                     * picture and a URL, and asking someone to retype all three
+                     * is three chances to get it wrong and no way to notice
+                     * when the occasion is later renamed.
+                     */
+                    $chosen = array_map('intval', (array) $value);
+                    $live   = model(\App\Models\CollectionModel::class)->occasions(false, true);
+                    ?>
+                    <span class="rs-label"><?= esc($field['label']) ?></span>
+
+                    <?php if ($live === []): ?>
+                        <p class="rs-help">
+                            No occasions yet &mdash;
+                            <a href="<?= site_url('admin/occasions/new') ?>" class="rs-link text-mulberry">add one</a>.
+                        </p>
+                    <?php else: ?>
+                        <ul class="mt-2 flex flex-wrap gap-2">
+                            <?php foreach ($live as $row): ?>
+                                <?php $on = in_array((int) $row['id'], $chosen, true); ?>
+                                <li>
+                                    <label class="flex cursor-pointer items-center gap-2 border px-2.5 py-1.5 text-sm
+                                                  <?= $on ? 'border-mulberry bg-brass-soft/30' : 'border-shell-line' ?>">
+                                        <input type="checkbox" class="accent-mulberry"
+                                               name="<?= esc($name, 'attr') ?>[]" value="<?= (int) $row['id'] ?>"
+                                               <?= $on ? 'checked' : '' ?>>
+                                        <span><?= esc($row['name']) ?></span>
+                                        <?php if ((int) $row['is_active'] !== 1): ?>
+                                            <span class="rs-help">off</span>
+                                        <?php endif; ?>
+                                    </label>
+                                </li>
+                            <?php endforeach; ?>
+                        </ul>
+                    <?php endif; ?>
+
+                    <?php if (! empty($field['help'])): ?>
+                        <span class="rs-help"><?= esc($field['help']) ?></span>
+                    <?php endif; ?>
+
                 <?php elseif ($field['type'] === 'image'): ?>
                     <label>
                         <span class="rs-label"><?= esc($field['label']) ?></span>

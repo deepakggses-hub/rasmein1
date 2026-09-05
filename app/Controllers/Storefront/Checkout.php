@@ -99,7 +99,24 @@ class Checkout extends StorefrontController
             $input[$optional] = $this->request->getPost($optional);
         }
 
-        $key = session(self::KEY_SESSION) ?? bin2hex(random_bytes(24));
+        /*
+         * The key the FORM was rendered with, then the session, then a new one.
+         *
+         * The posted field was inert: the session key is removed after a
+         * successful order, so pressing Back and resubmitting produced a fresh
+         * random key, the duplicate check passed, and the same basket became a
+         * second order. The whole point of a hidden idempotency field is that it
+         * survives that.
+         *
+         * Format-checked rather than trusted — it goes into a unique index, and
+         * an arbitrary string from a form should not decide what a row looks
+         * like.
+         */
+        $posted = (string) $this->request->getPost('idempotency_key');
+
+        $key = preg_match('/^[a-f0-9]{32,64}$/', $posted) === 1
+            ? $posted
+            : (session(self::KEY_SESSION) ?? bin2hex(random_bytes(24)));
 
         $result = service('orders')->placeFromCart($input, $key);
 
