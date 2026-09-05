@@ -11,6 +11,12 @@ $val = static fn (string $k): string => (string) (old($k) ?? ($settings[$k]['val
 $lbl = static fn (string $k): string => (string) ($settings[$k]['label'] ?? $k);
 $hlp = static fn (string $k): string => (string) ($settings[$k]['description'] ?? '');
 $long = ['home_philosophy_body', 'home_signup_body'];
+
+/*
+ * Keys holding a LIST rather than a sentence. Rendered one item per line, and
+ * the storefront splits them the same way.
+ */
+$lists = ['design_marquee_text'];
 ?>
 
 <?= view('admin/partials/header', [
@@ -82,7 +88,30 @@ $long = ['home_philosophy_body', 'home_signup_body'];
                     <?php foreach ($keys as $key): ?>
                         <label class="<?= in_array($key, $long, true) ? 'sm:col-span-2' : '' ?>">
                             <span class="rs-label"><?= esc($lbl($key)) ?></span>
-                            <?php if (in_array($key, $long, true)): ?>
+                            <?php if (in_array($key, $lists, true)): ?>
+                                <?php
+                                /*
+                                 * A LIST, one item per line.
+                                 *
+                                 * A separator character is easy to type wrong
+                                 * and impossible to see; a line break is
+                                 * neither. Old values separated by · or | are
+                                 * still read, so nothing typed before this
+                                 * disappears — they are just shown one per line
+                                 * from now on.
+                                 */
+                                $items = array_values(array_filter(array_map(
+                                    'trim',
+                                    preg_split('/[\r\n·|]+/u', $val($key)) ?: []
+                                )));
+                                ?>
+                                <textarea name="<?= esc($key, 'attr') ?>" class="rs-textarea font-mono text-xs"
+                                          rows="6" maxlength="4000"><?= esc(implode("\n", $items)) ?></textarea>
+                                <span class="rs-help">
+                                    One per line &mdash; <span class="num"><?= count($items) ?></span> at the moment.
+                                </span>
+
+                            <?php elseif (in_array($key, $long, true)): ?>
                                 <textarea name="<?= esc($key, 'attr') ?>" class="rs-textarea" rows="5"
                                           maxlength="4000"><?= esc($val($key)) ?></textarea>
                             <?php else: ?>

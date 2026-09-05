@@ -115,6 +115,20 @@ $term = $filters['q'] ?? null;
                 </div><?php /* controls */ ?>
             </div><?php /* title + controls row */ ?>
 
+            <?php
+            /*
+             * One wrapper that ALWAYS exists, holding either the grid or the
+             * empty state.
+             *
+             * The filter swap replaces this element's contents. Previously the
+             * grid only existed when there were products, so a filter matching
+             * nothing had nothing to swap into — the script found no target,
+             * left the old products on screen or blanked the area, and the
+             * "nothing matches" message never appeared. A reload looked fine,
+             * which is exactly what made it confusing.
+             */
+            ?>
+            <div data-results>
             <?php if ($products === []): ?>
                 <!-- Empty state: an invitation, not an apology. -->
                 <div class="py-20 text-center">
@@ -179,6 +193,7 @@ $term = $filters['q'] ?? null;
 
                 <?= view('partials/pagination', ['pager' => $pager]) ?>
             <?php endif; ?>
+            </div><?php /* data-results */ ?>
         </section>
     </div>
 </div>

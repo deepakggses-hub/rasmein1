@@ -141,6 +141,7 @@ abstract class AdminController extends BaseController
                     ['label' => 'Gift boxes', 'url' => 'admin/gift-boxes', 'match' => 'admin/gift-boxes', 'icon' => 'giftbox', 'permission' => 'giftboxes.view'],
                     ['label' => 'Occasions', 'url' => 'admin/occasions', 'match' => 'admin/occasions', 'icon' => 'coupons', 'permission' => 'content.manage'],
                     ['label' => 'Attributes', 'url' => 'admin/attributes', 'match' => 'admin/attributes', 'icon' => 'tag', 'permission' => 'catalogue.manage'],
+                    ['label' => 'Export', 'url' => 'admin/catalogue/export', 'match' => 'admin/catalogue/export', 'icon' => 'orders', 'permission' => 'catalogue.manage'],
                 ],
             ],
             [
@@ -172,6 +173,7 @@ abstract class AdminController extends BaseController
                 'items' => [
                     ['label' => 'Shop identity', 'url' => 'admin/brand', 'match' => 'admin/brand', 'icon' => 'store', 'permission' => 'settings.view'],
                     ['label' => 'Appearance', 'url' => 'admin/appearance', 'match' => 'admin/appearance', 'icon' => 'banners', 'permission' => 'settings.view'],
+                    ['label' => 'Header & footer', 'url' => 'admin/chrome', 'match' => 'admin/chrome', 'icon' => 'pages', 'permission' => 'settings.manage'],
                     ['label' => 'Settings', 'url' => 'admin/settings', 'match' => 'admin/settings', 'icon' => 'settings', 'permission' => 'settings.view'],
                     ['label' => 'Mail', 'url' => 'admin/mail', 'match' => 'admin/mail', 'icon' => 'mail', 'permission' => 'settings.view'],
                     ['label' => 'Mail queue', 'url' => 'admin/mail/queue', 'match' => 'admin/mail/queue', 'icon' => 'orders', 'permission' => 'settings.manage'],

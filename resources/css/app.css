@@ -2584,7 +2584,9 @@
   @media (min-width: 1280px) {
     /* The tiles are landscape, so a very wide screen gets a slightly taller
        crop rather than three enormous letterboxes. */
-    .rs-loop--gridup .rs-loop__item .rs-tile { aspect-ratio: 5 / 4; }
+    /* Square on a wide screen: the tiles sit three across and a landscape
+       crop leaves them looking like letterboxes. */
+    .rs-loop--gridup .rs-loop__item .rs-tile { aspect-ratio: 5 / 5; }
   }
 }
 
@@ -3154,4 +3156,149 @@
   /* Exists, but choosing it moves another axis. Dimmed, never struck through —
      it is stock the shop has, just not in the current combination. */
   .rs-attr.is-adjusts { opacity: 0.72; }
+}
+
+@layer components {
+  /* SweetAlert's toast, in the shop's own type and palette rather than the
+     library's defaults. */
+  .rs-toast {
+    font-family: var(--font-body) !important;
+    border: 1px solid var(--color-shell-line) !important;
+    border-radius: var(--rs-radius, 2px) !important;
+    box-shadow: 0 18px 40px -22px rgb(44 35 51 / 0.45) !important;
+  }
+  .rs-toast .swal2-title {
+    font-size: 0.875rem !important;
+    font-weight: 400 !important;
+    color: var(--color-ink) !important;
+  }
+  .rs-toast .swal2-timer-progress-bar { background: var(--rs-accent, #C6A15B) !important; }
+}
+
+@layer components {
+  /* The announcement bar. Brass on deep, so it reads as part of the brand
+     rather than a browser warning. */
+  .rs-notice {
+    padding-block: 0.5rem;
+    font-family: var(--font-mono);
+    font-size: 0.625rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    text-align: center;
+    color: var(--rs-deep, #4A0C18);
+    background: var(--rs-accent, #C6A15B);
+  }
+  .rs-notice a { text-decoration: underline; text-underline-offset: 2px; }
+}
+
+/* ================================================================ story page */
+@layer components {
+  /* Justified with a drop capital, as in the design. `text-align: justify`
+     alone would give rivers of white space, so the hyphenation is on too. */
+  .rs-story__p {
+    margin-top: 1.5rem;
+    font-size: 0.9375rem;
+    line-height: 1.85;
+    color: var(--color-ink-soft);
+    text-align: justify;
+    hyphens: auto;
+  }
+  .rs-story__p:first-child { margin-top: 0; }
+
+  .rs-story__p::first-letter {
+    float: left;
+    margin: 0.15rem 0.6rem 0 0;
+    font-family: var(--font-display);
+    font-size: 3.1rem;
+    line-height: 0.82;
+    color: var(--color-ink);
+  }
+
+  .rs-pull {
+    margin-block: 2rem;
+    padding-left: clamp(1rem, 2.5vw, 1.75rem);
+    border-left: 2px solid var(--rs-accent, #C6A15B);
+    font-family: var(--font-display);
+    font-size: clamp(1.05rem, 1.9vw, 1.3rem);
+    font-style: italic;
+    line-height: 1.55;
+    color: var(--color-ink);
+  }
+
+  /* The roman numerals and the timeline years share a treatment. */
+  .rs-numeral {
+    font-family: var(--font-display);
+    font-size: 1.5rem;
+    font-style: italic;
+    color: var(--rs-accent, #C6A15B);
+  }
+
+  .rs-founder {
+    color: var(--color-shell);
+    background: var(--rs-deep, #4A0C18);
+  }
+
+  .rs-kicker--centred::before { margin-inline: auto; }
+}
+
+/* ================================================================ cart drawer
+   NOT .rs-drawer — the mobile menu already owns that name, and reusing it gave
+   this panel a maroon background and a 20rem width, so it opened invisibly
+   while still locking the page scroll. A frozen page with nothing on it. */
+@layer components {
+  .rs-cartdrawer {
+    position: fixed;
+    inset: 0;
+    z-index: 90;
+    display: flex;
+    justify-content: flex-end;
+  }
+  .rs-cartdrawer[hidden] { display: none; }
+
+  .rs-cartdrawer__scrim {
+    position: absolute;
+    inset: 0;
+    background: rgb(44 35 51 / 0.45);
+    animation: rs-fade 0.25s ease;
+  }
+
+  .rs-cartdrawer__panel {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    width: min(28rem, 100%);
+    height: 100%;
+    background: #fff;
+    box-shadow: -24px 0 60px -30px rgb(44 35 51 / 0.5);
+    animation: rs-slide-in 0.3s cubic-bezier(0.32, 0.72, 0, 1);
+  }
+
+  @keyframes rs-fade { from { opacity: 0; } }
+  @keyframes rs-slide-in { from { translate: 100% 0; } }
+
+  @media (prefers-reduced-motion: reduce) {
+    .rs-cartdrawer__panel,
+    .rs-cartdrawer__scrim { animation: none; }
+  }
+
+  /* The compact stepper inside a drawer line. */
+  .rs-qtymini {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+  .rs-qtymini__btn {
+    display: grid;
+    place-items: center;
+    width: 1.6rem;
+    height: 1.6rem;
+    font-size: 0.875rem;
+    line-height: 1;
+    color: var(--color-ink);
+    border: 1px solid var(--color-shell-line);
+    border-radius: 999px;
+    cursor: pointer;
+    transition: border-color 0.15s, color 0.15s;
+  }
+  .rs-qtymini__btn:hover { border-color: var(--rs-primary, #5E1F3D); color: var(--rs-primary, #5E1F3D); }
 }

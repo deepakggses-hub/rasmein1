@@ -86,6 +86,25 @@ $rsLogo    = $brand->identity['logo'] ?? '';
 $signedIn  = session('customer_id') !== null;
 $current   = '/' . trim((string) uri_string(), '/');
 ?>
+<?php
+/*
+ * The announcement bar. Above the header, hidden when blank — an empty coloured
+ * strip reads as a broken component rather than an absent one.
+ */
+$rsNotice = trim((string) service('settings')->get('header_notice', ''));
+$rsNoticeTo = trim((string) service('settings')->get('header_notice_link', ''));
+?>
+<?php if ($rsNotice !== ''): ?>
+    <?php $safe = str_starts_with($rsNoticeTo, '/') ? site_url(ltrim($rsNoticeTo, '/')) : null; ?>
+    <div class="rs-notice">
+        <?php if ($safe !== null): ?>
+            <a href="<?= esc($safe, 'attr') ?>"><?= esc($rsNotice) ?></a>
+        <?php else: ?>
+            <span><?= esc($rsNotice) ?></span>
+        <?php endif; ?>
+    </div>
+<?php endif; ?>
+
 <header class="rs-head <?= $design->flag('design_sticky_header') ? 'rs-head--sticky' : '' ?>">
     <div class="rs-shell">
         <div class="rs-head__bar">
@@ -222,6 +241,7 @@ $current   = '/' . trim((string) uri_string(), '/');
     <form action="<?= site_url('search') ?>" method="get" class="relative mb-4" role="search">
         <label for="rs-search-drawer" class="sr-only">Search the shop</label>
         <input id="rs-search-drawer" type="search" name="q" class="rs-head__input"
+               data-typer data-phrases="<?= esc(json_encode($searchPhrases), 'attr') ?>"
                placeholder="What are you looking for?">
         <button type="submit" class="rs-head__submit" aria-label="Search">
             <?= rs_icon('search', 'h-4 w-4') ?>

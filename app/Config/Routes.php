@@ -43,6 +43,9 @@ $routes->group('', ['namespace' => 'App\Controllers\Storefront'], static functio
     // site behaves, and a GET that does that can be fired by any image tag.
     $routes->post('mode', 'Mode::set');
 
+    // The enquiry form on a content page. Feeds the same enquiries pipeline.
+    $routes->post('enquiry/submit', 'Leads::submit');
+
     // ---- Catalogue (Phase 2) ----
     $routes->match(['GET', 'HEAD'], 'shop', 'Shop::index', ['as' => 'shop']);
     $routes->match(['GET', 'HEAD'], 'search', 'Shop::search', ['as' => 'search']);
@@ -76,6 +79,7 @@ $routes->group('', ['namespace' => 'App\Controllers\Storefront'], static functio
     $routes->match(['GET', 'HEAD'], 'enquiry', 'Cart::show');
     $routes->post('cart/add', 'Cart::add');
     $routes->post('cart/add.json', 'Cart::addJson');
+    $routes->match(['GET', 'HEAD'], 'cart/drawer', 'Cart::drawer');
     $routes->post('cart/update', 'Cart::update');
     $routes->post('cart/remove', 'Cart::remove');
     $routes->post('cart/coupon', 'Cart::applyCoupon');
@@ -323,7 +327,16 @@ $routes->group('admin', [
     $routes->post('brand/restore', 'Brand::restore', ['filter' => 'adminAuth:settings.manage']);
 
     // ---- Mail configuration ----
+    // ---- Header and footer, in one place ----
+    $routes->match(['GET', 'HEAD'], 'chrome', 'Chrome::index', ['filter' => 'adminAuth:settings.manage']);
+    $routes->post('chrome', 'Chrome::save', ['filter' => 'adminAuth:settings.manage']);
+
     // ---- Sign-in screen: its wording and the Google credentials ----
+    // ---- Catalogue export, one row per variant ----
+    $routes->match(['GET', 'HEAD'], 'catalogue/export', 'CatalogueExport::index', ['filter' => 'adminAuth:catalogue.manage']);
+    $routes->match(['GET', 'HEAD'], 'catalogue/export.csv', 'CatalogueExport::csv', ['filter' => 'adminAuth:catalogue.manage']);
+    $routes->match(['GET', 'HEAD'], 'catalogue/export.sql', 'CatalogueExport::sql', ['filter' => 'adminAuth:catalogue.manage']);
+
     // ---- Variants, per product ----
     $routes->match(['GET', 'HEAD'], 'products/(:num)/variants', 'Variants::index/$1', ['filter' => 'adminAuth:catalogue.manage']);
     $routes->post('products/(:num)/variants', 'Variants::save/$1', ['filter' => 'adminAuth:catalogue.manage']);

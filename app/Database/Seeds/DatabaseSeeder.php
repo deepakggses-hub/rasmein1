@@ -40,7 +40,9 @@ class DatabaseSeeder extends Seeder
          * CatalogueSeeder, whose demo products it deliberately replaces.
          */
         $this->call(ProductCatalogueSeeder::class);
+        $this->call(AboutPageSeeder::class);
         $this->call(ContactPageSeeder::class);
+        $this->call(ChromeSeeder::class);
         $this->call(AuthContentSeeder::class);
         $this->call(MailSettingSeeder::class);
         $this->call(EmailTemplateSeeder::class);

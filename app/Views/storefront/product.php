@@ -261,7 +261,9 @@ $gallery = $images !== [] ? $images : [['path' => null, 'alt_text' => $product->
                 </dl>
             <?php endif; ?>
 
-                    <form id="rs-add" method="post" action="<?= site_url('cart/add') ?>" class="space-y-4">
+                    <?php /* data-cart makes this an in-place add, like the cards. Without
+                             JavaScript it still posts normally. */ ?>
+                    <form id="rs-add" method="post" action="<?= site_url('cart/add') ?>" class="space-y-4" data-cart>
                         <?= csrf_field() ?>
                         <input type="hidden" name="product_id" value="<?= (int) $product->id ?>">
                     <input type="hidden" name="variant_id" data-variant-id

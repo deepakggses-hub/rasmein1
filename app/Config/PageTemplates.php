@@ -28,6 +28,110 @@ class PageTemplates extends BaseConfig
             'sections'    => [],
         ],
 
+        'about' => [
+            'label'       => 'About / story page',
+            'description' => 'A long-form story: chapters, principles, a timeline and a founder note.',
+            'view'        => 'storefront/pages/about',
+            'sections'    => [
+                'hero' => [
+                    'label'  => 'Opening',
+                    'fields' => [
+                        'eyebrow' => ['type' => 'text', 'label' => 'Small heading', 'default' => 'Our story'],
+                        'title'   => ['type' => 'text', 'label' => 'Heading',
+                            'default' => 'The house that traditions built.',
+                            'help' => 'The SECOND word from the end is set in gold italic.'],
+                        'intro'   => ['type' => 'textarea', 'label' => 'Introduction'],
+                    ],
+                ],
+
+                'origin' => [
+                    'label'  => 'The story',
+                    'help'   => 'Each paragraph opens with a drop capital, as in the design.',
+                    'fields' => [
+                        'chapter' => ['type' => 'text', 'label' => 'Chapter label', 'default' => 'Chapter one'],
+                        'title'   => ['type' => 'text', 'label' => 'Heading', 'default' => 'The origin.'],
+                        'paragraphs' => [
+                            'type'   => 'list',
+                            'label'  => 'Paragraphs',
+                            'max'    => 8,
+                            'fields' => [
+                                'body' => ['type' => 'textarea', 'label' => 'Paragraph'],
+                            ],
+                        ],
+                        'pullquote' => ['type' => 'textarea', 'label' => 'Pull quote',
+                            'help' => 'Set apart with a gold rule, after the second paragraph.'],
+                    ],
+                ],
+
+                'gallery' => [
+                    'label'  => 'Two photographs',
+                    'fields' => [
+                        'image_1'  => ['type' => 'image', 'label' => 'Left image'],
+                        'alt_1'    => ['type' => 'text', 'label' => 'Left image, described'],
+                        'image_2'  => ['type' => 'image', 'label' => 'Right image'],
+                        'alt_2'    => ['type' => 'text', 'label' => 'Right image, described'],
+                    ],
+                ],
+
+                'principles' => [
+                    'label'  => 'Principles',
+                    'fields' => [
+                        'eyebrow' => ['type' => 'text', 'label' => 'Small heading', 'default' => 'Our principles'],
+                        'title'   => ['type' => 'text', 'label' => 'Heading', 'default' => 'Three quiet convictions.'],
+                        'items'   => [
+                            'type'   => 'list',
+                            'label'  => 'Convictions',
+                            'max'    => 6,
+                            'fields' => [
+                                'title' => ['type' => 'text', 'label' => 'Heading'],
+                                'body'  => ['type' => 'textarea', 'label' => 'Paragraph'],
+                            ],
+                        ],
+                    ],
+                ],
+
+                'history' => [
+                    'label'  => 'Timeline',
+                    'fields' => [
+                        'eyebrow' => ['type' => 'text', 'label' => 'Small heading', 'default' => 'The atelier'],
+                        'title'   => ['type' => 'text', 'label' => 'Heading', 'default' => 'A small history.'],
+                        'items'   => [
+                            'type'   => 'list',
+                            'label'  => 'Moments',
+                            'max'    => 12,
+                            'fields' => [
+                                'year'  => ['type' => 'text', 'label' => 'Year'],
+                                'title' => ['type' => 'text', 'label' => 'What happened'],
+                                'body'  => ['type' => 'textarea', 'label' => 'A line or two'],
+                            ],
+                        ],
+                    ],
+                ],
+
+                'founder' => [
+                    'label'  => 'Founder note',
+                    'fields' => [
+                        'eyebrow' => ['type' => 'text', 'label' => 'Small heading', 'default' => 'A note from the founder'],
+                        'quote'   => ['type' => 'textarea', 'label' => 'The quote'],
+                        'name'    => ['type' => 'text', 'label' => 'Name'],
+                        'role'    => ['type' => 'text', 'label' => 'Role'],
+                    ],
+                ],
+
+                'invite' => [
+                    'label'  => 'Enquiry form',
+                    'help'   => 'Leave the heading blank to hide this whole section.',
+                    'fields' => [
+                        'title'      => ['type' => 'text', 'label' => 'Heading', 'default' => 'Enter our world, unhurried.'],
+                        'body'       => ['type' => 'textarea', 'label' => 'Paragraph'],
+                        'form_title' => ['type' => 'text', 'label' => 'Form heading', 'default' => 'Let us craft something special'],
+                        'whatsapp'   => ['type' => 'text', 'label' => 'WhatsApp number',
+                            'help' => 'Digits only, with country code. Blank hides the WhatsApp button.'],
+                    ],
+                ],
+            ],
+        ],
+
         'contact' => [
             'label'       => 'Contact page',
             'description' => 'Ways to reach you, an address, a photograph and a list of questions.',

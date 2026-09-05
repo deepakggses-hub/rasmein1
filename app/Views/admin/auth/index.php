@@ -34,7 +34,23 @@ $long = ['search_placeholders', 'auth_login_body', 'auth_register_body', 'auth_p
                 <?php foreach ($copy as $key): ?>
                     <label>
                         <span class="rs-label"><?= esc($l($key)) ?></span>
-                        <?php if (in_array($key, $long, true)): ?>
+                        <?php if ($key === 'search_placeholders'): ?>
+                            <?php
+                            // A list, one phrase per line — the search box types
+                            // through them in turn.
+                            $items = array_values(array_filter(array_map(
+                                'trim',
+                                preg_split('/[\r\n]+/u', (string) (old($key) ?? ($values[$key]['value'] ?? ''))) ?: []
+                            )));
+                            ?>
+                            <textarea name="<?= esc($key, 'attr') ?>" class="rs-textarea font-mono text-xs"
+                                      rows="6" maxlength="2000"><?= esc(implode("\n", $items)) ?></textarea>
+                            <span class="rs-help">
+                                One per line &mdash; <span class="num"><?= count($items) ?></span> at the moment.
+                                The box types each, waits, wipes it and moves on.
+                            </span>
+
+                        <?php elseif (in_array($key, $long, true)): ?>
                             <textarea name="<?= esc($key, 'attr') ?>" class="rs-textarea" rows="2"
                                       maxlength="255"><?= esc(old($key) ?? ($values[$key]['value'] ?? '')) ?></textarea>
                         <?php else: ?>

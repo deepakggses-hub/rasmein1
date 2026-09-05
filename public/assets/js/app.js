@@ -260,11 +260,20 @@
   var onWide = function (e) { if (e.matches && drawer && !drawer.hidden) setDrawer(false); };
   wide.addEventListener ? wide.addEventListener('change', onWide) : wide.addListener(onWide);
 
-  // ------------------------------------------------------- scroll reveal
-  var reveals = document.querySelectorAll('.rs-reveal');
-
-  if (reveals.length && 'IntersectionObserver' in window) {
-    // Arm only now: the CSS hides .rs-reveal solely when this class is present.
+  /* ------------------------------------------------------- scroll reveal
+   *
+   * `.rs-reveal-ready .rs-reveal { opacity: 0 }` hides everything until the
+   * observer fades it in. That is fine for the page as delivered, but ANY
+   * element inserted later — a filtered product grid, a refreshed cart — arrives
+   * hidden and is never observed, so it stays at opacity 0 permanently. The
+   * products were there the whole time; they were invisible.
+   *
+   * A MutationObserver watches for new ones and observes them automatically, so
+   * every future swap is covered without each one having to remember to ask.
+   */
+  if ('IntersectionObserver' in window) {
+    // Armed only when the script is running: the CSS hides .rs-reveal solely
+    // when this class is present, so a failed script leaves everything visible.
     document.documentElement.classList.add('rs-reveal-ready');
 
     var io = new IntersectionObserver(function (entries) {
@@ -275,11 +284,52 @@
       });
     }, { rootMargin: '0px 0px -8% 0px', threshold: 0.05 });
 
-    reveals.forEach(function (el, i) {
+    var watch = function (el, i) {
+      if (el.classList.contains('is-in') || el.dataset.rsWatched) return;
+
+      el.dataset.rsWatched = '1';
+
       // A small stagger reads as one movement rather than a popcorn effect.
       el.style.transitionDelay = Math.min(i % 6, 5) * 60 + 'ms';
+
+      /*
+       * Anything already in view is shown at once rather than observed.
+       * A swapped-in grid usually sits exactly where the reader is looking, and
+       * waiting for an intersection that has already happened is how it would
+       * stay blank.
+       */
+      var box = el.getBoundingClientRect();
+
+      if (box.top < window.innerHeight && box.bottom > 0) {
+        el.classList.add('is-in');
+
+        return;
+      }
+
       io.observe(el);
-    });
+    };
+
+    var scan = function (root) {
+      var list = (root || document).querySelectorAll('.rs-reveal');
+
+      Array.prototype.forEach.call(list, watch);
+    };
+
+    scan();
+
+    if ('MutationObserver' in window) {
+      new MutationObserver(function (records) {
+        records.forEach(function (record) {
+          Array.prototype.forEach.call(record.addedNodes, function (node) {
+            if (node.nodeType !== 1) return;
+
+            if (node.classList && node.classList.contains('rs-reveal')) watch(node, 0);
+
+            if (node.querySelectorAll) scan(node);
+          });
+        });
+      }).observe(document.body, { childList: true, subtree: true });
+    }
   }
 
   // ------------------------------------------------------------ steppers
@@ -603,7 +653,7 @@
       });
 
       var url = window.location.pathname + (qs.toString() ? '?' + qs.toString() : '');
-      var grid = document.querySelector('[data-grid]');
+      var grid = document.querySelector('[data-results]');
 
       if (grid) grid.setAttribute('aria-busy', 'true');
 
@@ -617,12 +667,24 @@
         .then(function (html) {
           var doc = new DOMParser().parseFromString(html, 'text/html');
 
-          // The grid, the count, the chips and the facet counts all change.
-          [['[data-grid]', true], ['[data-result-count]', true], ['[data-chips]', true]].forEach(function (pair) {
-            var next = doc.querySelector(pair[0]);
-            var here = document.querySelector(pair[0]);
+          /*
+           * Swap the whole results REGION, not just the grid.
+           *
+           * The grid only exists when there are products, so filtering down to
+           * nothing left the script with no target — and the "nothing matches"
+           * message, which lives beside the grid rather than inside it, never
+           * appeared. [data-results] always exists and holds whichever of the
+           * two the server rendered.
+           */
+          ['[data-results]', '[data-result-count]', '[data-chips]'].forEach(function (sel) {
+            var next = doc.querySelector(sel);
+            var here = document.querySelector(sel);
 
-            if (next && here) here.innerHTML = next.innerHTML;
+            if (!here) return;
+
+            // A section the new page does not have at all — the chips row when
+            // the last filter is cleared — is emptied rather than left stale.
+            here.innerHTML = next ? next.innerHTML : '';
           });
 
           // Facet counts move as filters narrow, but replacing the whole
@@ -1316,6 +1378,13 @@
         if (step) step.hidden = json.quantity < 1;
 
         setCartCount(json.count);
+
+        /*
+         * Show the basket. Adding something and seeing only a number tick over
+         * in the corner is easy to miss; the drawer answers "did that work"
+         * without taking the reader off the page they were on.
+         */
+        if (typeof window.rsOpenCart === 'function') window.rsOpenCart();
       })
       .catch(function (json) {
         if (json && json.csrf) {
@@ -1810,4 +1879,184 @@
   });
 
   paint();
+})();
+
+/**
+ * Flash messages as SweetAlert toasts.
+ *
+ * A toast rather than a modal: a confirmation nobody asked for should not make
+ * them dismiss a dialogue before carrying on. Errors stay longer and do not
+ * auto-dismiss on hover, because an error unread is an error unfixed.
+ */
+(function () {
+  'use strict';
+
+  var el = document.querySelector('[data-flash]');
+  if (!el || typeof window.Swal === 'undefined') return;
+
+  var data;
+
+  try {
+    data = JSON.parse(el.getAttribute('data-payload') || '{}');
+  } catch (e) {
+    return;
+  }
+
+  function toast(icon, text, ms) {
+    window.Swal.fire({
+      toast: true,
+      position: 'top-end',
+      icon: icon,
+      title: text,
+      showConfirmButton: false,
+      timer: ms,
+      timerProgressBar: true,
+      customClass: { popup: 'rs-toast' },
+      didOpen: function (el2) {
+        // Someone reading it should not have it vanish mid-sentence.
+        el2.addEventListener('mouseenter', window.Swal.stopTimer);
+        el2.addEventListener('mouseleave', window.Swal.resumeTimer);
+      },
+    });
+  }
+
+  if (data.error) {
+    // Longer, because a problem needs reading and possibly acting on.
+    toast('error', data.error, 6500);
+  } else if (data.success) {
+    toast('success', data.success, 3500);
+  }
+})();
+
+/**
+ * The cart drawer.
+ *
+ * Opens after an in-place add, so the shopper sees what happened without
+ * leaving the page they were reading. Its contents are FETCHED rather than held
+ * in the page: a basket rendered at page load is out of date the moment
+ * anything changes, and this way the totals always come from PricingService.
+ */
+(function () {
+  'use strict';
+
+  var drawer = document.querySelector('[data-cart-drawer]');
+  if (!drawer) return;
+
+  var body = drawer.querySelector('[data-drawer-body]');
+  var lastFocus = null;
+
+  function load() {
+    return fetch('/cart/drawer', {
+      headers: { 'X-Requested-With': 'XMLHttpRequest' },
+      credentials: 'same-origin',
+    })
+      .then(function (r) { return r.text(); })
+      .then(function (html) { body.innerHTML = html; })
+      .catch(function () {
+        // Never leave a spinner behind: say so and offer the real page.
+        body.innerHTML = '<p class="rs-help p-6">Could not load your basket. '
+          + '<a class="rs-link" href="/cart">Open it in full</a>.</p>';
+      });
+  }
+
+  function open() {
+    lastFocus = document.activeElement;
+    drawer.hidden = false;
+
+    /*
+     * Confirm the panel is actually on screen before locking the page.
+     *
+     * A CSS name collision once left this open but invisible, and the scroll
+     * lock turned that into a frozen page with nothing on it — the worst
+     * possible failure, because it looks like the site has crashed. If the
+     * panel has no width, the drawer is broken: send the reader to the real
+     * basket page instead.
+     */
+    var panel = drawer.querySelector('[class*="__panel"]');
+
+    if (!panel || panel.getBoundingClientRect().width < 40) {
+      drawer.hidden = true;
+      window.location.href = '/cart';
+
+      return;
+    }
+
+    document.body.style.overflow = 'hidden';
+
+    load().then(function () {
+      var first = drawer.querySelector('button, a');
+      if (first) first.focus();
+    });
+  }
+
+  function close() {
+    drawer.hidden = true;
+    document.body.style.overflow = '';
+    if (lastFocus) lastFocus.focus();
+  }
+
+  drawer.addEventListener('click', function (e) {
+    if (e.target.closest('[data-drawer-close]')) close();
+  });
+
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && !drawer.hidden) close();
+  });
+
+  // The basket icon opens it instead of navigating.
+  document.querySelectorAll('a[href$="/cart"]').forEach(function (link) {
+    if (link.closest('[data-cart-drawer]')) return;   // not the "view full basket" link
+
+    link.addEventListener('click', function (e) {
+      e.preventDefault();
+      open();
+    });
+  });
+
+  /*
+   * Quantity and remove inside the drawer.
+   *
+   * The same endpoints the cart page posts to, so one set of rules governs
+   * both. The whole drawer is reloaded afterwards rather than patched — the
+   * totals change, and a patched line beside a stale total is the bug this
+   * avoids.
+   */
+  drawer.addEventListener('submit', function (e) {
+    var form = e.target.closest('[data-drawer-qty]');
+    if (!form) return;
+
+    e.preventDefault();
+
+    var data = new FormData(form);
+
+    // A submit button's own name/value is not in FormData unless it was the
+    // button clicked, and `submitter` is how that is read.
+    if (e.submitter && e.submitter.name) data.set(e.submitter.name, e.submitter.value);
+
+    fetch(form.action, {
+      method: 'POST',
+      body: data,
+      headers: { 'X-Requested-With': 'XMLHttpRequest' },
+      credentials: 'same-origin',
+    })
+      .then(function () { return load(); })
+      .then(function () {
+        // Keep the header badge honest.
+        return fetch('/cart', { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+          .then(function (r) { return r.text(); })
+          .then(function (html) {
+            var doc = new DOMParser().parseFromString(html, 'text/html');
+            var next = doc.querySelector('[data-cart-count]');
+
+            document.querySelectorAll('[data-cart-count]').forEach(function (el) {
+              if (!next) return;
+              el.textContent = next.textContent;
+              el.hidden = next.hidden;
+            });
+          });
+      });
+  });
+
+  // Opened by the add-to-cart handler.
+  window.rsOpenCart = open;
 })();

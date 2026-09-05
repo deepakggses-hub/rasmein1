@@ -185,4 +185,18 @@ class Cart extends StorefrontController
             'csrf'     => csrf_hash(),
         ]);
     }
+
+    /**
+     * The drawer's contents, rendered server-side.
+     *
+     * A fragment, not JSON: the totals come from PricingService, and rebuilding
+     * coupon and shipping arithmetic in the browser is a second implementation
+     * that eventually disagrees with the first.
+     */
+    public function drawer()
+    {
+        return $this->response->setBody(
+            view('partials/cart_drawer', ['snapshot' => service('cart')->snapshot()])
+        );
+    }
 }

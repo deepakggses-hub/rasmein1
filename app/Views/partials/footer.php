@@ -23,6 +23,30 @@ try {
     $pageLinks = [];
 }
 
+/*
+ * Footer columns from settings: "Column | Label | /path", one per line.
+ * Grouped in the order written, so reordering a column means moving a line.
+ */
+$columns = [];
+
+foreach (preg_split('/\R/u', (string) service('settings')->get('footer_columns', '')) ?: [] as $line) {
+    $parts = array_map('trim', explode('|', $line));
+
+    if (count($parts) < 3 || $parts[0] === '' || $parts[1] === '') {
+        continue;
+    }
+
+    // Absolute URLs are refused: a footer link is to this shop, and letting a
+    // setting emit one makes the footer an open redirect surface.
+    $href = str_starts_with($parts[2], '/') ? site_url(ltrim($parts[2], '/')) : null;
+
+    if ($href === null) {
+        continue;
+    }
+
+    $columns[$parts[0]][] = ['label' => $parts[1], 'url' => $href];
+}
+
 $socialIcons = [
     'instagram' => 'instagram', 'facebook' => 'facebook', 'pinterest' => 'pinterest',
     'linkedin'  => 'linkedin',  'whatsapp' => 'whatsapp', 'youtube'  => 'arrow-right',
@@ -65,11 +89,7 @@ $socialIcons = [
                 <?php endif; ?>
             </div>
 
-            <!-- Shop -->
-            <nav aria-labelledby="foot-shop">
-                <p class="rs-foot__head" id="foot-shop">Shop</p>
-                <ul class="mt-4 space-y-2.5 text-sm">
-                    <?php foreach ($shopLinks as $category): ?>
+            <?php foreach ($shopLinks as $category): ?>
                         <li>
                             <a href="<?= rs_url((string) ($category->path ?? $category->slug)) ?>">
                                 <?= esc($category->name) ?>
@@ -81,29 +101,38 @@ $socialIcons = [
                 </ul>
             </nav>
 
-            <!-- Company -->
-            <nav aria-labelledby="foot-company">
-                <p class="rs-foot__head" id="foot-company">Company</p>
-                <ul class="mt-4 space-y-2.5 text-sm">
-                    <?php foreach (array_slice($pageLinks, 0, 5) as $page): ?>
-                        <li><a href="<?= site_url('page/' . $page['slug']) ?>"><?= esc($page['title']) ?></a></li>
-                    <?php endforeach; ?>
-                    <li><a href="<?= site_url('collections') ?>">Collections</a></li>
-                </ul>
-            </nav>
-
-            <!-- Care -->
-            <nav aria-labelledby="foot-care">
-                <p class="rs-foot__head" id="foot-care">Care</p>
-                <ul class="mt-4 space-y-2.5 text-sm">
-                    <li><a href="<?= site_url('account/orders') ?>">Track an order</a></li>
-                    <li><a href="<?= site_url('account') ?>">Your account</a></li>
-                    <li><a href="<?= site_url('enquiry') ?>">Bulk enquiries</a></li>
-                    <?php foreach (array_slice($pageLinks, 5, 3) as $page): ?>
-                        <li><a href="<?= site_url('page/' . $page['slug']) ?>"><?= esc($page['title']) ?></a></li>
-                    <?php endforeach; ?>
-                </ul>
-            </nav>
+            <?php
+            /*
+             * Columns from settings, replacing three hand-written blocks.
+             *
+             * Falls back to the pages marked "show in footer" when nothing is
+             * configured — a fresh install must not render an empty footer just
+             * because nobody has opened the settings screen yet.
+             */
+            ?>
+            <?php if ($columns !== []): ?>
+                <?php foreach ($columns as $heading => $links): ?>
+                    <nav aria-labelledby="foot-<?= esc(url_title($heading, '-', true), 'attr') ?>">
+                        <p class="rs-foot__head" id="foot-<?= esc(url_title($heading, '-', true), 'attr') ?>">
+                            <?= esc($heading) ?>
+                        </p>
+                        <ul class="mt-4 space-y-2.5 text-sm">
+                            <?php foreach ($links as $link): ?>
+                                <li><a href="<?= esc($link['url'], 'attr') ?>"><?= esc($link['label']) ?></a></li>
+                            <?php endforeach; ?>
+                        </ul>
+                    </nav>
+                <?php endforeach; ?>
+            <?php else: ?>
+                <nav aria-labelledby="foot-company">
+                    <p class="rs-foot__head" id="foot-company">Company</p>
+                    <ul class="mt-4 space-y-2.5 text-sm">
+                        <?php foreach (array_slice($pageLinks, 0, 6) as $page): ?>
+                            <li><a href="<?= site_url('page/' . $page['slug']) ?>"><?= esc($page['title']) ?></a></li>
+                        <?php endforeach; ?>
+                    </ul>
+                </nav>
+            <?php endif; ?>
 
             <!-- Reach us -->
             <div>

@@ -61,7 +61,21 @@ class Homepage extends AdminController
         $model    = model(SettingModel::class);
         $settings = [];
 
-        foreach ($model->where('group_name', 'home')->findAll() as $row) {
+        /*
+         * By KEY, not by group.
+         *
+         * `design_marquee_text` is copy shown on the homepage but lives in the
+         * `design` group beside its on/off switch. Fetching by group meant this
+         * screen never found it: the field rendered blank, saving wrote the
+         * value correctly, and the next page load showed blank again — so it
+         * looked like nothing was being stored at all.
+         *
+         * SECTIONS is the list of keys this screen owns, so it is also the
+         * right thing to query on.
+         */
+        $keys = array_merge(...array_values(self::SECTIONS));
+
+        foreach ($model->whereIn('key_name', $keys)->findAll() as $row) {
             $settings[$row['key_name']] = $row;
         }
 
@@ -103,10 +117,23 @@ class Homepage extends AdminController
                 continue;
             }
 
+            /*
+             * Keep a key in the group it already belongs to.
+             *
+             * `design_marquee_text` lives in `design` beside its on/off switch.
+             * Forcing every key to `home` on save would move it out from under
+             * that switch — the storefront would still read it, but Appearance
+             * would no longer show the pair together.
+             *
+             * A key that does not exist yet is created in `home`, which is the
+             * right home for new copy on this screen.
+             */
+            $existing = model(SettingModel::class)->where('key_name', $key)->first();
+            $group    = $existing['group_name'] ?? 'home';
+
             // Blank is meaningful here: it HIDES the section. So it is stored
-            // as written rather than skipped, and the group is passed so a
-            // missing key is created in `home` rather than `general`.
-            $this->settings->set($key, mb_substr(trim((string) $value), 0, 4000), 'string', 'home');
+            // as written rather than skipped.
+            $this->settings->set($key, mb_substr(trim((string) $value), 0, 4000), 'string', $group);
         }
 
         $this->settings->flush();

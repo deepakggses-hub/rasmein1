@@ -96,6 +96,9 @@ class AuthContentSeeder extends Seeder
             $added++;
         }
 
+        // The cached settings array is stale the moment a row is written.
+        service('settings')->flush();
+
         echo '  Auth content: ' . $added . " setting(s).\n";
     }
 }

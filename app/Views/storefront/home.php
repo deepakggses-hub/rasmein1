@@ -160,7 +160,11 @@ $rsMarquee = service('design');
     <?php
     $phrases = array_values(array_filter(array_map(
         'trim',
-        preg_split('/[·|]/u', $rsMarquee->get('design_marquee_text', '')) ?: []
+        /*
+         * One phrase per LINE, with the old '·' and '|' separators still
+         * honoured so nothing typed before this change disappears.
+         */
+        preg_split('/[\r\n·|]+/u', $rsMarquee->get('design_marquee_text', '')) ?: []
     )));
     ?>
     <?php if ($phrases !== []): ?>

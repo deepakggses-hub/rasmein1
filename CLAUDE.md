@@ -2170,6 +2170,237 @@ real catalogue is asymmetric — and because seeding a perfect grid hides the
 whole problem the selector exists to solve. The first combination of every piece
 always survives, or a product could end up with nothing to sell.
 
+### Catalogue export
+
+A chooser at `admin/catalogue/export`, not two bare download buttons —
+"everything" is rarely what someone wants, and checking one category over is a
+different job from auditing 460 rows. Whole catalogue, by category, or by
+occasion; CSV or SQL. All behind `catalogue.manage` and all audited with the
+scope in the entry.
+
+- Counts show against every option, and an empty one has NO button. A button
+  that returns an empty file wastes someone's time.
+- The filename says what is inside — `rasmein-category-dry-fruit-boxes-DATE.csv`
+  — so three exports in a downloads folder are still tellable apart next week.
+- The scope id is validated against the database. A bad id narrows to nothing
+  rather than widening to everything.
+- The occasion filter is a SUBQUERY, not a join: joining the pivot would
+  multiply every variant row by its occasions.
+
+**A scoped SQL dump emits no DELETEs.** A full dump clears each table first so a
+replay is a true replacement; a filtered one must not, or replaying "just the
+dry fruit boxes" would destroy the rest of the catalogue on the target machine.
+It still emits ALL categories, attributes and values — the rows its products
+point at — because a dump missing its own foreign keys will not replay, which is
+the one thing a SQL export is for.
+
+**One row per VARIANT, not per product.** A product-per-row export cannot answer
+"which sizes does the gold one come in", which is the question it exists for.
+One row per variant makes the grid sortable and filterable in a spreadsheet.
+
+- A **UTF-8 BOM** on the CSV. Without it Excel on Windows reads the local
+  codepage and turns rupees and inch marks into mojibake — a correct export that
+  looks like corrupt data.
+- Prices are unformatted (`3500.00`), because a spreadsheet has to be able to
+  SUM the column and "Rs 3,500" is text. A "Price is" column says `inherited` or
+  `set on variant`, which answers "why are these two the same".
+- A column per attribute, so the sheet filters on colour or size.
+- **LEFT JOIN on variants**, so a product with none still appears — otherwise an
+  export used to check the catalogue silently omits exactly the products someone
+  forgot to set up.
+- The SQL dump emits parents before children and wraps in a transaction: a dump
+  that half-loads is worse than one that fails, because nothing says which half
+  arrived. Verified by replaying it into an empty database — 155 products, 460
+  variants, 1002 links, all intact.
+
+### The marquee saved but never showed: query by KEY, not by group
+
+`Admin\Homepage::index()` fetched `where('group_name', 'home')`, but
+`design_marquee_text` lives in `design` beside its on/off switch. So the field
+rendered blank, saving wrote the value correctly, and the next page load showed
+blank again — it looked like nothing was being stored at all, while the
+storefront displayed it fine.
+
+`SECTIONS` is the list of keys the screen owns, so it is also the right thing to
+query on: `whereIn('key_name', $keys)`.
+
+`save()` had the mirror bug waiting — it forced every key to group `home`, which
+would have moved the marquee out from under its own switch. It now keeps a key
+in the group it already belongs to, and only creates NEW keys in `home`.
+
+### Multi-value settings are one item per LINE
+
+`design_marquee_text` and `search_placeholders` are lists. A separator character
+is easy to type wrong and impossible to see; a line break is neither. Both
+splitters still honour the old `·` and `|` so nothing typed before the change
+disappears, and the admin shows a live count so an empty line is obvious.
+
+### SweetAlert on the storefront
+
+Loaded on the storefront layout as well as the admin, so a confirmation looks
+the same in both. Both script tags are `defer` and SweetAlert comes FIRST —
+deferred scripts run in document order, so `Swal` is defined by the time the
+flash block looks for it.
+
+A TOAST, not a modal: a confirmation nobody asked for should not make them
+dismiss a dialogue before carrying on. Errors last 6.5s to a success's 3.5s and
+pause on hover, because an error unread is an error unfixed. The markup stays in
+the page inside `<noscript>` and an `aria-live` region, so the message survives
+a failed script and is still announced to a screen reader.
+
+### A seeder that writes to `settings` MUST flush the cache
+
+`SettingsService::all()` caches the whole array. A seeder writes straight to the
+table, so the cached copy from an earlier request still holds the old values —
+the row was there with 299 characters in it, and `get()` kept returning nothing.
+
+`service('settings')->flush()` at the end of every seeder that touches
+`settings`. Several still lack it (BrandSetting, DesignSetting, HomeContent,
+MailSetting) and will bite the same way.
+
+### Header & footer master screen
+
+`admin/chrome` gathers navigation, search wording, the announcement bar, footer
+columns, small print and contact details. They live in FOUR different groups
+(`design`, `auth`, `store`, `social`), which is exactly why they were hard to
+find; the screen queries by KEY and writes each back to the group it came from,
+so Appearance, Shop identity and the sign-in screen keep working.
+
+- Footer columns are `"Column | Label | /path"`, one per line, grouped in the
+  order written — so reordering means moving a line.
+- **Absolute URLs are refused** in footer links. A setting that can emit one
+  makes the footer an open-redirect surface.
+- Falls back to the pages marked "show in footer" when nothing is configured. A
+  fresh install must not render an empty footer because nobody opened the screen.
+- List fields are monospaced with a live line count: these lines have a SHAPE,
+  and a proportional font hides a missing pipe.
+
+The search placeholder animation was already working — it needs TWO OR MORE
+phrases, and does nothing with one. The mobile drawer's input now animates too;
+it had been left out, and on a phone that is the only search box shown.
+
+### The About / story page template
+
+A third page template (`about`), on the same `Config\PageTemplates` machinery:
+hero, chapters with drop capitals and a pull quote, two photographs, numbered
+principles, a timeline, a founder band and an enquiry form. Every string edits
+in the admin; 51 fields across 7 sections.
+
+- The hero accent takes the SECOND word from the end (`traditions built.`),
+  which is what the design does — not the last two words like every other
+  heading.
+- The pull quote is placed after the second paragraph, and falls to the end if
+  there are fewer than two. Hard-coding position 2 would silently drop it on a
+  short page.
+- Photographs seed EMPTY. A placeholder on a story page looks like a mistake,
+  and the section hides itself until real ones are uploaded.
+- `AboutPageSeeder` UPGRADES an existing plain-text about page rather than
+  inserting a second one — two about pages is worse than one with the wrong
+  layout — and leaves it alone once it is already on the template.
+
+### `leads` is not `enquiries`
+
+`enquiries.order_id` is a REQUIRED foreign key: that table tracks a quote for a
+basket someone has already built. A lead from a content page has no basket and
+no order, and forcing one into that shape would mean inventing an empty order
+per enquiry.
+
+Separate `leads` table, with the fields the form actually asks for as columns
+rather than mashed into a note. Rate limited to five per IP per hour, because a
+public unauthenticated form with no account behind it is an open invitation.
+Notification failure is caught and logged — the lead is already saved, and
+losing it to a mail problem would be the worst outcome.
+
+### An AJAX swap target must EXIST in every state
+
+`[data-grid]` was inside `<?php if ($products !== []) ?>`, so a filter matching
+nothing had no element to swap into — the script found no target, the results
+area was left blank, and the "Nothing matches that yet." message (which sits
+BESIDE the grid, not inside it) never appeared. A reload rendered it correctly,
+which is exactly what made the bug confusing to report.
+
+`[data-results]` now wraps BOTH branches and always exists. The swap replaces
+that whole region, so the empty state arrives with everything else.
+
+Two related rules:
+
+- A section missing from the new response is EMPTIED, not skipped. The chips row
+  vanishes when the last filter is cleared, and `if (next && here)` would have
+  left the old chips on screen pointing at filters that are gone.
+- Swap the region that owns the STATE, not the happy-path element inside it.
+  Anything conditional is the wrong target by definition.
+
+### Scroll-reveal hides anything inserted after page load
+
+`.rs-reveal-ready .rs-reveal { opacity: 0 }` hides every card until the
+IntersectionObserver fades it in. The observer ran ONCE, over the elements
+present at load — so a filtered product grid arrived at opacity 0, was never
+observed, and stayed invisible for good. The products were in the DOM the whole
+time; a reload "fixed" it because the observer ran again.
+
+Two changes:
+
+- A **MutationObserver** watches the body and observes any `.rs-reveal` inserted
+  later. Every future swap is covered without each one having to remember to
+  ask — the alternative is a re-scan call after every innerHTML replacement,
+  and the next one written will forget.
+- Anything **already inside the viewport is shown immediately** rather than
+  observed. Swapped-in content usually sits exactly where the reader is looking,
+  and waiting for an intersection that has already happened is how it stays
+  blank.
+
+**An entrance animation is a hiding mechanism.** Any CSS that starts at
+`opacity: 0` and depends on script to undo it will strand content the day
+something inserts DOM — check it against every dynamic path, not just first
+paint.
+
+### The cart drawer
+
+Slides in from the right after an in-place add, so the shopper sees what
+happened without leaving the page they were reading. `admin`-free: it is a
+storefront partial fetched from `GET /cart/drawer`.
+
+**Server-rendered, fetched whole.** Not JSON assembled in the browser — coupons,
+shipping bands and gift-box pricing live in `PricingService`, and rebuilding any
+of that in JavaScript is a second implementation that eventually disagrees with
+the first.
+
+- Contents are FETCHED, never rendered into the page at load. A basket printed
+  with the page is out of date the moment anything changes.
+- Quantity and remove post to the SAME endpoints the cart page uses, so one set
+  of rules governs both. The whole drawer reloads afterwards rather than being
+  patched: the totals change, and a patched line beside a stale total is exactly
+  the bug this avoids.
+- `e.submitter` is how a submit button's own name/value is read — the `-` and
+  `+` buttons carry the quantity, and plain `FormData` does not include them.
+- Shipping says "Calculated at checkout" rather than guessing. It depends on the
+  delivery address, which has not been asked for yet, and a figure that changes
+  later is worse than an honest blank.
+- The button says "Proceed to checkout", not `rs_cta_label()`'s "Buy now", which
+  reads oddly beside a total — and "Send the enquiry" in corporate mode, because
+  it is a different act.
+
+The product page's add-to-cart is now `data-cart` like the cards: no redirect,
+and without JavaScript it still posts normally.
+
+### `.rs-drawer` was already taken
+
+The mobile menu owns `.rs-drawer` — maroon, 20rem, `translate: 100%`. Naming the
+cart panel the same thing meant it opened with the menu's background and width,
+so it was effectively invisible WHILE the scroll lock was applied: a frozen page
+with nothing on it, which reads as a crashed site rather than a styling bug.
+
+Renamed to `.rs-cartdrawer`. **Grep the stylesheet before naming a new
+component** — a collision does not error, it silently inherits.
+
+A guard now makes this class of failure survivable: `open()` measures the panel
+and, if it has no width, closes and navigates to `/cart` instead. A working page
+somewhere else beats a locked page here, whatever the cause.
+
+The drawer opens from every add-to-cart — product detail, listing and wishlist —
+because they all use the same `[data-cart]` form and the same handler. Verified
+on all three: panel 448x1000, white, with the checkout button.
+
 ### Outstanding security work (tracked, not yet done)
 
 - [ ] **CSP is written but not enabled.** `Config/ContentSecurityPolicy.php`

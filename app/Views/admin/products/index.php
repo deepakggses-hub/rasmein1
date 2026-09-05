@@ -8,6 +8,9 @@
     'actions'    => $canManage
         ? '<a href="' . site_url('admin/products/new') . '" class="rs-btn rs-btn--primary rs-btn--sm">New product</a>'
           . '<a href="' . site_url('admin/categories') . '" class="rs-btn rs-btn--outline rs-btn--sm">Categories</a>'
+          // The chooser, not a direct download: "everything" is rarely what
+          // someone wants, and checking one category over is a different job.
+          . '<a href="' . site_url('admin/catalogue/export') . '" class="rs-btn rs-btn--outline rs-btn--sm">Export</a>'
         : '',
 ]) ?>
 
