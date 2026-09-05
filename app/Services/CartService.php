@@ -204,6 +204,59 @@ class CartService
      *
      * @return array{ok: bool, message: string, quantity?: int}
      */
+    /**
+     * What the customer chose, as a readable line.
+     *
+     * Stored as TEXT on the cart line, not as ids. An order is a record of what
+     * was agreed — if a value is renamed or deleted a year later, "Colour:
+     * Silver" must still read the way it did when it was placed.
+     *
+     * Only attributes actually marked selectable are kept, and only values that
+     * really belong to the product, so a hand-edited form cannot write anything
+     * it likes onto an order.
+     */
+    public function describeChoices(int $productId, array $posted): ?string
+    {
+        if ($posted === []) {
+            return null;
+        }
+
+        $rows = model(\App\Models\AttributeValueModel::class)->grouped($productId);
+        $out  = [];
+
+        foreach ($rows as $code => $group) {
+            if (! $group['selectable']) {
+                continue;
+            }
+
+            $chosen = trim((string) ($posted[$code] ?? ''));
+
+            if ($chosen === '') {
+                continue;
+            }
+
+            $allowed = array_column($group['values'], 'label');
+
+            if (in_array($chosen, $allowed, true)) {
+                $out[] = $group['name'] . ': ' . $chosen;
+            }
+        }
+
+        return $out === [] ? null : mb_substr(implode(' · ', $out), 0, 255);
+    }
+
+    /**
+     * What the customer chose, set just before addProduct().
+     *
+     * A property rather than another argument: addProduct() is called from the
+     * gift-box builder and the quick-add on cards too, and neither has a choice
+     * to pass — widening the signature would make every caller say null.
+     */
+    public ?string $pendingChoices = null;
+
+    /** The variant chosen on the product page, set just before addProduct(). */
+    public ?int $pendingVariant = null;
+
     public function addProduct(int $productId, int $quantity = 1): array
     {
         $quantity = max(1, min(99, $quantity));
@@ -221,7 +274,7 @@ class CartService
         $items = model(CartItemModel::class);
 
         $maxLines = (int) $this->settings->get('max_cart_items', 50);
-        $existing = $items->findProductLine((int) $cart['id'], $productId);
+        $existing = $items->findProductLine((int) $cart['id'], $productId, $this->pendingVariant);
 
         if ($existing === null && $items->countForCart((int) $cart['id']) >= $maxLines) {
             return [
@@ -263,6 +316,10 @@ class CartService
                 'item_type'  => 'product',
                 'product_id' => $productId,
                 'slots_used' => 0,
+                // Set by the controller just before this call, when the
+                // customer picked a colour on the product page.
+                'chosen_attributes' => $this->pendingChoices,
+                'variant_id'        => $this->pendingVariant,
             ]));
         }
 
@@ -419,5 +476,91 @@ class CartService
         $bytes[8] = chr((ord($bytes[8]) & 0x3F) | 0x80);
 
         return vsprintf('%s%s-%s-%s-%s-%s%s%s', str_split(bin2hex($bytes), 4));
+    }
+
+    /**
+     * Set the quantity of a loose product to an absolute number.
+     *
+     * The card stepper thinks in products, not cart lines — it has no idea a
+     * line id exists. This finds the plain (non-gift-box) line for a product and
+     * sets it, adding or removing as needed.
+     *
+     * Absolute, not a delta: a delta sent twice because a tap was slow gives two
+     * increments, and the customer gets three of something they wanted one of.
+     *
+     * @return array<string, mixed>
+     */
+    public function setProductQuantity(int $productId, int $quantity): array
+    {
+        $cart = $this->currentOrCreate();
+
+        $line = db_connect()->table('cart_items')
+            ->where('cart_id', $cart['id'])
+            ->where('product_id', $productId)
+            // A configured gift box is a different line from a loose product of
+            // the same id, and the stepper must never touch one.
+            ->where('gift_box_id', null)
+            ->get()->getRowArray();
+
+        if ($quantity < 1) {
+            return $line === null
+                ? ['ok' => true, 'error' => null]
+                : $this->removeLine((int) $line['id']);
+        }
+
+        if ($line === null) {
+            return $this->addProduct($productId, $quantity);
+        }
+
+        return $this->updateQuantity((int) $line['id'], $quantity);
+    }
+
+    /** How many of a product are in the basket right now. */
+    public function quantityOf(int $productId): int
+    {
+        $cart = $this->current();
+
+        if ($cart === null) {
+            return 0;
+        }
+
+        $row = db_connect()->table('cart_items')
+            ->select('quantity')
+            ->where('cart_id', $cart['id'])
+            ->where('product_id', $productId)
+            ->where('gift_box_id', null)
+            ->get()->getRowArray();
+
+        return $row === null ? 0 : (int) $row['quantity'];
+    }
+
+    /**
+     * Quantities for a page of products, in one query.
+     *
+     * @param list<int> $productIds
+     *
+     * @return array<int, int>
+     */
+    public function quantitiesFor(array $productIds): array
+    {
+        $cart = $this->current();
+        $ids  = array_values(array_unique(array_filter(array_map('intval', $productIds))));
+
+        if ($cart === null || $ids === []) {
+            return [];
+        }
+
+        $out = [];
+
+        foreach (db_connect()->table('cart_items')
+            ->select('product_id, quantity')
+            ->where('cart_id', $cart['id'])
+            ->where('gift_box_id', null)
+            ->whereIn('product_id', $ids)
+            ->get()->getResultArray() as $row) {
+            $out[(int) $row['product_id']] = (int) $row['quantity'];
+        }
+
+        return $out;
     }
 }

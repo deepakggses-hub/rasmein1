@@ -26,6 +26,10 @@ class Homepage extends AdminController
     /** Copy blocks, in the order they appear on the page. */
     private const SECTIONS = [
         'Hero and philosophy' => [
+            // The promise strip wording. Copy, so it belongs here; the on/off
+            // switch stays under Appearance with the other layout controls.
+            'design_marquee_text',
+
             'home_philosophy_kicker', 'home_philosophy_title', 'home_philosophy_body',
         ],
         'Featured collections' => [
@@ -35,7 +39,7 @@ class Homepage extends AdminController
             'home_edit_kicker', 'home_edit_title',
         ],
         'Shop by occasion' => [
-            'home_occasion_kicker', 'home_occasion_title',
+            'home_occasion_kicker', 'home_occasion_title', 'home_occasion_label',
         ],
         'Testimonials' => [
             'home_reviews_kicker', 'home_reviews_title',

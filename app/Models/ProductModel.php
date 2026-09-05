@@ -227,6 +227,34 @@ class ProductModel extends Model
             );
         }
 
+        if (! empty($filters['attrs'])) {
+            /*
+             * Within one attribute the values are OR (silver or gold); ACROSS
+             * attributes they are AND (silver AND large). That is what a
+             * shopper means, and it needs one subquery per attribute — a single
+             * whereIn over all of them would return anything matching any value.
+             */
+            foreach ($filters['attrs'] as $values) {
+                $ids = array_values(array_filter(array_map('intval', (array) $values)));
+
+                if ($ids === []) {
+                    continue;
+                }
+
+                $this->whereIn('products.id', static function ($sub) use ($ids) {
+                    return $sub->select('pa.product_id')
+                        ->from('product_attributes pa')
+                        ->whereIn('pa.value_id', $ids);
+                });
+            }
+        }
+
+        if (! empty($filters['categories'])) {
+            // Narrowing within the page, so no descendant walk: these ids came
+            // from the facet, which already listed only categories present here.
+            $this->whereIn('products.category_id', array_map('intval', (array) $filters['categories']));
+        }
+
         if (! empty($filters['material'])) {
             $materials = array_values(array_filter(array_map('strval', (array) $filters['material'])));
 

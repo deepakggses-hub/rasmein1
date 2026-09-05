@@ -78,6 +78,33 @@ class Housekeeping extends BaseCommand
         CLI::write('  old login attempts pruned: ' . $db->affectedRows(), 'green');
 
         CLI::newLine();
+        /*
+         * Guest wishlist rows.
+         *
+         * A row keyed to a visitor token has no owner who can ever delete it —
+         * the person may have cleared their cookies a year ago. Without this the
+         * table grows forever, which is both a storage problem and a data
+         * retention one: holding what an anonymous visitor liked, indefinitely,
+         * for no purpose.
+         *
+         * Thirteen months, so a token that survived its own one-year cookie
+         * still gets a grace period rather than being cut off the day it
+         * expires.
+         */
+        $db->query(
+            'DELETE FROM wishlist_items WHERE customer_id IS NULL '
+            . 'AND visitor_token IS NOT NULL AND created_at < DATE_SUB(NOW(), INTERVAL 13 MONTH)'
+        );
+        CLI::write('  stale guest wishlist rows pruned: ' . $db->affectedRows(), 'green');
+
+        // Guest carts the same. `merged` ones are kept a little longer because
+        // an order may still reference them.
+        $db->query(
+            "DELETE FROM carts WHERE customer_id IS NULL AND status = 'abandoned' "
+            . 'AND updated_at < DATE_SUB(NOW(), INTERVAL 13 MONTH)'
+        );
+        CLI::write('  stale guest carts pruned: ' . $db->affectedRows(), 'green');
+
         CLI::write('  Housekeeping done.', 'green');
         CLI::newLine();
 

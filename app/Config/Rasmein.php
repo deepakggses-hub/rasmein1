@@ -79,6 +79,9 @@ class Rasmein extends BaseConfig
      * The two site journeys. The active one is an admin setting
      * (`journey_mode`) resolved server-side on every order-creating request.
      */
+    /** Where a visitor's chosen journey is remembered. */
+    public const MODE_COOKIE  = 'rs_mode';
+
     public const MODE_BUY     = 'buy_now';
     public const MODE_ENQUIRE = 'enquire_now';
 
@@ -128,8 +131,58 @@ class Rasmein extends BaseConfig
     /** Whitelisted image MIME types. Extension alone is never trusted. */
     public array $allowedImageMimes = ['image/jpeg', 'image/png', 'image/webp'];
     public array $allowedImageExts  = ['jpg', 'jpeg', 'png', 'webp'];
-    public int   $maxImageBytes     = 2_097_152; // 2 MB
+    /**
+     * Upload size cap.
+     *
+     * Was 2 MB, which rejected the very photographs a shop should be uploading —
+     * a phone camera produces 3–8 MB and a DSLR far more. That mattered less
+     * when the original was served as-is; now that every upload is downscaled
+     * into a size ladder, a large original costs nothing at serving time and
+     * gives the ladder something to work from.
+     *
+     * Must stay below PHP's own upload_max_filesize and post_max_size, or the
+     * request is discarded before the application ever sees it.
+     */
+    public int   $maxImageBytes     = 12_582_912; // 12 MB
     public int   $maxImageWidth     = 2400;
+
+    /**
+     * Widths generated for every upload, for responsive `srcset`.
+     *
+     * WHY SEVERAL SIZES RATHER THAN ONE BIG ONE
+     *
+     * A card 400 CSS pixels wide on a 2x phone needs 800 real pixels. Serving a
+     * single 2400px file makes that card sharp but costs the visitor five times
+     * the bytes; serving a single 800px file is fast but soft on a large
+     * monitor. Generating a ladder and letting the browser pick is the only way
+     * to have both.
+     *
+     * A variant is NEVER larger than the original — upscaling invents pixels
+     * and looks worse than letting the browser stretch.
+     *
+     * @var list<int>
+     */
+    public array $imageWidths = [320, 480, 768, 1024, 1440, 1920];
+
+    /**
+     * JPEG/WebP quality.
+     *
+     * 82 for WebP is visually equivalent to about 88 for JPEG at roughly 70% of
+     * the size, which is why WebP is generated for every upload and offered
+     * first.
+     */
+    public int   $jpegQuality       = 88;
+    public int   $webpQuality       = 82;
+
+    /**
+     * Sharpening applied after downscaling, 0 to disable.
+     *
+     * Every resample softens edges — that is arithmetic, not a bug. A mild
+     * unsharp mask afterwards restores the crispness the resize removed. It does
+     * NOT invent detail: an image that was blurry when uploaded is still blurry,
+     * just with more contrast at the edges it does have.
+     */
+    public float $sharpenAmount     = 0.6;
 
     /**
      * Width caps for identity images, by setting key.

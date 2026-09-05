@@ -1,0 +1,115 @@
+<?php
+/**
+ * The fields a template needs, rendered from Config\PageTemplates.
+ *
+ * ONE definition drives the picker, this form and the storefront, so a field
+ * cannot end up saveable but never shown — or shown but not editable, which is
+ * worse because nothing explains why.
+ *
+ * Repeatable rows are rendered as a fixed number of blank slots rather than a
+ * JavaScript repeater: a shop filling in four contact cards or six questions is
+ * better served by four visible boxes than by a button that makes them appear.
+ * Empty rows are discarded on save.
+ *
+ * @var array  $template
+ * @var array  $data
+ */
+?>
+<?php foreach ($template['sections'] as $sectionKey => $section): ?>
+    <section class="border border-shell-line bg-white p-5">
+        <h2 class="rs-eyebrow rs-eyebrow--plain"><?= esc($section['label']) ?></h2>
+
+        <?php if (! empty($section['help'])): ?>
+            <p class="rs-help mt-2 max-w-2xl"><?= esc($section['help']) ?></p>
+        <?php endif; ?>
+
+        <div class="mt-5 grid gap-4">
+            <?php foreach ($section['fields'] as $fieldKey => $field): ?>
+                <?php
+                $name  = 'data[' . $sectionKey . '][' . $fieldKey . ']';
+                $value = $data[$sectionKey][$fieldKey] ?? ($field['default'] ?? '');
+                ?>
+
+                <?php if ($field['type'] === 'list'): ?>
+                    <div>
+                        <span class="rs-label"><?= esc($field['label']) ?></span>
+                        <?php if (! empty($field['help'])): ?>
+                            <span class="rs-help"><?= esc($field['help']) ?></span>
+                        <?php endif; ?>
+
+                        <div class="mt-3 grid gap-3">
+                            <?php
+                            $rows = is_array($value) ? array_values($value) : [];
+                            // Always one empty slot beyond what exists, so there
+                            // is somewhere to add the next one without a button.
+                            $slots = min((int) ($field['max'] ?? 6), max(count($rows) + 1, 3));
+                            ?>
+                            <?php for ($i = 0; $i < $slots; $i++): ?>
+                                <?php $row = $rows[$i] ?? []; ?>
+                                <div class="grid gap-2 border border-shell-line bg-shell-deep/40 p-3 sm:grid-cols-2">
+                                    <?php foreach ($field['fields'] as $subKey => $sub): ?>
+                                        <label class="<?= $sub['type'] === 'textarea' ? 'sm:col-span-2' : '' ?>">
+                                            <span class="rs-label"><?= esc($sub['label']) ?></span>
+                                            <?php $subName = $name . '[' . $i . '][' . $subKey . ']'; ?>
+
+                                            <?php if ($sub['type'] === 'textarea'): ?>
+                                                <textarea name="<?= esc($subName, 'attr') ?>" class="rs-textarea"
+                                                          rows="2" maxlength="1000"><?= esc((string) ($row[$subKey] ?? '')) ?></textarea>
+                                            <?php else: ?>
+                                                <input type="text" name="<?= esc($subName, 'attr') ?>" class="rs-input"
+                                                       maxlength="255" value="<?= esc((string) ($row[$subKey] ?? ''), 'attr') ?>">
+                                            <?php endif; ?>
+
+                                            <?php if (! empty($sub['help'])): ?>
+                                                <span class="rs-help"><?= esc($sub['help']) ?></span>
+                                            <?php endif; ?>
+                                        </label>
+                                    <?php endforeach; ?>
+                                </div>
+                            <?php endfor; ?>
+                        </div>
+                    </div>
+
+                <?php elseif ($field['type'] === 'image'): ?>
+                    <label>
+                        <span class="rs-label"><?= esc($field['label']) ?></span>
+                        <?php if ((string) $value !== ''): ?>
+                            <span class="mt-2 mb-2 block max-h-40 overflow-hidden border border-shell-line bg-shell-deep">
+                                <img src="<?= rs_image((string) $value, 'content') ?>" alt=""
+                                     class="w-full object-cover">
+                            </span>
+                        <?php endif; ?>
+                        <input type="file" name="data_image_<?= esc($sectionKey . '_' . $fieldKey, 'attr') ?>"
+                               class="rs-input" accept="image/jpeg,image/png,image/webp">
+                        <?php /* The current path rides along, so saving without
+                                 choosing a new file keeps the old one. */ ?>
+                        <input type="hidden" name="<?= esc($name, 'attr') ?>" value="<?= esc((string) $value, 'attr') ?>">
+                        <?php if (! empty($field['help'])): ?>
+                            <span class="rs-help"><?= esc($field['help']) ?></span>
+                        <?php endif; ?>
+                    </label>
+
+                <?php elseif ($field['type'] === 'textarea'): ?>
+                    <label>
+                        <span class="rs-label"><?= esc($field['label']) ?></span>
+                        <textarea name="<?= esc($name, 'attr') ?>" class="rs-textarea" rows="3"
+                                  maxlength="2000"><?= esc((string) $value) ?></textarea>
+                        <?php if (! empty($field['help'])): ?>
+                            <span class="rs-help"><?= esc($field['help']) ?></span>
+                        <?php endif; ?>
+                    </label>
+
+                <?php else: ?>
+                    <label>
+                        <span class="rs-label"><?= esc($field['label']) ?></span>
+                        <input type="text" name="<?= esc($name, 'attr') ?>" class="rs-input"
+                               maxlength="255" value="<?= esc((string) $value, 'attr') ?>">
+                        <?php if (! empty($field['help'])): ?>
+                            <span class="rs-help"><?= esc($field['help']) ?></span>
+                        <?php endif; ?>
+                    </label>
+                <?php endif; ?>
+            <?php endforeach; ?>
+        </div>
+    </section>
+<?php endforeach; ?>

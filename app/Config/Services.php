@@ -12,8 +12,13 @@ use App\Services\HtmlSanitiser;
 use App\Services\CsvExporter;
 use App\Services\GoogleMailService;
 use App\Services\DesignService;
+use App\Services\BasketMergeService;
+use App\Services\GoogleAuthService;
+use App\Services\OtpService;
+use App\Services\VisitorService;
 use App\Services\FacetService;
 use App\Services\ImageUploadService;
+use App\Services\ImageVariantService;
 use App\Services\RootUrlService;
 use App\Services\MailService;
 use App\Services\NotificationService;
@@ -375,6 +380,48 @@ class Services extends BaseService
         }
 
         return new FacetService();
+    }
+
+    /** Responsive size ladder and sharpening for uploaded images. */
+    public static function imageVariants(bool $getShared = true): ImageVariantService
+    {
+        if ($getShared) {
+            return static::getSharedInstance('imageVariants');
+        }
+
+        return new ImageVariantService();
+    }
+
+    /** Moves a guest's basket into their account when they sign in. */
+    public static function basketMerge(bool $getShared = true): BasketMergeService
+    {
+        if ($getShared) {
+            return static::getSharedInstance('basketMerge');
+        }
+
+        return new BasketMergeService();
+    }
+
+    /** One-time codes for signing in and confirming an email. */
+    public static function otp(bool $getShared = true): OtpService
+    {
+        return $getShared ? static::getSharedInstance('otp') : new OtpService();
+    }
+
+    /** Sign in with Google, for customers. */
+    public static function googleAuth(bool $getShared = true): GoogleAuthService
+    {
+        return $getShared ? static::getSharedInstance('googleAuth') : new GoogleAuthService();
+    }
+
+    /** The long-lived identity of a visitor who has not signed in. */
+    public static function visitor(bool $getShared = true): VisitorService
+    {
+        if ($getShared) {
+            return static::getSharedInstance('visitor');
+        }
+
+        return new VisitorService();
     }
 
     /** The single authority on what may live at the site root. */

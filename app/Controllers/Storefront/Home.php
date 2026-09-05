@@ -38,7 +38,7 @@ class Home extends StorefrontController
             'collections'  => model(CollectionModel::class)->featured(3),
             'occasions'    => model(CollectionModel::class)->liveOccasions(10),
 
-            'testimonials' => model(\App\Models\TestimonialModel::class)->live(3),
+            'testimonials' => model(\App\Models\TestimonialModel::class)->live(),
             'reviewStats'  => model(\App\Models\TestimonialModel::class)->summary(),
 
             // Editable copy. Read once here rather than scattered through the

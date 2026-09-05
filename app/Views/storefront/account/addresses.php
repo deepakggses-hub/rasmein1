@@ -106,19 +106,19 @@
             <div class="mt-4 grid grid-cols-2 gap-3">
                 <label>
                     <span class="rs-label">PIN code</span>
-                    <input type="text" name="postal_code" class="rs-input num" required
+                    <input type="text" name="postal_code" data-pin inputmode="numeric" maxlength="6" class="rs-input num" required
                            inputmode="numeric" pattern="[1-9][0-9]{5}" maxlength="6"
                            value="<?= $v('postal_code', $editing['postal_code'] ?? '') ?>">
                 </label>
                 <label>
                     <span class="rs-label">City</span>
-                    <input type="text" name="city" class="rs-input" required maxlength="80"
+                    <input type="text" name="city" class="rs-input" maxlength="80" data-pin-city readonly
                            value="<?= $v('city', $editing['city'] ?? '') ?>">
                 </label>
             </div>
             <label class="mt-4 block">
                 <span class="rs-label">State</span>
-                <input type="text" name="state" class="rs-input" required maxlength="80"
+                <input type="text" name="state" class="rs-input" required maxlength="80" data-pin-state readonly
                        value="<?= $v('state', $editing['state'] ?? '') ?>">
             </label>
             <label class="mt-4 flex items-center gap-2.5 text-sm">

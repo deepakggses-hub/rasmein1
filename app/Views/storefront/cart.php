@@ -64,7 +64,7 @@ $forcedByItem = $isEnquiry && ! rs_is_enquire_mode();
 
         <!-- ------------------------------------------------------- lines -->
         <section aria-label="Items">
-            <ul class="divide-y divide-shell-line border-y border-shell-line">
+            <ul class="divide-y divide-shell-line border-y border-shell-line" data-cart-lines>
                 <?php foreach ($lines as $line): ?>
                     <li class="py-6">
                         <div class="flex gap-4 sm:gap-6">
@@ -87,6 +87,12 @@ $forcedByItem = $isEnquiry && ! rs_is_enquire_mode();
                                                 <a href="<?= site_url('product/' . $line['slug']) ?>" class="rs-link">
                                                     <?= esc($line['name']) ?>
                                                 </a>
+                                    <?php if (! empty($line['chosen_attributes'])): ?>
+                                        <?php /* What they chose, on the line — so a
+                                                 basket of three similar bowls is
+                                                 readable. */ ?>
+                                        <p class="rs-help"><?= esc($line['chosen_attributes']) ?></p>
+                                    <?php endif; ?>
                                             <?php else: ?>
                                                 <?= esc($line['name']) ?>
                                             <?php endif; ?>
@@ -155,7 +161,7 @@ $forcedByItem = $isEnquiry && ! rs_is_enquire_mode();
                                         <label class="sr-only" for="qty-<?= (int) $line['line_id'] ?>">
                                             Quantity for <?= esc($line['name']) ?>
                                         </label>
-                                        <input id="qty-<?= (int) $line['line_id'] ?>" type="number" name="quantity"
+                                        <input id="qty-<?= (int) $line['line_id'] ?>" type="number" name="quantity" data-line-qty
                                                class="rs-input num w-20 py-1.5 text-center"
                                                value="<?= (int) $line['quantity'] ?>" min="1" max="99" inputmode="numeric">
                                         <button type="submit" class="rs-btn rs-btn--outline rs-btn--sm">Update</button>
@@ -184,7 +190,7 @@ $forcedByItem = $isEnquiry && ! rs_is_enquire_mode();
         </section>
 
         <!-- ------------------------------------------------------ totals -->
-        <aside class="mt-10 lg:mt-0 lg:sticky lg:top-32">
+        <aside class="mt-10 lg:mt-0 lg:sticky lg:top-32" data-cart-summary>
             <div class="border border-shell-line bg-white p-6">
                 <h2 class="rs-eyebrow rs-eyebrow--plain">Summary</h2>
 

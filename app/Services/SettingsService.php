@@ -95,8 +95,27 @@ class SettingsService
      * checkout — an unrecognised or missing value falls back to Buy, never
      * to "whatever the client asked for".
      */
+    /**
+     * The journey this VISITOR is on.
+     *
+     * The shop still sets a default, but a corporate buyer can switch the whole
+     * site into enquiry mode from the header — someone ordering two hundred
+     * hampers is not going to use a basket, and someone buying one gift should
+     * not be made to fill in an enquiry form.
+     *
+     * The switch is a plain cookie: it carries no personal data, is not a
+     * credential, and losing it only means the site opens in its default mode.
+     * It is deliberately NOT httpOnly, so the header can reflect the current
+     * mode without waiting for a round trip.
+     */
     public function journeyMode(): string
     {
+        $chosen = (string) (service('request')->getCookie(Rasmein::MODE_COOKIE) ?? '');
+
+        if (in_array($chosen, [Rasmein::MODE_BUY, Rasmein::MODE_ENQUIRE], true)) {
+            return $chosen;
+        }
+
         $mode = (string) $this->get('journey_mode', Rasmein::MODE_BUY);
 
         return in_array($mode, [Rasmein::MODE_BUY, Rasmein::MODE_ENQUIRE], true)

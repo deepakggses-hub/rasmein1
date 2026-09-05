@@ -32,6 +32,8 @@ class HomeContentSeeder extends Seeder
             ['home_occasion_kicker', 'Shop by occasion', 'string', 'Occasions — small heading', '', 30],
             ['home_occasion_title', 'Celebrate every moment worth remembering.', 'string', 'Occasions — headline', '', 31],
 
+            ['home_occasion_label', 'Gifts for every occasion', 'string', 'Occasions — row label', 'Sits just above the scrolling row of occasions.', 32],
+
             ['home_reviews_kicker', 'From our patrons', 'string', 'Testimonials — small heading', '', 40],
             ['home_reviews_title', 'Words that warm us.', 'string', 'Testimonials — headline', '', 41],
 

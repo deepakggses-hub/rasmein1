@@ -16,7 +16,7 @@ class CategoryModel extends Model
     protected $useSoftDeletes = true;
 
     protected $allowedFields = [
-        'parent_id', 'name', 'slug', 'path', 'depth', 'description', 'image',
+        'parent_id', 'name', 'slug', 'path', 'depth', 'description', 'image', 'alt_text',
         'is_featured', 'sort_order', 'is_active',
         'meta_title', 'meta_description',
     ];

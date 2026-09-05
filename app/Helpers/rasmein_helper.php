@@ -68,7 +68,12 @@ if (! function_exists('rs_cta_label')) {
      */
     function rs_cta_label(?string $mode = null, string $variant = 'primary'): string
     {
-        $mode = $mode ?? rs_journey_mode();
+        /*
+         * 'inherit' means "follow the site", so it has to be RESOLVED, not
+         * passed through — an unresolved 'inherit' matched neither branch below
+         * and every card said "Add to cart" even in corporate mode.
+         */
+        $mode = service('settings')->resolveItemMode($mode ?? rs_journey_mode());
 
         if ($mode === Rasmein::MODE_ENQUIRE) {
             return match ($variant) {
@@ -213,6 +218,9 @@ if (! function_exists('rs_icon')) {
 
         if ($paths === null) {
             $paths = [
+            // Single-colour Google mark, so it takes the button's ink rather
+            // than dropping a four-colour logo into a monochrome row.
+            'google'       => '<path d="M12 10.6v3.1h4.4a3.9 3.9 0 0 1-4.4 3 4.7 4.7 0 1 1 3-8.3l2.2-2.2A7.8 7.8 0 1 0 12 19.9c4.4 0 7.4-3.1 7.4-7.5 0-.6 0-1.2-.2-1.8H12Z"/>',
             'dashboard'    => '<path d="M3 12h7V3H3v9Zm0 9h7v-6H3v6Zm11 0h7V12h-7v9Zm0-18v6h7V3h-7Z"/>',
             'bell'         => '<path d="M12 3a6 6 0 0 0-6 6v3.6L4.5 16h15L18 12.6V9a6 6 0 0 0-6-6Z"/><path d="M10 19a2 2 0 0 0 4 0"/>',
             'orders'       => '<path d="M4 7h16l-1.2 12.2a2 2 0 0 1-2 1.8H7.2a2 2 0 0 1-2-1.8L4 7Z"/><path d="M9 7V5a3 3 0 0 1 6 0v2"/>',
@@ -238,6 +246,9 @@ if (! function_exists('rs_icon')) {
             'user'         => '<path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z"/><path d="M4 20a8 8 0 0 1 16 0"/>',
             'arrow-right'  => '<path d="M5 12h14M13 6l6 6-6 6"/>',
             'arrow-left'   => '<path d="M19 12H5M11 18l-6-6 6-6"/>',
+            'pin'          => '<path d="M12 21s7-5.6 7-11a7 7 0 1 0-14 0c0 5.4 7 11 7 11Z"/><circle cx="12" cy="10" r="2.5"/>',
+            'tag'          => '<path d="M3 3h8l10 10-8 8L3 11V3Z"/><circle cx="7.5" cy="7.5" r="1.5"/>',
+            'sort'         => '<path d="M4 6h16M7 12h10M10 18h4"/>',
             'chevron-down' => '<path d="m6 9 6 6 6-6"/>',
             'star'         => '<path d="m12 3 2.6 5.6 6 .8-4.4 4.2 1.1 6L12 16.8 6.7 19.6l1.1-6L3.4 9.4l6-.8L12 3Z"/>',
             'check'        => '<path d="m5 12 5 5L20 7"/>',
@@ -305,5 +316,121 @@ if (! function_exists('rs_url')) {
         }
 
         return base_url(ltrim($path, '/'));
+    }
+}
+
+if (! function_exists('rs_picture')) {
+    /**
+     * A responsive <picture> for a stored image.
+     *
+     * WHY NOT JUST <img src>
+     *
+     * A card 400 CSS pixels wide on a 2x phone needs 800 real pixels; the same
+     * card on a wide monitor might be 600. One file cannot be right for both —
+     * either it is soft somewhere or it is wasteful everywhere. `srcset` hands
+     * the browser the ladder and lets it choose, and `sizes` tells it how wide
+     * the slot will actually be, which it cannot work out before the CSS loads.
+     *
+     * WebP is offered first because it is roughly 30% smaller at the same
+     * visual quality; the original format follows for anything that cannot
+     * read it.
+     *
+     * Variants are found by convention beside the original, so nothing extra is
+     * stored in the database and an image uploaded before this existed still
+     * works — it simply has no ladder and falls back to the single file.
+     *
+     * @param string|null $path  Relative path as stored, e.g. uploads/products/…
+     * @param string      $sizes The `sizes` attribute — describe the SLOT
+     * @param array<string, string> $attrs Extra attributes for the <img>
+     */
+    function rs_picture(?string $path, string $sizes = '100vw', array $attrs = []): string
+    {
+        $src = rs_image($path, $attrs['_type'] ?? 'products');
+        unset($attrs['_type']);
+
+        $defaults = [
+            'alt'      => '',
+            'loading'  => 'lazy',
+            'decoding' => 'async',
+        ];
+
+        $attrs = $attrs + $defaults;
+
+        // A placeholder or an absolute URL from elsewhere has no ladder.
+        $relative = trim((string) $path);
+        $hasLadder = $relative !== ''
+            && ! str_contains($relative, '..')
+            && str_starts_with($relative, 'uploads/');
+
+        $render = static function (array $a): string {
+            $out = '';
+
+            foreach ($a as $key => $value) {
+                if ($value === null || $value === false) {
+                    continue;
+                }
+
+                /*
+                 * src, srcset and sizes are assembled here from base_url() and a
+                 * developer-supplied literal — nothing user-controlled reaches
+                 * them. Escaping would only turn every slash into &#x2F;, which
+                 * browsers decode anyway but which makes the output impossible
+                 * to read or grep. Everything else (alt, class, data-*) IS
+                 * escaped, because those can carry a product name.
+                 */
+                // class is a developer literal here too. alt is NOT on this
+                 // list: it carries a product name a shop typed.
+                $raw = in_array($key, ['src', 'srcset', 'sizes', 'class'], true);
+
+                $out .= ' ' . $key . '="' . ($raw ? $value : esc((string) $value, 'attr')) . '"';
+            }
+
+            return $out;
+        };
+
+        if (! $hasLadder) {
+            return '<img' . $render(['src' => $src] + $attrs) . '>';
+        }
+
+        $dot  = strrpos($relative, '.');
+        $stem = $dot === false ? $relative : substr($relative, 0, $dot);
+        $ext  = $dot === false ? 'jpg' : strtolower(substr($relative, $dot + 1));
+
+        $jpegSet = [];
+        $webpSet = [];
+
+        foreach (config(\Config\Rasmein::class)->imageWidths as $width) {
+            $variant = $stem . '-' . $width . '.' . $ext;
+
+            if (is_file(FCPATH . $variant)) {
+                $jpegSet[] = base_url($variant) . ' ' . $width . 'w';
+            }
+
+            $webpVariant = $stem . '-' . $width . '.webp';
+
+            if (is_file(FCPATH . $webpVariant)) {
+                $webpSet[] = base_url($webpVariant) . ' ' . $width . 'w';
+            }
+        }
+
+        // Nothing generated — an older upload. The single file still works.
+        if ($jpegSet === [] && $webpSet === []) {
+            return '<img' . $render(['src' => $src] + $attrs) . '>';
+        }
+
+        $img = '<img' . $render(
+            ['src' => $src]
+            + ($jpegSet !== [] ? ['srcset' => implode(', ', $jpegSet), 'sizes' => $sizes] : [])
+            + $attrs
+        ) . '>';
+
+        if ($webpSet === []) {
+            return $img;
+        }
+
+        return '<picture>'
+            . '<source type="image/webp" srcset="' . implode(', ', $webpSet) . '" sizes="' . $sizes . '">'
+            . $img
+            . '</picture>';
     }
 }

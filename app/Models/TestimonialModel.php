@@ -15,7 +15,7 @@ class TestimonialModel extends Model
     protected $useSoftDeletes = true;
     protected $useTimestamps = true;
 
-    protected $allowedFields = ['quote', 'author', 'role', 'rating', 'image', 'is_active', 'sort_order'];
+    protected $allowedFields = ['quote', 'author', 'role', 'rating', 'image', 'alt_text', 'is_active', 'sort_order'];
 
     protected $validationRules = [
         // Required for {id} route placeholders — see CLAUDE.md.
@@ -28,7 +28,15 @@ class TestimonialModel extends Model
     ];
 
     /** @return array<int, array<string, mixed>> */
-    public function live(int $limit = 3): array
+    /**
+     * @param int $limit Default 12, not 3.
+     *
+     * A cap of three made the slider pointless: adding a fourth testimonial
+     * changed nothing on the page, and nothing said why. The section shows
+     * three at a time and slides through the rest, so the query has to return
+     * more than fits.
+     */
+    public function live(int $limit = 12): array
     {
         return $this->where('is_active', 1)
             ->orderBy('sort_order', 'ASC')

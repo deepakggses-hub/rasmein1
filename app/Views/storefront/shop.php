@@ -49,7 +49,7 @@ $term = $filters['q'] ?? null;
             <div class="flex flex-wrap items-end justify-between gap-x-8 gap-y-5 border-b border-shell-line pb-5">
                 <header>
                     <h1 class="rs-display rs-display--lg"><?= esc($context['heading']) ?></h1>
-                    <p class="mt-3 font-mono text-[0.625rem] tracking-[0.18em] text-ink-muted uppercase">
+                    <p class="mt-3 font-mono text-[0.625rem] tracking-[0.18em] text-ink-muted uppercase" data-result-count>
                         <span class="num"><?= (int) $total ?></span>
                         <?= $total === 1 ? 'piece' : 'pieces' ?>
                         <?php if (! empty($context['intro'])): ?>
@@ -72,13 +72,21 @@ $term = $filters['q'] ?? null;
                     <?php endforeach; ?>
 
                     <label for="sort" class="sr-only">Sort</label>
+                    <span class="rs-sortwrap">
                     <select id="sort" name="sort" class="rs-sortpill" data-auto-submit>
+                        <?php /* A labelled placeholder, so the control reads as
+                                 "Sort By" until a choice is made rather than
+                                 looking like Featured was chosen. Disabled, so
+                                 it can never be submitted. */ ?>
+                        <option value="" disabled <?= ($active['sort'] ?? '') === '' ? 'selected' : '' ?>>Sort By</option>
                         <?php foreach ($sortOptions as $key => $label): ?>
                             <option value="<?= esc($key, 'attr') ?>" <?= $sort === $key ? 'selected' : '' ?>>
                                 <?= esc($label) ?>
                             </option>
                         <?php endforeach; ?>
                     </select>
+                        <?= rs_icon('sort', 'rs-sortwrap__icon') ?>
+                    </span>
                     <noscript><button type="submit" class="rs-btn rs-btn--outline rs-btn--sm">Go</button></noscript>
                 </form>
 
@@ -131,7 +139,7 @@ $term = $filters['q'] ?? null;
                     <?php /* Removing one at a time beats a single "clear all":
                              a person who ticked four things and got two results
                              needs to see which one to loosen. */ ?>
-                    <ul class="mt-5 flex flex-wrap items-center gap-2">
+                    <ul class="mt-5 flex flex-wrap items-center gap-2" data-chips>
                         <?php foreach ($chips as $chip): ?>
                             <li>
                                 <?php /* NOT esc(..., 'attr'): that encodes / : ? and = into entities and
@@ -161,6 +169,9 @@ $term = $filters['q'] ?? null;
                                 // ProductModel::imagesFor(). Asking per card
                                 // would be one query per product on the page.
                                 'images'  => $imageMap[(int) $product->id] ?? [],
+                                'saved'   => in_array((int) $product->id, $savedIds ?? [], true),
+                                'inBasket' => (int) ($basketQty[(int) $product->id] ?? 0),
+                                'attrs'    => $attrMap[(int) $product->id] ?? [],
                             ]) ?>
                         </div>
                     <?php endforeach; ?>

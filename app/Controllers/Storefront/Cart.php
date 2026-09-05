@@ -29,6 +29,26 @@ class Cart extends StorefrontController
 
     public function add()
     {
+        // The chosen colour rides along with the line, so the order records it.
+        $chosen = service('cart')->describeChoices(
+            (int) $this->request->getPost('product_id'),
+            (array) $this->request->getPost('attr')
+        );
+
+        service('cart')->pendingChoices = $chosen;
+
+        // The chosen variant, validated against the product — a posted id must
+        // not be able to attach someone else's variant to this line.
+        $variantId = (int) $this->request->getPost('variant_id');
+
+        service('cart')->pendingVariant = $variantId > 0
+            && model(\App\Models\ProductVariantModel::class)
+                ->where('id', $variantId)
+                ->where('product_id', (int) $this->request->getPost('product_id'))
+                ->countAllResults() > 0
+            ? $variantId
+            : null;
+
         $productId = (int) $this->request->getPost('product_id');
         $quantity  = (int) ($this->request->getPost('quantity') ?? 1);
 
@@ -108,5 +128,61 @@ class Cart extends StorefrontController
             : site_url('cart');
 
         return redirect()->to($safe)->with($result['ok'] ? 'success' : 'error', $result['message']);
+    }
+
+    /**
+     * Add or set a quantity, answered as JSON.
+     *
+     * The card's stepper needs to change a quantity without losing the page.
+     * `quantity` is the ABSOLUTE number wanted, not a delta — a delta sent twice
+     * because a tap was slow gives two increments, and the customer ends up with
+     * three of something they wanted one of.
+     */
+    public function addJson()
+    {
+        $productId = (int) $this->request->getPost('product_id');
+        $quantity  = (int) $this->request->getPost('quantity');
+
+        $product = $productId > 0 ? model(\App\Models\ProductModel::class)->find($productId) : null;
+
+        if ($product === null || ! $product->inStock()) {
+            return $this->response->setStatusCode(422)
+                ->setJSON(['ok' => false, 'error' => 'That is not available right now.', 'csrf' => csrf_hash()]);
+        }
+
+        try {
+            if ($quantity < 1) {
+                service('cart')->setProductQuantity($productId, 0);
+                $quantity = 0;
+            } else {
+                $result = service('cart')->setProductQuantity($productId, $quantity);
+
+                if (($result['ok'] ?? true) === false) {
+                    return $this->response->setStatusCode(422)->setJSON([
+                        'ok' => false, 'error' => $result['error'] ?? 'That could not be added.',
+                        'csrf' => csrf_hash(),
+                    ]);
+                }
+
+                // The service may cap it — stock, or the per-basket limit — so
+                // report what actually landed rather than what was asked for.
+                $quantity = service('cart')->quantityOf($productId);
+            }
+        } catch (\Throwable $e) {
+            log_message('error', 'Cart JSON failed: {m}', ['m' => $e->getMessage()]);
+
+            return $this->response->setStatusCode(422)
+                ->setJSON(['ok' => false, 'error' => 'That could not be added.', 'csrf' => csrf_hash()]);
+        }
+
+        return $this->response->setJSON([
+            'ok'       => true,
+            'quantity' => $quantity,
+            'count'    => service('cart')->itemCount(),
+            'name'     => $product->name,
+            // Rotated on every POST — the page needs the new one or the next
+            // tap is rejected as a forgery.
+            'csrf'     => csrf_hash(),
+        ]);
     }
 }

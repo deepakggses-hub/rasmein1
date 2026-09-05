@@ -137,7 +137,23 @@ class Products extends AdminController
             ? model(ProductImageModel::class)->forProduct((int) $product->id)
             : [];
 
+        // Which values this product already carries, for ticking the boxes.
+        // ProductModel returns ENTITIES, not arrays — $product['id'] throws.
+        $productId = $product === null ? 0 : (int) $product->id;
+
+        $productValueIds = $productId === 0 ? [] : array_map('intval', array_column(
+            db_connect()->table('product_attributes')->select('value_id')
+                ->where('product_id', $productId)->get()->getResultArray(),
+            'value_id'
+        ));
+
         return $this->adminPage('admin/products/form', [
+            'attributes'      => model(\App\Models\AttributeModel::class)->withValues(),
+            // Just the count, for the link's badge — the screen itself loads
+            // the rows.
+            'variantCount'    => $productId === 0 ? 0 : model(\App\Models\ProductVariantModel::class)
+                ->where('product_id', $productId)->countAllResults(),
+            'productValueIds' => $productValueIds,
             'product'    => $product,
             'images'     => $images,
             'categories' => model(CategoryModel::class)->orderBy('name', 'ASC')->findAll(),
@@ -229,6 +245,11 @@ class Products extends AdminController
             $id = (int) $model->getInsertID();
         }
 
+        // ---- attributes ----
+        // Beside the other pivot syncs, and AFTER $id is known — on a new
+        // product it does not exist until getInsertID() above.
+        $this->syncAttributes($id);
+
         // ---- occasions ----
         // Done through the model so a product's COLLECTION memberships are left
         // alone: both live in the same pivot, and clearing by product id would
@@ -237,6 +258,22 @@ class Products extends AdminController
             $id,
             array_map('intval', (array) $this->request->getPost('occasions'))
         );
+
+        // ---- alt text on existing images ----
+        // Scoped to THIS product's images: an id from the form is not trusted
+        // to belong here just because it was posted.
+        $alts = (array) $this->request->getPost('image_alt');
+
+        if ($alts !== []) {
+            $imageModel = model(ProductImageModel::class);
+
+            foreach ($alts as $imageId => $alt) {
+                $imageModel->where('product_id', $id)
+                    ->where('id', (int) $imageId)
+                    ->set('alt_text', mb_substr(trim((string) $alt), 0, 191) ?: null)
+                    ->update();
+            }
+        }
 
         // ---- images ----
         $uploadError = $this->handleImages($id);
@@ -268,7 +305,16 @@ class Products extends AdminController
 
         $model  = model(ProductImageModel::class);
         $errors = [];
+        $notes  = [];
         $added  = 0;
+
+        /*
+         * Below this score an image is probably soft. It is a heuristic — a
+         * deliberately shallow-focus shot on white scores low too — so it WARNS
+         * and never rejects. Telling someone their photograph looks soft at
+         * upload time is the only point at which they can do anything about it.
+         */
+        $softThreshold = 900.0;
 
         foreach ($files as $file) {
             if ($file->getError() === UPLOAD_ERR_NO_FILE) {
@@ -281,6 +327,17 @@ class Products extends AdminController
                 $errors[] = $result['error'];
 
                 continue;
+            }
+
+            if (($result['sharpness'] ?? null) !== null && $result['sharpness'] < $softThreshold) {
+                $notes[] = '“' . $file->getClientName() . '” looks soft. '
+                    . 'Sharpening has been applied, but detail that was not captured cannot be recovered — '
+                    . 'a higher-resolution or better-focused original will look noticeably better.';
+            }
+
+            if (($result['width'] ?? 0) > 0 && $result['width'] < 1000) {
+                $notes[] = '“' . $file->getClientName() . '” is only ' . (int) $result['width']
+                    . 'px wide. It will look soft on a large screen — 1600px or more is ideal.';
             }
 
             $existing = $model->where('product_id', $productId)->countAllResults();
@@ -296,11 +353,16 @@ class Products extends AdminController
             $added++;
         }
 
+        // Notes are advice, not failures — an upload that worked still reports
+        // them, so they are returned alongside rather than instead.
+        $advice = $notes === [] ? '' : ' ' . implode(' ', array_unique($notes));
+
         if ($errors === []) {
-            return null;
+            return $advice === '' ? null : trim($advice);
         }
 
-        return ($added > 0 ? $added . ' image(s) added, but: ' : '') . implode(' ', array_unique($errors));
+        return ($added > 0 ? $added . ' image(s) added, but: ' : '')
+            . implode(' ', array_unique($errors)) . $advice;
     }
 
     public function deleteImage(int $productId, int $imageId)
@@ -358,5 +420,53 @@ class Products extends AdminController
         $slug   = strtolower(trim((string) preg_replace('/[^a-zA-Z0-9]+/', '-', $source), '-'));
 
         return $slug !== '' ? mb_substr($slug, 0, 200) : 'product-' . bin2hex(random_bytes(4));
+    }
+
+    /**
+     * Replace this product's attribute values with what was ticked.
+     *
+     * Delete-then-insert rather than a diff: the set is small, the form always
+     * posts the COMPLETE selection, and a diff here would be more code for the
+     * same result with more ways to leave a stale row behind.
+     *
+     * Only ids that really exist are written — a hand-edited form must not be
+     * able to attach a product to a value that was deleted mid-edit.
+     */
+    private function syncAttributes(int $productId): void
+    {
+        $db     = db_connect();
+        $posted = array_values(array_unique(array_map(
+            'intval',
+            (array) $this->request->getPost('attribute_values')
+        )));
+
+        $db->table('product_attributes')->where('product_id', $productId)->delete();
+
+        if ($posted === []) {
+            return;
+        }
+
+        $valid = array_map('intval', array_column(
+            $db->table('attribute_values')->select('id')->whereIn('id', $posted)->get()->getResultArray(),
+            'id'
+        ));
+
+        if ($valid === []) {
+            return;
+        }
+
+        $now  = date('Y-m-d H:i:s');
+        $rows = [];
+
+        foreach ($valid as $i => $valueId) {
+            $rows[] = [
+                'product_id' => $productId,
+                'value_id'   => $valueId,
+                'sort_order' => $i * 10,
+                'created_at' => $now,
+            ];
+        }
+
+        $db->table('product_attributes')->insertBatch($rows);
     }
 }

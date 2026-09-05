@@ -37,7 +37,7 @@ class Settings extends AdminController
          * Anything still locked and visible gets a link to where it IS edited —
          * see Config\SettingHomes.
          */
-        foreach ($model->whereNotIn('group_name', ['mail', 'brand', 'store', 'social', 'design', 'home'])
+        foreach ($model->whereNotIn('group_name', ['mail', 'brand', 'store', 'social', 'design', 'home', 'auth'])
             ->orderBy('group_name', 'ASC')->orderBy('sort_order', 'ASC')->findAll() as $row) {
             $groups[$row['group_name']][] = $row;
         }

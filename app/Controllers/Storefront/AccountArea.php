@@ -207,38 +207,15 @@ class AccountArea extends StorefrontController
 
     // ---------------------------------------------------------- wishlist
 
-    public function wishlist(): string
-    {
-        return $this->page('storefront/account/wishlist', [
-            'items'  => model(WishlistModel::class)->forCustomer($this->customerId()),
-            'crumbs' => [
-                ['label' => 'Your account', 'url' => site_url('account')],
-                ['label' => 'Wishlist', 'url' => null],
-            ],
-        ], ['title' => 'Your wishlist · ' . $this->brand->brandName, 'noindex' => true]);
-    }
-
-    public function toggleWishlist()
-    {
-        $productId = (int) $this->request->getPost('product_id');
-        $product   = $productId > 0 ? model(ProductModel::class)->find($productId) : null;
-
-        if ($product === null) {
-            return redirect()->back()->with('error', 'That product is not available.');
-        }
-
-        $added = model(WishlistModel::class)->toggle($this->customerId(), $productId);
-
-        $target = (string) ($this->request->getPost('return_to') ?? '');
-        $safe   = $target !== '' && ! preg_match('#^[a-z]+://#i', $target) && ! str_starts_with($target, '//')
-            ? site_url(ltrim($target, '/'))
-            : site_url('wishlist');
-
-        return redirect()->to($safe)->with(
-            'success',
-            $added ? $product->name . ' saved to your wishlist.' : $product->name . ' removed from your wishlist.'
-        );
-    }
+    /*
+     * The wishlist moved to Storefront\Wishlist.
+     *
+     * It is public now — a guest can save things before they have an account —
+     * so it cannot live in a controller behind the customerAuth filter. The two
+     * actions that used to sit here were unreachable after the routes changed,
+     * and a dead action is worse than a missing one: the next person reads it,
+     * assumes it runs, and edits the wrong file.
+     */
 
     // ----------------------------------------------------------- details
 

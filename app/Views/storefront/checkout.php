@@ -139,27 +139,64 @@ $old = static fn (string $field, string $fallback = ''): string => (string) (old
                         </label>
                         <label>
                             <span class="rs-label">PIN code <span class="text-bad">*</span></span>
-                            <input type="text" name="ship_postal_code" class="rs-input num" required
+                            <input type="text" name="ship_postal_code" class="rs-input num" required data-pin inputmode="numeric" maxlength="6"
                                    inputmode="numeric" pattern="[1-9][0-9]{5}" maxlength="6"
                                    autocomplete="postal-code" value="<?= esc($old('ship_postal_code'), 'attr') ?>">
                             <span class="rs-help">Six digits.</span>
                         </label>
                         <label>
                             <span class="rs-label">City <span class="text-bad">*</span></span>
-                            <input type="text" name="ship_city" class="rs-input" required maxlength="80"
+                            <input type="text" name="ship_city" class="rs-input" maxlength="80" data-pin-city readonly
                                    autocomplete="address-level2" value="<?= esc($old('ship_city'), 'attr') ?>">
                         </label>
                         <label>
                             <span class="rs-label">State <span class="text-bad">*</span></span>
-                            <input type="text" name="ship_state" class="rs-input" required maxlength="80"
+                            <input type="text" name="ship_state" class="rs-input" required maxlength="80" data-pin-state readonly
                                    autocomplete="address-level1" value="<?= esc($old('ship_state'), 'attr') ?>">
                         </label>
                     </div>
 
+                    <?php /* Ticked by default: for most orders the two ARE the
+                             same, and asking everyone to fill a second address
+                             to save the few who differ is the wrong trade. */ ?>
                     <label class="mt-5 flex cursor-pointer items-center gap-2.5 text-sm">
-                        <input type="checkbox" name="bill_same_as_ship" value="1" class="accent-mulberry" checked>
+                        <input type="checkbox" name="bill_same_as_ship" value="1" class="accent-mulberry"
+                               checked data-bill-same>
                         <span>Billing address is the same</span>
                     </label>
+
+                    <div class="mt-5 grid gap-4 sm:grid-cols-2" data-bill-fields hidden>
+                        <label class="sm:col-span-2">
+                            <span class="rs-label">Billing name</span>
+                            <input type="text" name="bill_name" class="rs-input" maxlength="120"
+                                   value="<?= esc($old('bill_name'), 'attr') ?>">
+                        </label>
+
+                        <label class="sm:col-span-2">
+                            <span class="rs-label">Address</span>
+                            <textarea name="bill_line1" class="rs-textarea" rows="2"
+                                      maxlength="255"><?= esc($old('bill_line1')) ?></textarea>
+                        </label>
+
+                        <label>
+                            <span class="rs-label">PIN code</span>
+                            <input type="text" name="bill_postal_code" class="rs-input num" data-pin
+                                   inputmode="numeric" maxlength="6" value="<?= esc($old('bill_postal_code'), 'attr') ?>">
+                            <span class="rs-help" data-pin-note></span>
+                        </label>
+
+                        <label>
+                            <span class="rs-label">Town or city <span class="text-ink-muted">(optional)</span></span>
+                            <input type="text" name="bill_city" class="rs-input" maxlength="80"
+                                   data-pin-city readonly value="<?= esc($old('bill_city'), 'attr') ?>">
+                        </label>
+
+                        <label class="sm:col-span-2">
+                            <span class="rs-label">State</span>
+                            <input type="text" name="bill_state" class="rs-input" maxlength="80"
+                                   data-pin-state readonly value="<?= esc($old('bill_state'), 'attr') ?>">
+                        </label>
+                    </div>
 
                     <label class="mt-5 block max-w-sm">
                         <span class="rs-label">GSTIN <span class="text-ink-muted">(optional)</span></span>

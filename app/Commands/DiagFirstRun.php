@@ -206,7 +206,7 @@ class DiagFirstRun extends BaseCommand
             'homepage: categories'        => static fn (): int => count(model(\App\Models\CategoryModel::class)->withProductCounts(true, 6)),
             'homepage: gift boxes'        => static fn (): int => count(model(\App\Models\GiftBoxModel::class)->featured(3)),
             'shop: filters + paginate'    => static fn (): int => count(model(ProductModel::class)->applyFilters([])->applySort('price_asc')->findAll(12)),
-            'search works'                => static fn (): int => count(model(ProductModel::class)->applyFilters(['q' => 'chocolate'])->findAll(10)),
+            'search works'                => static fn (): int => count(model(ProductModel::class)->applyFilters(['q' => 'silver'])->findAll(10)),
             'CMS pages in the footer'     => static fn (): int => count(model(\App\Models\PageModel::class)->footerLinks()),
         ];
 

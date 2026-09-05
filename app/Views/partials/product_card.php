@@ -45,11 +45,23 @@ if (! $inStock) {
         <a href="<?= $url ?>" class="absolute inset-0 z-10" tabindex="-1" aria-hidden="true"></a>
 
         <?php foreach ($shots as $index => $shot): ?>
-            <img src="<?= rs_url(rs_image($shot['path'] ?? null, 'products')) ?>"
-                 alt="<?= $index === 0 ? '' : esc($shot['alt_text'] ?? '', 'attr') ?>"
-                 class="rs-product__img <?= $index === 0 ? 'is-current' : '' ?>"
-                 data-shot="<?= $index ?>"
-                 loading="lazy" decoding="async" width="600" height="732">
+            <?php
+            /*
+             * `sizes` describes the SLOT, not the file. The grid fits as many
+             * columns as --rs-card-min allows, so a card is roughly a quarter of
+             * the viewport on a wide screen and half on a phone. Getting this
+             * wrong is the usual cause of a "high-res photo that still looks
+             * soft": the browser picks by slot width, and a wrong hint makes it
+             * pick too small.
+             */
+            ?>
+            <?= rs_picture($shot['path'] ?? null, '(min-width: 1280px) 24vw, (min-width: 768px) 33vw, 50vw', [
+                'alt'      => $index === 0 ? '' : ($shot['alt_text'] ?? ''),
+                'class'    => 'rs-product__img' . ($index === 0 ? ' is-current' : ''),
+                'data-shot' => (string) $index,
+                'width'    => '600',
+                'height'   => '732',
+            ]) ?>
         <?php endforeach; ?>
 
         <?php if ($flag !== null): ?>
@@ -77,27 +89,45 @@ if (! $inStock) {
 
         <?php if ($showQuick && $inStock): ?>
             <div class="rs-product__quick">
-                <form method="post" action="<?= site_url('cart/add') ?>" class="flex-1">
+                <?php /* One form, two faces: a plain Add button until there is
+                         something in the basket, then a stepper. The script
+                         swaps between them; with no JavaScript the Add button
+                         posts normally and the stepper never appears. */ ?>
+                <form method="post" action="<?= site_url('cart/add') ?>" class="flex-1"
+                      data-cart data-qty="<?= (int) ($inBasket ?? 0) ?>">
                     <?= csrf_field() ?>
                     <input type="hidden" name="product_id" value="<?= (int) $product->id ?>">
                     <input type="hidden" name="quantity" value="1">
                     <input type="hidden" name="return_to" value="<?= esc(uri_string(), 'attr') ?>">
-                    <button type="submit" class="rs-btn rs-btn--primary rs-btn--sm w-full">
+
+                    <button type="submit" class="rs-btn rs-btn--primary rs-btn--sm w-full"
+                            data-cart-add <?= ($inBasket ?? 0) > 0 ? 'hidden' : '' ?>>
                         <?= esc(rs_cta_label($product->sale_mode ?? 'inherit', 'add')) ?>
                     </button>
+
+                    <div class="rs-qty" data-cart-step <?= ($inBasket ?? 0) > 0 ? '' : 'hidden' ?>>
+                        <button type="button" class="rs-qty__btn" data-qty-down
+                                aria-label="One fewer <?= esc($product->name, 'attr') ?>">&minus;</button>
+                        <span class="rs-qty__n num" data-qty-value aria-live="polite"><?= (int) ($inBasket ?? 0) ?></span>
+                        <button type="button" class="rs-qty__btn" data-qty-up
+                                aria-label="One more <?= esc($product->name, 'attr') ?>">+</button>
+                    </div>
                 </form>
 
-                <?php if (session('customer_id') !== null): ?>
-                    <form method="post" action="<?= site_url('wishlist/toggle') ?>">
+                <?php /* A real form, so it works with no JavaScript. The
+                         script upgrades it to a background request and fills
+                         the heart in place. */ ?>
+                    <form method="post" action="<?= site_url('wishlist/toggle') ?>" data-wish>
                         <?= csrf_field() ?>
                         <input type="hidden" name="product_id" value="<?= (int) $product->id ?>">
                         <input type="hidden" name="return_to" value="<?= esc(uri_string(), 'attr') ?>">
-                        <button type="submit" class="rs-iconpill"
-                                aria-label="Save <?= esc($product->name, 'attr') ?> for later">
+                        <button type="submit" class="rs-heart"
+                                aria-pressed="<?= ! empty($saved) ? 'true' : 'false' ?>"
+                                aria-label="<?= ! empty($saved) ? 'Remove' : 'Save' ?> <?= esc($product->name, 'attr') ?>">
                             <?= rs_icon('heart', 'h-4 w-4') ?>
                         </button>
                     </form>
-                <?php endif; ?>
+                
             </div>
         <?php endif; ?>
     </div>
@@ -105,6 +135,27 @@ if (! $inStock) {
     <?php if (! empty($product->category_name)): ?>
         <p class="rs-product__eyebrow"><?= esc($product->category_name) ?></p>
     <?php endif; ?>
+
+            <?php
+            /*
+             * A hint of the colours, no labels — a card has no room for them and
+             * the swatch alone answers "does this come in gold?". Capped, because
+             * fifteen dots is a smear rather than information.
+             */
+            $swatches = array_values(array_filter(
+                $attrs ?? [],
+                static fn (array $a): bool => ! empty($a['swatch_hex'])
+            ));
+            ?>
+            <?php if ($swatches !== []): ?>
+                <span class="rs-product__swatches" aria-label="Available in <?= count($swatches) ?> colours">
+                    <?php foreach (array_slice($swatches, 0, 5) as $swatch): ?>
+                        <span style="background: <?= esc($swatch['swatch_hex'], 'attr') ?>"
+                              title="<?= esc($swatch['label'], 'attr') ?>"></span>
+                    <?php endforeach; ?>
+                </span>
+            <?php endif; ?>
+
 
     <h3 class="rs-product__name">
         <a href="<?= $url ?>" class="after:absolute after:inset-0 hover:text-mulberry">

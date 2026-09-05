@@ -28,11 +28,33 @@ $routes->group('', ['namespace' => 'App\Controllers\Storefront'], static functio
     // CMS pages (about, shipping, returns…)
     $routes->match(['GET', 'HEAD'], 'page/(:segment)', 'Pages::show/$1', ['as' => 'page']);
 
+    /*
+     * Contact gets a bare URL. It is linked from the header, the footer and
+     * every email signature, and /page/contact reads like a filing system
+     * rather than an address. The others keep the prefix — a policy page is
+     * not somewhere anyone types.
+     */
+    $routes->match(['GET', 'HEAD'], 'contact', 'Pages::show/contact');
+
+    // Address lookup, proxied and cached — see Storefront\Pincode.
+    $routes->match(['GET', 'HEAD'], 'pincode/(:num)', 'Pincode::show/$1');
+
+    // Switching between buying and enquiring. POST: it changes how the whole
+    // site behaves, and a GET that does that can be fired by any image tag.
+    $routes->post('mode', 'Mode::set');
+
     // ---- Catalogue (Phase 2) ----
     $routes->match(['GET', 'HEAD'], 'shop', 'Shop::index', ['as' => 'shop']);
     $routes->match(['GET', 'HEAD'], 'search', 'Shop::search', ['as' => 'search']);
     $routes->match(['GET', 'HEAD'], 'collections', 'Collections::index', ['as' => 'collections']);
     $routes->match(['GET', 'HEAD'], 'collections/(:segment)', 'Shop::collection/$1', ['as' => 'collection']);
+    // A variant has its own URL, so one colour can be linked to directly.
+    // Declared FIRST: routes match in order, and the single-segment rule would
+    // otherwise swallow the two-segment URL.
+    //
+    // Only the plain product route is named — two routes cannot share a name,
+    // and route('product', $slug) must keep meaning the canonical page.
+    $routes->match(['GET', 'HEAD'], 'product/(:segment)/(:segment)', 'Products::show/$1/$2');
     $routes->match(['GET', 'HEAD'], 'product/(:segment)', 'Products::show/$1', ['as' => 'product']);
 
     // ---- Gift-box builder (Phase 3) ----
@@ -53,6 +75,7 @@ $routes->group('', ['namespace' => 'App\Controllers\Storefront'], static functio
     // In Enquire mode the same page is the enquiry list.
     $routes->match(['GET', 'HEAD'], 'enquiry', 'Cart::show');
     $routes->post('cart/add', 'Cart::add');
+    $routes->post('cart/add.json', 'Cart::addJson');
     $routes->post('cart/update', 'Cart::update');
     $routes->post('cart/remove', 'Cart::remove');
     $routes->post('cart/coupon', 'Cart::applyCoupon');
@@ -64,15 +87,18 @@ $routes->group('', ['namespace' => 'App\Controllers\Storefront'], static functio
 
     // ---- Customer accounts (Phase 5) ----
     // Public: this is how you get past the customerAuth filter.
-    $routes->match(['GET', 'HEAD'], 'account/login', 'Account::showLogin', ['as' => 'login']);
-    $routes->post('account/login', 'Account::login');
+    // ---- Sign in: one-time codes and Google, no passwords ----
+    $routes->match(['GET', 'HEAD'], 'account/login', 'Auth::index');
+    $routes->post('account/code/request', 'Auth::requestCode');
+    $routes->match(['GET', 'HEAD'], 'account/code', 'Auth::codeForm');
+    $routes->post('account/code/verify', 'Auth::verifyCode');
+    $routes->post('account/code/resend', 'Auth::resend');
+    $routes->post('account/register', 'Auth::register');
+    $routes->match(['GET', 'HEAD'], 'account/register', 'Auth::index', ['as' => 'register']);
+    $routes->match(['GET', 'HEAD'], 'account/google', 'Auth::google');
+    $routes->match(['GET', 'HEAD'], 'account/google/callback', 'Auth::googleCallback');
+    $routes->match(['GET', 'HEAD', 'POST'], 'account/finish', 'Auth::completeProfile');
     $routes->post('account/logout', 'Account::logout');
-    $routes->match(['GET', 'HEAD'], 'account/register', 'Account::showRegister');
-    $routes->post('account/register', 'Account::register');
-    $routes->match(['GET', 'HEAD'], 'account/forgot', 'Account::showForgot');
-    $routes->post('account/forgot', 'Account::sendReset');
-    $routes->match(['GET', 'HEAD'], 'account/reset/(:segment)', 'Account::showReset/$1');
-    $routes->post('account/reset', 'Account::doReset');
 
     // Must come last in this group: a bare segment would otherwise swallow
     // 'shop/anything' before the more specific routes above are reached.
@@ -90,7 +116,6 @@ $routes->group('', [
 ], static function (RouteCollection $routes): void {
     $routes->match(['GET', 'HEAD'], 'account', 'AccountArea::dashboard', ['as' => 'account']);
     $routes->post('account/details', 'AccountArea::saveDetails');
-    $routes->post('account/password', 'AccountArea::changePassword');
 
     $routes->match(['GET', 'HEAD'], 'account/orders', 'AccountArea::orders');
     $routes->match(['GET', 'HEAD'], 'account/orders/(:segment)', 'AccountArea::order/$1');
@@ -100,8 +125,21 @@ $routes->group('', [
     $routes->post('account/addresses/delete', 'AccountArea::deleteAddress');
     $routes->post('account/addresses/default', 'AccountArea::makeDefaultAddress');
 
-    $routes->match(['GET', 'HEAD'], 'wishlist', 'AccountArea::wishlist');
-    $routes->post('wishlist/toggle', 'AccountArea::toggleWishlist');
+});
+
+/*
+ * The wishlist is PUBLIC.
+ *
+ * It used to sit inside the customerAuth group, which meant the heart on a
+ * product card did nothing at all until you had registered — backwards, since
+ * saving things is what a visitor does before deciding to make an account. A
+ * guest's saves are keyed to a long-lived httpOnly cookie and adopted into the
+ * account on sign-in.
+ */
+$routes->group('', ['namespace' => 'App\Controllers\Storefront'], static function ($routes) {
+    $routes->match(['GET', 'HEAD'], 'wishlist', 'Wishlist::index');
+    $routes->post('wishlist/toggle', 'Wishlist::toggle');
+    $routes->post('wishlist/toggle.json', 'Wishlist::toggleJson');
 });
 
 // =====================================================================
@@ -205,12 +243,17 @@ $routes->group('admin', [
     // (:segment) not (:any): the token is a single path element with no slashes.
     $routes->match(['GET', 'HEAD'], 'customers/(:segment)', 'Customers::show/$1', ['filter' => 'adminAuth:customers.view']);
 
+    // ---- Banners: one page per slot ----
     $routes->match(['GET', 'HEAD'], 'banners', 'Banners::index', ['filter' => 'adminAuth:content.manage']);
-    $routes->match(['GET', 'HEAD'], 'banners/new', 'Banners::create', ['filter' => 'adminAuth:content.manage']);
+    $routes->post('banners/bulk', 'Banners::bulk', ['filter' => 'adminAuth:content.manage']);
     $routes->post('banners', 'Banners::store', ['filter' => 'adminAuth:content.manage']);
     $routes->match(['GET', 'HEAD'], 'banners/(:num)/edit', 'Banners::edit/$1', ['filter' => 'adminAuth:content.manage']);
     $routes->post('banners/(:num)', 'Banners::update/$1', ['filter' => 'adminAuth:content.manage']);
     $routes->post('banners/(:num)/delete', 'Banners::delete/$1', ['filter' => 'adminAuth:content.manage']);
+    // Slug routes come AFTER the numeric ones, or "banners/12/edit" would be
+    // read as a slot named "12".
+    $routes->match(['GET', 'HEAD'], 'banners/(:alphanum)/new', 'Banners::create/$1', ['filter' => 'adminAuth:content.manage']);
+    $routes->match(['GET', 'HEAD'], 'banners/(:alphanum)', 'Banners::slot/$1', ['filter' => 'adminAuth:content.manage']);
 
     $routes->match(['GET', 'HEAD'], 'reports', 'Reports::index', ['filter' => 'adminAuth:reports.view']);
     $routes->match(['GET', 'HEAD'], 'reports/export/(:segment)', 'Reports::export/$1', ['filter' => 'adminAuth:reports.view']);
@@ -255,6 +298,10 @@ $routes->group('admin', [
     $routes->post('occasions/(:num)', 'Occasions::update/$1', ['filter' => 'adminAuth:content.manage']);
     $routes->post('occasions/(:num)/delete', 'Occasions::delete/$1', ['filter' => 'adminAuth:content.manage']);
 
+    // ---- Image alt text ----
+    $routes->match(['GET', 'HEAD'], 'media', 'Media::index', ['filter' => 'adminAuth:content.manage']);
+    $routes->post('media', 'Media::save', ['filter' => 'adminAuth:content.manage']);
+
     // ---- Homepage ----
     $routes->match(['GET', 'HEAD'], 'homepage', 'Homepage::index', ['filter' => 'adminAuth:homepage.manage']);
     $routes->post('homepage', 'Homepage::save', ['filter' => 'adminAuth:homepage.manage']);
@@ -276,6 +323,28 @@ $routes->group('admin', [
     $routes->post('brand/restore', 'Brand::restore', ['filter' => 'adminAuth:settings.manage']);
 
     // ---- Mail configuration ----
+    // ---- Sign-in screen: its wording and the Google credentials ----
+    // ---- Variants, per product ----
+    $routes->match(['GET', 'HEAD'], 'products/(:num)/variants', 'Variants::index/$1', ['filter' => 'adminAuth:catalogue.manage']);
+    $routes->post('products/(:num)/variants', 'Variants::save/$1', ['filter' => 'adminAuth:catalogue.manage']);
+    $routes->post('products/(:num)/variants/new', 'Variants::create/$1', ['filter' => 'adminAuth:catalogue.manage']);
+    $routes->post('products/(:num)/variants/(:num)/delete', 'Variants::delete/$1/$2', ['filter' => 'adminAuth:catalogue.manage']);
+
+    // ---- Attributes: colour, size, shape, finish ----
+    $routes->match(['GET', 'HEAD'], 'attributes', 'Attributes::index', ['filter' => 'adminAuth:catalogue.manage']);
+    $routes->post('attributes/save', 'Attributes::save', ['filter' => 'adminAuth:catalogue.manage']);
+    $routes->post('attributes/values', 'Attributes::saveValue', ['filter' => 'adminAuth:catalogue.manage']);
+    $routes->post('attributes/values/(:num)/delete', 'Attributes::deleteValue/$1', ['filter' => 'adminAuth:catalogue.manage']);
+
+    $routes->match(['GET', 'HEAD'], 'auth', 'AuthSettings::index', ['filter' => 'adminAuth:settings.manage']);
+    $routes->post('auth', 'AuthSettings::save', ['filter' => 'adminAuth:settings.manage']);
+
+    // ---- Mail queue: what has been sent, and what failed ----
+    $routes->match(['GET', 'HEAD'], 'mail/queue', 'MailQueue::index', ['filter' => 'adminAuth:settings.manage']);
+    $routes->post('mail/queue/drain', 'MailQueue::drain', ['filter' => 'adminAuth:settings.manage']);
+    $routes->match(['GET', 'HEAD'], 'mail/queue/(:num)', 'MailQueue::show/$1', ['filter' => 'adminAuth:settings.manage']);
+    $routes->post('mail/queue/(:num)/retry', 'MailQueue::retry/$1', ['filter' => 'adminAuth:settings.manage']);
+
     $routes->match(['GET', 'HEAD'], 'mail', 'MailSettings::index');
     $routes->post('mail', 'MailSettings::save', ['filter' => 'adminAuth:settings.manage']);
     $routes->post('mail/test', 'MailSettings::test', ['filter' => 'adminAuth:settings.manage']);

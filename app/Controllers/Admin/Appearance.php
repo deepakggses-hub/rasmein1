@@ -22,7 +22,9 @@ class Appearance extends AdminController
         'design_radius', 'design_pill_radius',
         'design_color_deep', 'design_color_primary', 'design_color_accent',
         'design_color_surface', 'design_color_surface_alt',
-        'design_marquee_text', 'design_nav',
+        // design_marquee_text lives on the Homepage screen: it is copy, not
+        // layout. The on/off flag stays here, in FLAGS.
+        'design_nav',
     ];
 
     private const FLAGS = ['design_sticky_header', 'design_marquee'];

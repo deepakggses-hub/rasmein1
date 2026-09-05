@@ -53,15 +53,47 @@ $multiSlide = count($heroSlides) > 1;
         </div>
     <?php else: ?>
         <?php foreach ($heroSlides as $index => $slide): ?>
-            <?php [$head, $tail] = $split((string) ($slide['title'] ?? 'Customize your Gift')); ?>
-            <div class="rs-hero__slide <?= $index === 0 ? 'is-current' : '' ?>" data-hero-slide
-                 <?= $index === 0 ? '' : 'aria-hidden="true"' ?>>
-                <?php /* Decorative: everything the image conveys is in the
-                         heading beside it, so an empty alt is correct. */ ?>
-                <img src="<?= rs_url(rs_image($slide['image'] ?? null, 'banners')) ?>" alt=""
-                     class="rs-hero__img"
-                     <?= $index === 0 ? 'fetchpriority="high"' : 'loading="lazy"' ?>
-                     decoding="async" width="1920" height="900">
+            <?php
+            /*
+             * A slide with NO text is treated as finished artwork: the words are
+             * already inside the image, so an overlaid heading would repeat them
+             * and cover the design. It renders as the picture alone, wrapped in
+             * its link. Type anything into title, subtitle or eyebrow and the
+             * overlay treatment returns.
+             */
+            $bare = \App\Models\BannerModel::isBare($slide);
+            $link = \App\Models\BannerModel::safeLink($slide);
+            [$head, $tail] = $split((string) ($slide['title'] ?? 'Customize your Gift'));
+            ?>
+            <div class="rs-hero__slide <?= $index === 0 ? 'is-current' : '' ?><?= $bare ? ' rs-hero__slide--bare-art' : '' ?>"
+                 data-hero-slide <?= $index === 0 ? '' : 'aria-hidden="true"' ?>>
+                <?php
+                /*
+                 * A decorative image gets alt="" because the heading beside it
+                 * already says everything. A BARE slide is the opposite: the
+                 * picture is the only content, so it must carry a description —
+                 * otherwise the whole hero is silent to a screen reader.
+                 */
+                $heroImg = '<img src="' . rs_url(rs_image($slide['image'] ?? null, 'banners')) . '"'
+                    . ' alt="' . esc($bare ? (string) ($slide['alt_text'] ?? '') : '', 'attr') . '"'
+                    . ' class="rs-hero__img"'
+                    . ($index === 0 ? ' fetchpriority="high"' : ' loading="lazy"')
+                    . ' decoding="async" width="1920" height="900">';
+                ?>
+
+                <?php if ($bare): ?>
+                    <?php /* The whole picture is the link — a small button on
+                             finished artwork looks bolted on. */ ?>
+                    <?php if ($link !== null): ?>
+                        <a href="<?= $link ?>" class="rs-hero__art"
+                           aria-label="<?= esc(($slide['alt_text'] ?? '') ?: 'View this collection', 'attr') ?>">
+                            <?= $heroImg ?>
+                        </a>
+                    <?php else: ?>
+                        <?= $heroImg ?>
+                    <?php endif; ?>
+                <?php else: ?>
+                    <?= $heroImg ?>
 
                 <div class="rs-shell rs-hero__inner">
                     <?php if (! empty($slide['eyebrow'])): ?>
@@ -73,13 +105,33 @@ $multiSlide = count($heroSlides) > 1;
                     <?php if (! empty($slide['subtitle'])): ?>
                         <p class="rs-hero__lede"><?= esc($slide['subtitle']) ?></p>
                     <?php endif; ?>
-                    <div class="rs-hero__actions">
-                        <a href="<?= rs_url(ltrim((string) ($slide['link_url'] ?: 'shop'), '/')) ?>" class="rs-btn rs-btn--gold">
-                            <?= esc($slide['cta_label'] ?: 'Explore collection') ?>
-                        </a>
-                        <a href="<?= site_url('build') ?>" class="rs-btn rs-btn--ghost">Build your gift box</a>
-                    </div>
+                    <?php
+                    /*
+                     * Both buttons come from the banner. The second used to be
+                     * hard-coded to /build, so a shop could not change its
+                     * wording, its destination, or remove it. A button with no
+                     * label is simply not drawn.
+                     */
+                    $cta1  = trim((string) ($slide['cta_label'] ?? ''));
+                    $cta2  = trim((string) ($slide['cta_label_2'] ?? ''));
+                    $link2 = \App\Models\BannerModel::safeLink($slide, 'link_url_2');
+                    ?>
+                    <?php if ($cta1 !== '' || $cta2 !== ''): ?>
+                        <div class="rs-hero__actions">
+                            <?php if ($cta1 !== ''): ?>
+                                <a href="<?= $link ?? site_url('shop') ?>" class="rs-btn rs-btn--gold">
+                                    <?= esc($cta1) ?>
+                                </a>
+                            <?php endif; ?>
+                            <?php if ($cta2 !== ''): ?>
+                                <a href="<?= $link2 ?? site_url('build') ?>" class="rs-btn rs-btn--ghost">
+                                    <?= esc($cta2) ?>
+                                </a>
+                            <?php endif; ?>
+                        </div>
+                    <?php endif; ?>
                 </div>
+                <?php endif; ?>
             </div>
         <?php endforeach; ?>
 
@@ -153,7 +205,7 @@ $rsMarquee = service('design');
 <?php endif; ?>
 
 <!-- ================================================ FEATURED COLLECTIONS -->
-<?php if ($categories !== []): ?>
+<?php if ($occasions !== []): ?>
     <?php [$cHead, $cTail] = $split($c('home_collections_title', 'A collection for every occasion.')); ?>
     <section class="rs-shell rs-section rs-section--tight">
         <div class="flex flex-wrap items-end justify-between gap-x-8 gap-y-4">
@@ -163,26 +215,60 @@ $rsMarquee = service('design');
                     <?= esc($cHead) ?><?php if ($cTail !== ''): ?> <em><?= esc($cTail) ?></em><?php endif; ?>
                 </h2>
             </div>
-            <a href="<?= site_url('collections') ?>" class="rs-arrowlink shrink-0">
-                All collections <?= rs_icon('arrow-right', 'h-4 w-4') ?>
+            <a href="<?= site_url('shop') ?>" class="rs-arrowlink shrink-0">
+                Shop everything <?= rs_icon('arrow-right', 'h-4 w-4') ?>
             </a>
         </div>
 
-        <ul class="rs-mosaic mt-10">
-            <?php foreach ($categories as $category): ?>
-                <li class="rs-reveal">
-                    <a href="<?= rs_url((string) ($category->path ?? $category->slug)) ?>" class="rs-tile">
-                        <img src="<?= rs_url($category->imageUrl()) ?>" alt="" class="rs-tile__img"
-                             loading="lazy" decoding="async" width="640" height="480">
-                        <span class="rs-tile__veil" aria-hidden="true"></span>
-                        <span class="rs-tile__body">
-                            <span class="rs-tile__name"><?= esc($category->name) ?></span>
-                            <span class="rs-tile__go" aria-hidden="true"><?= rs_icon('arrow-right', 'h-4 w-4') ?></span>
-                        </span>
-                    </a>
-                </li>
-            <?php endforeach; ?>
-        </ul>
+        <?php
+        /*
+         * An infinite slider rather than a static grid.
+         *
+         * Built on a native horizontal scroller, not a transform: touch keeps
+         * its momentum, the keyboard can still reach every tile, and a browser
+         * with no JavaScript gets a perfectly usable scroller. The loop is made
+         * by cloning the set and, once the reader passes the first copy,
+         * subtracting that width from scrollLeft — an invisible jump, because
+         * the pixels either side of it are identical.
+         *
+         * The clones are aria-hidden and their links removed from the tab order,
+         * or a screen reader would announce every occasion twice.
+         */
+        ?>
+        <?php /* A boxed 3-column grid on desktop; a two-up infinite slider on a
+                 phone. The mode is declared here rather than guessed by the
+                 script, so the breakpoint lives in ONE place — the CSS and the
+                 JS both read the same 768px. */ ?>
+        <div class="rs-loop rs-loop--gridup mt-10" data-loop="mobile" data-loop-below="768">
+            <ul class="rs-loop__track rs-loop__track--tiles" data-loop-track>
+                <?php foreach ($occasions as $occasion): ?>
+                    <li class="rs-loop__item">
+                        <a href="<?= rs_url((string) $occasion['slug']) ?>" class="rs-tile">
+                            <img src="<?= rs_url(rs_image($occasion['image'] ?? null, 'products')) ?>"
+                                 alt="<?= esc((string) ($occasion['alt_text'] ?? ''), 'attr') ?>"
+                                 class="rs-tile__img"
+                                 loading="lazy" decoding="async" width="640" height="480">
+                            <span class="rs-tile__veil" aria-hidden="true"></span>
+                            <span class="rs-tile__body">
+                                <span class="rs-tile__name"><?= esc($occasion['name']) ?></span>
+                                <span class="rs-tile__go" aria-hidden="true"><?= rs_icon('arrow-right', 'h-4 w-4') ?></span>
+                            </span>
+                        </a>
+                    </li>
+                <?php endforeach; ?>
+            </ul>
+
+            <?php /* Hidden until the script wires them — arrows that do nothing
+                     are worse than no arrows. */ ?>
+            <button type="button" class="rs-loop__nav rs-loop__nav--prev" data-loop-prev
+                    aria-label="Previous occasions" hidden>
+                <?= rs_icon('arrow-left', 'h-4 w-4') ?>
+            </button>
+            <button type="button" class="rs-loop__nav rs-loop__nav--next" data-loop-next
+                    aria-label="More occasions" hidden>
+                <?= rs_icon('arrow-right', 'h-4 w-4') ?>
+            </button>
+        </div>
     </section>
 <?php endif; ?>
 
@@ -222,45 +308,93 @@ $rsMarquee = service('design');
 <!-- ===================================================== SHOP BY OCCASION -->
 <?php if ($occasions !== []): ?>
     <?php [$oHead, $oTail] = $split($c('home_occasion_title', 'Celebrate every moment worth remembering.')); ?>
-    <section class="rs-shell rs-section">
-        <div class="mx-auto max-w-2xl text-center">
+    <section class="rs-section">
+        <div class="rs-shell mx-auto max-w-2xl text-center">
             <p class="rs-kicker rs-kicker--centred"><?= esc($c('home_occasion_kicker', 'Shop by occasion')) ?></p>
             <h2 class="rs-display rs-display--lg mt-5">
                 <?= esc($oHead) ?><?php if ($oTail !== ''): ?> <em><?= esc($oTail) ?></em><?php endif; ?>
             </h2>
         </div>
 
-        <div class="rs-rail rs-rail--occasions mt-10">
-            <?php foreach ($occasions as $occasion): ?>
-                <a href="<?= rs_url((string) $occasion['slug']) ?>" class="rs-occasion">
-                    <img src="<?= rs_url(rs_image($occasion['image'] ?? null, 'products')) ?>" alt=""
-                         class="rs-occasion__img" loading="lazy" decoding="async" width="440" height="320">
-                    <span class="rs-occasion__label"><?= esc($occasion['name']) ?></span>
-                </a>
-            <?php endforeach; ?>
+        <div class="rs-shell mt-9">
+            <p class="font-display text-lg font-semibold"><?= esc($c('home_occasion_label', 'Gifts for every occasion')) ?></p>
+        </div>
+
+        <?php /* Inside the container, and an infinite loop like the collections
+                 row above — the same component, so both behave identically. */ ?>
+        <div class="rs-shell mt-4">
+            <div class="rs-loop rs-loop--tight" data-loop>
+                <ul class="rs-loop__track rs-loop__track--small" data-loop-track>
+                    <?php foreach ($occasions as $occasion): ?>
+                        <li>
+                            <a href="<?= rs_url((string) $occasion['slug']) ?>" class="rs-occasion">
+                                <img src="<?= rs_url(rs_image($occasion['image'] ?? null, 'products')) ?>" alt=""
+                                     class="rs-occasion__img" loading="lazy" decoding="async" width="440" height="320">
+                                <span class="rs-occasion__label"><?= esc($occasion['name']) ?></span>
+                            </a>
+                        </li>
+                    <?php endforeach; ?>
+                </ul>
+
+                <button type="button" class="rs-loop__nav rs-loop__nav--prev" data-loop-prev
+                        aria-label="Previous occasions" hidden><?= rs_icon('arrow-left', 'h-4 w-4') ?></button>
+                <button type="button" class="rs-loop__nav rs-loop__nav--next" data-loop-next
+                        aria-label="More occasions" hidden><?= rs_icon('arrow-right', 'h-4 w-4') ?></button>
+            </div>
         </div>
     </section>
 <?php endif; ?>
 
 <!-- ====================================================== FEATURE BANNER -->
 <?php if ($feature !== null): ?>
-    <?php [$fHead, $fTail] = $split((string) ($feature['title'] ?? '')); ?>
-    <section class="rs-feature">
-        <img src="<?= rs_url(rs_image($feature['image'] ?? null, 'banners')) ?>" alt=""
-             class="rs-feature__img" loading="lazy" decoding="async" width="1920" height="720">
-        <div class="rs-shell rs-feature__inner">
-            <h2 class="rs-display rs-display--lg text-shell">
-                <em><?= esc($fHead) ?><?= $fTail !== '' ? ' ' . esc($fTail) : '' ?></em>
-            </h2>
-            <?php if (! empty($feature['subtitle'])): ?>
-                <p class="mx-auto mt-5 max-w-xl leading-relaxed text-shell/80"><?= esc($feature['subtitle']) ?></p>
+    <?php
+    // Same rule as the hero: artwork with no text is shown whole and linked.
+    $fBare = \App\Models\BannerModel::isBare($feature);
+    $fLink = \App\Models\BannerModel::safeLink($feature);
+    [$fHead, $fTail] = $split((string) ($feature['title'] ?? ''));
+    ?>
+
+    <?php if ($fBare): ?>
+        <section class="rs-featureart">
+            <?php if ($fLink !== null): ?>
+                <a href="<?= $fLink ?>" class="block">
             <?php endif; ?>
-            <a href="<?= rs_url(ltrim((string) ($feature['link_url'] ?: 'collections'), '/')) ?>"
-               class="rs-btn rs-btn--gold mt-8">
-                <?= esc($feature['cta_label'] ?: 'Discover the collection') ?>
-            </a>
-        </div>
-    </section>
+                <img src="<?= rs_url(rs_image($feature['image'] ?? null, 'banners')) ?>"
+                     alt="<?= esc((string) ($feature['alt_text'] ?? ''), 'attr') ?>"
+                     loading="lazy" decoding="async" width="1920" height="720">
+            <?php if ($fLink !== null): ?>
+                </a>
+            <?php endif; ?>
+        </section>
+    <?php else: ?>
+        <?php /* The picture is fixed and the page scrolls over it. Done with a
+                 clipped wrapper rather than background-attachment, which iOS
+                 ignores entirely. */ ?>
+        <section class="rs-feature rs-feature--parallax">
+            <span class="rs-feature__plate" aria-hidden="true">
+                <img src="<?= rs_url(rs_image($feature['image'] ?? null, 'banners')) ?>" alt=""
+                     class="rs-feature__img" loading="lazy" decoding="async" width="1920" height="720">
+            </span>
+            <div class="rs-shell rs-feature__inner">
+                <h2 class="rs-display rs-display--lg text-shell">
+                    <em><?= esc($fHead) ?><?= $fTail !== '' ? ' ' . esc($fTail) : '' ?></em>
+                </h2>
+                <?php if (! empty($feature['subtitle'])): ?>
+                    <p class="mx-auto mt-5 max-w-xl leading-relaxed text-shell/80"><?= esc($feature['subtitle']) ?></p>
+                <?php endif; ?>
+                <?php $fCta2 = trim((string) ($feature['cta_label_2'] ?? '')); ?>
+                <div class="mt-8 flex flex-wrap justify-center gap-3">
+                    <a href="<?= $fLink ?? site_url('collections') ?>" class="rs-btn rs-btn--gold">
+                        <?= esc($feature['cta_label'] ?: 'Discover the collection') ?>
+                    </a>
+                    <?php if ($fCta2 !== ''): ?>
+                        <a href="<?= \App\Models\BannerModel::safeLink($feature, 'link_url_2') ?? site_url('shop') ?>"
+                           class="rs-btn rs-btn--ghost"><?= esc($fCta2) ?></a>
+                    <?php endif; ?>
+                </div>
+            </div>
+        </section>
+    <?php endif; ?>
 <?php endif; ?>
 
 <!-- ======================================================== TESTIMONIALS -->
@@ -282,9 +416,12 @@ $rsMarquee = service('design');
             <?php endif; ?>
         </div>
 
-        <ul class="rs-grid rs-grid--wide mt-10">
+        <?php /* A slider: three quotes fit a wide screen, but a shop with eight
+                 should not stack them down the page. */ ?>
+        <div class="rs-loop rs-loop--tight mt-10" data-loop>
+            <ul class="rs-loop__track rs-loop__track--quotes" data-loop-track>
             <?php foreach ($testimonials as $quote): ?>
-                <li class="rs-quote rs-reveal">
+                <li class="rs-quote">
                     <p class="rs-quote__stars" aria-label="<?= (int) $quote['rating'] ?> out of 5">
                         <?php for ($star = 0; $star < (int) $quote['rating']; $star++): ?>
                             <span aria-hidden="true"><?= rs_icon('star', 'h-3.5 w-3.5') ?></span>
@@ -302,7 +439,13 @@ $rsMarquee = service('design');
                     </footer>
                 </li>
             <?php endforeach; ?>
-        </ul>
+            </ul>
+
+            <button type="button" class="rs-loop__nav rs-loop__nav--prev" data-loop-prev
+                    aria-label="Previous" hidden><?= rs_icon('arrow-left', 'h-4 w-4') ?></button>
+            <button type="button" class="rs-loop__nav rs-loop__nav--next" data-loop-next
+                    aria-label="More" hidden><?= rs_icon('arrow-right', 'h-4 w-4') ?></button>
+        </div>
     </section>
 <?php endif; ?>
 
@@ -313,16 +456,24 @@ $rsMarquee = service('design');
             <h2 class="font-display text-[clamp(1.15rem,2.2vw,1.75rem)] tracking-[0.16em] text-shell uppercase">
                 <?= esc($c('home_clients_title')) ?>
             </h2>
-            <ul class="mt-10 grid grid-cols-2 items-center gap-x-8 gap-y-10 sm:grid-cols-3 lg:grid-cols-4">
+            <ul class="rs-clients__grid mt-10">
                 <?php foreach ($clients as $client): ?>
                     <li>
                         <?php if (! empty($client['image'])): ?>
                             <img src="<?= rs_url($client['image']) ?>" alt="<?= esc($client['title'] ?? '', 'attr') ?>"
-                                 class="mx-auto max-h-12 w-auto object-contain opacity-80 transition-opacity hover:opacity-100"
-                                 loading="lazy" decoding="async">
+                                 class="rs-clients__logo" loading="lazy" decoding="async">
                         <?php else: ?>
-                            <span class="font-display text-[clamp(1.15rem,2.4vw,1.9rem)] text-shell/85">
-                                <?= esc($client['title'] ?? '') ?>
+                            <?php
+                            /*
+                             * The design sets the last word bold — "BRAND 01".
+                             * Split on the final space so any two-part name gets
+                             * that treatment without anyone writing markup.
+                             */
+                            $words = preg_split('/\s+/', trim((string) ($client['title'] ?? ''))) ?: [];
+                            $tail  = count($words) > 1 ? array_pop($words) : '';
+                            ?>
+                            <span class="rs-clients__mark">
+                                <?= esc(implode(' ', $words)) ?><?php if ($tail !== ''): ?> <span><?= esc($tail) ?></span><?php endif; ?>
                             </span>
                         <?php endif; ?>
                     </li>
@@ -336,15 +487,37 @@ $rsMarquee = service('design');
 <?php if ($c('home_gallery_title') !== '' && $gallery !== []): ?>
     <section class="rs-shell rs-section">
         <h2 class="rs-display rs-display--md"><?= esc($c('home_gallery_title')) ?></h2>
-        <ul class="rs-gallery mt-8">
-            <?php foreach ($gallery as $shot): ?>
-                <li>
-                    <img src="<?= rs_url(rs_image($shot['image'] ?? null, 'banners')) ?>"
-                         alt="<?= esc($shot['alt_text'] ?? '', 'attr') ?>"
-                         loading="lazy" decoding="async" width="400" height="400">
-                </li>
+        <?php
+        /*
+         * Two rows drifting in opposite directions, as asked.
+         *
+         * Done in CSS, not JavaScript: the track is duplicated and the keyframe
+         * translates by exactly -50%, which is what makes the loop seamless.
+         * The second row runs the same animation in reverse. Hovering either
+         * pauses it, and a stated preference for less motion stops both.
+         */
+        $shots  = $gallery;
+        $half   = (int) ceil(count($shots) / 2);
+        $rows   = [array_slice($shots, 0, $half), array_slice($shots, $half)];
+        ?>
+        <div class="mt-8 space-y-3">
+            <?php foreach ($rows as $index => $row): ?>
+                <?php if ($row === []) { continue; } ?>
+                <div class="rs-drift <?= $index === 1 ? 'rs-drift--back' : '' ?>">
+                    <ul class="rs-drift__track">
+                        <?php for ($pass = 0; $pass < 2; $pass++): ?>
+                            <?php foreach ($row as $shot): ?>
+                                <li <?= $pass === 1 ? 'aria-hidden="true"' : '' ?>>
+                                    <img src="<?= rs_url(rs_image($shot['image'] ?? null, 'banners')) ?>"
+                                         alt="<?= $pass === 1 ? '' : esc((string) ($shot['alt_text'] ?? ''), 'attr') ?>"
+                                         loading="lazy" decoding="async" width="400" height="400">
+                                </li>
+                            <?php endforeach; ?>
+                        <?php endfor; ?>
+                    </ul>
+                </div>
             <?php endforeach; ?>
-        </ul>
+        </div>
     </section>
 <?php endif; ?>
 
@@ -353,15 +526,15 @@ $rsMarquee = service('design');
 <section class="rs-band">
     <div class="rs-shell rs-section">
         <div class="grid gap-x-[clamp(2rem,6vw,5rem)] gap-y-10 lg:grid-cols-2 lg:items-center">
-            <div class="text-center lg:text-left">
+            <div class="text-center">
                 <?php if (! empty($brand->identity['logo'])): ?>
                     <img src="<?= rs_url($brand->identity['logo']) ?>" alt=""
-                         class="rs-logo rs-logo--footer mx-auto lg:mx-0" loading="lazy">
+                         class="rs-logo rs-logo--footer mx-auto" loading="lazy">
                 <?php endif; ?>
                 <h2 class="rs-display rs-display--lg mt-6">
                     <?= esc($sHead) ?><?php if ($sTail !== ''): ?> <em><?= esc($sTail) ?></em><?php endif; ?>
                 </h2>
-                <p class="mx-auto mt-5 max-w-md text-ink-muted lg:mx-0"><?= esc($c('home_signup_body')) ?></p>
+                <p class="mx-auto mt-5 max-w-md text-ink-muted"><?= esc($c('home_signup_body')) ?></p>
             </div>
 
             <?php /* Posted to the existing enquiry endpoint, so a submission

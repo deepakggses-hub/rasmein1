@@ -185,6 +185,9 @@ class PricingService
             'line_id'      => (int) $line['id'],
             'type'         => 'product',
             'product_id'   => isset($line['product_id']) ? (int) $line['product_id'] : null,
+            // What the customer chose — the snapshot builds an explicit array,
+            // so a column added to cart_items does not appear here for free.
+            'chosen_attributes' => $line['chosen_attributes'] ?? null,
             'gift_box_id'  => null,
             'name'         => $name,
             'sku'          => (string) ($line['product_sku'] ?? ''),

@@ -28,6 +28,20 @@ class DatabaseSeeder extends Seeder
         $this->call(BrandSettingSeeder::class);
         $this->call(DesignSettingSeeder::class);
         $this->call(HomeContentSeeder::class);
+        // Sign-in copy and the Google credential keys. Missing from this chain
+        // meant a fresh install had no google_auth_* rows at all, so
+        // isConfigured() was false and the button silently never rendered.
+        // In the chain, or a fresh install has no contact page at all — the
+        // mistake made with AuthContentSeeder.
+        $this->call(AttributeSeeder::class);
+        /*
+         * The real catalogue. Runs AFTER AttributeSeeder — it looks values up
+         * by label, so the attributes must exist first — and after
+         * CatalogueSeeder, whose demo products it deliberately replaces.
+         */
+        $this->call(ProductCatalogueSeeder::class);
+        $this->call(ContactPageSeeder::class);
+        $this->call(AuthContentSeeder::class);
         $this->call(MailSettingSeeder::class);
         $this->call(EmailTemplateSeeder::class);
         $this->call(ContentSeeder::class);

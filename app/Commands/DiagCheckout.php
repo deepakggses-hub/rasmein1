@@ -117,8 +117,14 @@ class DiagCheckout extends BaseCommand
     {
         $this->resetCart();
 
-        $chocolate = model(ProductModel::class)->findVisibleBySlug('dark-chocolate-72');
-        $tea       = model(ProductModel::class)->findVisibleBySlug('masala-chai-blend');
+        $chocolate = model(ProductModel::class)
+            ->where('is_active', 1)->where('deleted_at', null)
+            ->where('stock_qty >', 5)
+            ->orderBy('id', 'ASC')->first();
+        $tea = model(ProductModel::class)
+            ->where('is_active', 1)->where('deleted_at', null)
+            ->where('stock_qty >', 5)
+            ->orderBy('id', 'DESC')->first();
 
         $this->check('empty cart snapshot', $this->cart()->snapshot()['is_empty'], 'is_empty = true');
 
@@ -155,11 +161,14 @@ class DiagCheckout extends BaseCommand
     {
         $this->resetCart();
 
-        $chocolate = model(ProductModel::class)->findVisibleBySlug('dark-chocolate-72'); // 320
+        $chocolate = model(ProductModel::class)
+            ->where('is_active', 1)->where('deleted_at', null)
+            ->where('stock_qty >', 5)
+            ->orderBy('id', 'ASC')->first(); // 320
         $this->cart()->addProduct($chocolate->id, 3);
 
         $snapshot = $this->cart()->snapshot();
-        $expected = 320.0 * 3;
+        $expected = (float) $chocolate->price * 3;
 
         $this->check(
             'subtotal computed from DB',
@@ -167,11 +176,22 @@ class DiagCheckout extends BaseCommand
             rs_money($snapshot['subtotal']) . ' (expected ' . rs_money($expected) . ')'
         );
 
-        // 960 is below the 1500 free-delivery threshold, so the flat rate applies.
+        // Whether shipping applies depends on the picked product's price, so the
+        // threshold is read rather than assumed.
+        /*
+         * Free delivery above a threshold, a flat rate below it. Which side the
+         * basket falls on depends on the catalogue, so the RULE is asserted
+         * rather than a figure — the old test pinned a demo price and broke the
+         * moment real products arrived.
+         */
+        $freeAbove = (float) service('settings')->get('free_shipping_threshold', 1500);
+
         $this->check(
-            'shipping applied below threshold',
-            $snapshot['shipping_total'] > 0,
-            rs_money($snapshot['shipping_total'])
+            'shipping follows the threshold',
+            $snapshot['subtotal'] >= $freeAbove
+                ? abs($snapshot['shipping_total']) < 0.01
+                : $snapshot['shipping_total'] > 0,
+            rs_money($snapshot['subtotal']) . ' → ' . rs_money($snapshot['shipping_total'])
         );
 
         $this->check(
@@ -195,7 +215,10 @@ class DiagCheckout extends BaseCommand
         );
 
         // Push over the threshold: delivery should become free.
-        $platter = model(ProductModel::class)->findVisibleBySlug('blue-pottery-platter'); // 1650
+        $platter = model(ProductModel::class)
+            ->where('is_active', 1)->where('deleted_at', null)
+            ->where('stock_qty >', 5)
+            ->orderBy('id', 'DESC')->first(); // 1650
         $this->cart()->addProduct($platter->id, 1);
         $over = $this->cart()->snapshot();
         $this->check(
@@ -208,7 +231,10 @@ class DiagCheckout extends BaseCommand
     private function testCoupons(): void
     {
         $this->resetCart();
-        $platter = model(ProductModel::class)->findVisibleBySlug('blue-pottery-platter'); // 1650
+        $platter = model(ProductModel::class)
+            ->where('is_active', 1)->where('deleted_at', null)
+            ->where('stock_qty >', 5)
+            ->orderBy('id', 'DESC')->first(); // 1650
         $this->cart()->addProduct($platter->id, 1);
 
         $bad = $this->cart()->applyCoupon('NOPE-NOT-REAL');
@@ -239,7 +265,10 @@ class DiagCheckout extends BaseCommand
 
         // Free shipping, on a cart small enough to normally be charged.
         $this->resetCart();
-        $bar = model(ProductModel::class)->findVisibleBySlug('dark-chocolate-72');
+        $bar = model(ProductModel::class)
+            ->where('is_active', 1)->where('deleted_at', null)
+            ->where('stock_qty >', 5)
+            ->orderBy('id', 'DESC')->first();
         $this->cart()->addProduct($bar->id, 1);
         $this->cart()->applyCoupon('FREESHIP');
         $ship = $this->cart()->snapshot();
@@ -249,7 +278,10 @@ class DiagCheckout extends BaseCommand
     private function testJourney(): void
     {
         $this->resetCart();
-        $bar = model(ProductModel::class)->findVisibleBySlug('dark-chocolate-72');
+        $bar = model(ProductModel::class)
+            ->where('is_active', 1)->where('deleted_at', null)
+            ->where('stock_qty >', 5)
+            ->orderBy('id', 'DESC')->first();
         $this->cart()->addProduct($bar->id, 1);
 
         service('settings')->set('journey_mode', 'buy_now');
@@ -263,11 +295,21 @@ class DiagCheckout extends BaseCommand
         service('settings')->set('journey_mode', 'buy_now');
         service('settings')->flush();
 
-        // A single pinned item must convert the whole basket to an enquiry.
-        db_connect()->table('products')->where('slug', 'blue-pottery-platter')
+        /*
+         * A single pinned item must convert the whole basket to an enquiry.
+         *
+         * The product is picked FIRST and then pinned — the old version pinned
+         * one slug and added a different product, so it was asserting against
+         * something it had never changed.
+         */
+        $platter = model(ProductModel::class)
+            ->where('is_active', 1)->where('deleted_at', null)
+            ->where('stock_qty >', 5)
+            ->orderBy('id', 'DESC')->first();
+
+        db_connect()->table('products')->where('id', $platter->id)
             ->update(['sale_mode' => 'enquire_now']);
 
-        $platter = model(ProductModel::class)->findVisibleBySlug('blue-pottery-platter');
         $this->cart()->addProduct($platter->id, 1);
 
         $this->check(
@@ -276,14 +318,17 @@ class DiagCheckout extends BaseCommand
             'site is Buy, basket is Enquire'
         );
 
-        db_connect()->table('products')->where('slug', 'blue-pottery-platter')
+        db_connect()->table('products')->where('id', $platter->id)
             ->update(['sale_mode' => 'inherit']);
     }
 
     private function testOrder(): void
     {
         $this->resetCart();
-        $bar = model(ProductModel::class)->findVisibleBySlug('dark-chocolate-72');
+        $bar = model(ProductModel::class)
+            ->where('is_active', 1)->where('deleted_at', null)
+            ->where('stock_qty >', 5)
+            ->orderBy('id', 'DESC')->first();
         $before = $bar->stock_qty;
 
         $this->cart()->addProduct($bar->id, 2);
@@ -322,7 +367,7 @@ class DiagCheckout extends BaseCommand
         $this->check('line snapshots written', count($items) === 1, count($items) . ' item(s)');
         $this->check(
             'name snapshotted',
-            $items[0]['name_snapshot'] === '72% Dark Chocolate',
+            $items[0]['name_snapshot'] === $bar->name,
             $items[0]['name_snapshot']
         );
 
@@ -347,7 +392,10 @@ class DiagCheckout extends BaseCommand
     private function testIdempotency(): void
     {
         $this->resetCart();
-        $bar = model(ProductModel::class)->findVisibleBySlug('cacao-nib-brittle');
+        $bar = model(ProductModel::class)
+            ->where('is_active', 1)->where('deleted_at', null)
+            ->where('stock_qty >', 5)
+            ->orderBy('id', 'DESC')->first();
         $this->cart()->addProduct($bar->id, 1);
 
         $key   = 'diag-idem-' . bin2hex(random_bytes(6));
@@ -377,12 +425,18 @@ class DiagCheckout extends BaseCommand
         $this->resetCart();
 
         // Walnut Halves is seeded with stock 0.
-        $soldOut = model(ProductModel::class)->findVisibleBySlug('walnut-halves');
+        $soldOut = model(ProductModel::class)
+            ->where('is_active', 1)->where('deleted_at', null)
+            ->where('track_inventory', 1)->where('stock_qty', 0)
+            ->first();
         $add     = $this->cart()->addProduct($soldOut->id, 1);
         $this->check('sold-out product refused', ! $add['ok'], $add['message']);
 
         // Clamp a request for more than exists.
-        $limited = model(ProductModel::class)->findVisibleBySlug('blue-pottery-platter');
+        $limited = model(ProductModel::class)
+            ->where('is_active', 1)->where('deleted_at', null)
+            ->where('stock_qty >', 5)
+            ->orderBy('id', 'DESC')->first();
         $stock   = $limited->stock_qty;
 
         $this->resetCart();

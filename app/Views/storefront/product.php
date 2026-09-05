@@ -27,11 +27,18 @@ $gallery = $images !== [] ? $images : [['path' => null, 'alt_text' => $product->
                  view, and the first image renders with no script at all. */ ?>
         <div class="rs-gallery-wrap">
             <div class="relative aspect-[4/5] overflow-hidden bg-shell-deep">
-                <img id="product-image"
-                     src="<?= rs_image($gallery[0]['path'] ?? null, 'products') ?>"
-                     alt="<?= esc($gallery[0]['alt_text'] ?? $product->name, 'attr') ?>"
-                     class="h-full w-full object-cover"
-                     width="800" height="800">
+                <?php /* The hero image of the page, so it is eager and high
+                         priority — lazy-loading the thing the visitor came to
+                         see delays the only content that matters. */ ?>
+                <?= rs_picture($gallery[0]['path'] ?? null, '(min-width: 1024px) 46vw, 100vw', [
+                    'id'      => 'product-image',
+                    'alt'     => $gallery[0]['alt_text'] ?? $product->name,
+                    'class'   => 'h-full w-full object-cover',
+                    'width'   => '800',
+                    'height'  => '1000',
+                    'loading' => 'eager',
+                    'fetchpriority' => 'high',
+                ]) ?>
 
                 <?php if ($product->hasDiscount()): ?>
                     <span class="rs-badge rs-badge--brass absolute left-4 top-4">
@@ -50,8 +57,10 @@ $gallery = $images !== [] ? $images : [['path' => null, 'alt_text' => $product->
                                     data-src="<?= rs_image($image['path'] ?? null, 'products') ?>"
                                     data-alt="<?= esc($image['alt_text'] ?? $product->name, 'attr') ?>"
                                     aria-label="View image <?= $index + 1 ?>">
-                                <img src="<?= rs_image($image['path'] ?? null, 'products') ?>"
-                                     alt="" loading="lazy" decoding="async">
+                                <?php /* Decorative: the button's aria-label already announces which
+                                         photograph this is, so a described alt would be
+                                         read twice. */ ?>
+                                <?= rs_picture($image['path'] ?? null, '96px', ['alt' => '']) ?>
                             </button>
                         </li>
                     <?php endforeach; ?>
@@ -106,13 +115,15 @@ $gallery = $images !== [] ? $images : [['path' => null, 'alt_text' => $product->
                     <span class="rs-badge rs-badge--soft"><?= esc($product->unit_label) ?></span>
                 <?php endif; ?>
                 <span class="num font-mono text-[0.625rem] tracking-[0.14em] text-ink-muted uppercase">
-                    SKU <?= esc($product->sku) ?>
+                    SKU <span data-variant-sku><?= esc($chosen['sku'] ?? $product->sku) ?></span>
                 </span>
             </div>
 
-            <!-- Price -->
+            <!-- Price. The variant's if it sets one, otherwise the product's. -->
             <p class="num mt-6 flex flex-wrap items-baseline gap-3">
-                <span class="font-display text-3xl font-semibold text-mulberry"><?= esc($product->formattedPrice()) ?></span>
+                <span class="font-display text-3xl font-semibold text-mulberry" data-variant-price>
+                    <?= esc(isset($chosen['price']) ? rs_money($chosen['price']) : $product->formattedPrice()) ?>
+                </span>
                 <?php if ($product->hasDiscount()): ?>
                     <span class="text-lg text-ink-muted line-through"><?= esc($product->formattedCompareAtPrice()) ?></span>
                     <span class="rs-badge rs-badge--brass">Save <?= $product->discountPercent() ?>%</span>
@@ -164,9 +175,97 @@ $gallery = $images !== [] ? $images : [['path' => null, 'alt_text' => $product->
                              enhancement, and the number input still works when
                              the script does not load. Quantity is re-clamped
                              server-side against live stock regardless. */ ?>
-                    <form method="post" action="<?= site_url('cart/add') ?>" class="space-y-4">
+
+            <?php /* ============================== variants ============================== */ ?>
+            <?php if (($variantGroups ?? []) !== []): ?>
+                <?php
+                /*
+                 * The whole matrix goes to the browser as JSON.
+                 *
+                 * Selecting a colour has to grey out the sizes that colour does
+                 * not come in — Amazon's behaviour, and the thing plain
+                 * attribute chips cannot do. Asking the server on every click
+                 * would make the page feel like dial-up; the combinations are a
+                 * few dozen rows, so they travel once.
+                 */
+                $payload = [
+                    'base'     => site_url('product/' . $product->slug),
+                    'chosen'   => $chosen['key'] ?? null,
+                    'variants' => array_map(static function (array $v) use ($product): array {
+                        return [
+                            'id'     => (int) $v['id'],
+                            'key'    => $v['variant_key'],
+                            'label'  => $v['label'],
+                            'sku'    => $v['sku'],
+                            // Formatted here, where the currency rules live —
+                            // the browser must not reimplement money.
+                            'price'  => rs_money($v['price'] !== null ? (float) $v['price'] : (float) $product->price),
+                            'image'  => $v['image'] ? rs_image($v['image'], 'content') : null,
+                            'values' => array_values($v['values']),
+                            'stock'  => (int) $v['stock_qty'],
+                        ];
+                    }, $variants),
+                ];
+                ?>
+                <div class="mt-8 grid gap-5" data-variants
+                     data-matrix="<?= esc(json_encode($payload), 'attr') ?>">
+                    <?php foreach ($variantGroups as $group): ?>
+                        <div>
+                            <span class="rs-kicker">
+                                <?= esc($group['name']) ?>
+                                <?php /* The chosen one, named — a swatch alone
+                                         does not tell anyone it is "Antique
+                                         Silver" rather than grey. */ ?>
+                                <span class="ml-2 text-ink-soft normal-case tracking-normal"
+                                      data-variant-chosen="<?= esc($group['code'], 'attr') ?>"></span>
+                            </span>
+
+                            <ul class="mt-3 flex flex-wrap gap-2" role="radiogroup"
+                                aria-label="<?= esc($group['name'], 'attr') ?>">
+                                <?php foreach ($group['values'] as $value): ?>
+                                    <li>
+                                        <label class="rs-attr <?= $group['input_type'] === 'swatch' ? 'rs-attr--swatch' : '' ?>"
+                                               data-variant-option
+                                               data-code="<?= esc($group['code'], 'attr') ?>"
+                                               data-value="<?= (int) $value['id'] ?>">
+                                            <input type="radio" class="sr-only"
+                                                   name="v_<?= esc($group['code'], 'attr') ?>"
+                                                   value="<?= (int) $value['id'] ?>">
+                                            <?php if ($group['input_type'] === 'swatch' && ! empty($value['swatch'])): ?>
+                                                <span class="rs-attr__chip"
+                                                      style="background: <?= esc($value['swatch'], 'attr') ?>"></span>
+                                            <?php endif; ?>
+                                            <span><?= esc($value['label']) ?></span>
+                                        </label>
+                                    </li>
+                                <?php endforeach; ?>
+                            </ul>
+                        </div>
+                    <?php endforeach; ?>
+                </div>
+            <?php endif; ?>
+
+            <?php /* Attributes that are NOT choices — the size a piece simply
+                     is, its finish — listed rather than offered. */ ?>
+            <?php if (($attributes ?? []) !== []): ?>
+                <dl class="mt-7 grid gap-2 border-t border-shell-line pt-6 text-sm">
+                    <?php foreach ($attributes as $group): ?>
+                        <?php if ($group['selectable']) { continue; } ?>
+                        <div class="flex gap-3">
+                            <dt class="w-28 shrink-0 text-ink-muted"><?= esc($group['name']) ?></dt>
+                            <dd class="text-ink-soft" data-spec="<?= esc($group['code'], 'attr') ?>">
+                                <?= esc(implode(' · ', array_column($group['values'], 'label'))) ?>
+                            </dd>
+                        </div>
+                    <?php endforeach; ?>
+                </dl>
+            <?php endif; ?>
+
+                    <form id="rs-add" method="post" action="<?= site_url('cart/add') ?>" class="space-y-4">
                         <?= csrf_field() ?>
                         <input type="hidden" name="product_id" value="<?= (int) $product->id ?>">
+                    <input type="hidden" name="variant_id" data-variant-id
+                           value="<?= (int) ($chosen['id'] ?? 0) ?>">
                         <input type="hidden" name="return_to" value="cart">
 
                         <div class="flex flex-wrap items-center gap-4">

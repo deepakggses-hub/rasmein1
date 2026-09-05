@@ -15,7 +15,7 @@ class CollectionModel extends Model
     protected $useSoftDeletes = true;
 
     protected $allowedFields = [
-        'type', 'name', 'slug', 'description', 'image', 'is_featured',
+        'type', 'name', 'slug', 'description', 'image', 'alt_text', 'is_featured',
         'sort_order', 'is_active', 'starts_at', 'ends_at', 'meta_title', 'meta_description',
     ];
 

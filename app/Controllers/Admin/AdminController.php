@@ -140,6 +140,7 @@ abstract class AdminController extends BaseController
                     ['label' => 'Categories', 'url' => 'admin/categories', 'match' => 'admin/categories', 'icon' => 'categories', 'permission' => 'products.view'],
                     ['label' => 'Gift boxes', 'url' => 'admin/gift-boxes', 'match' => 'admin/gift-boxes', 'icon' => 'giftbox', 'permission' => 'giftboxes.view'],
                     ['label' => 'Occasions', 'url' => 'admin/occasions', 'match' => 'admin/occasions', 'icon' => 'coupons', 'permission' => 'content.manage'],
+                    ['label' => 'Attributes', 'url' => 'admin/attributes', 'match' => 'admin/attributes', 'icon' => 'tag', 'permission' => 'catalogue.manage'],
                 ],
             ],
             [
@@ -149,6 +150,7 @@ abstract class AdminController extends BaseController
                     ['label' => 'Email templates', 'url' => 'admin/email-templates', 'match' => 'admin/email-templates', 'icon' => 'mailtemplate', 'permission' => 'content.manage'],
                     ['label' => 'Homepage', 'url' => 'admin/homepage', 'match' => 'admin/homepage', 'icon' => 'store', 'permission' => 'homepage.manage'],
                     ['label' => 'Banners', 'url' => 'admin/banners', 'match' => 'admin/banners', 'icon' => 'banners', 'permission' => 'content.manage'],
+                    ['label' => 'Image alt text', 'url' => 'admin/media', 'match' => 'admin/media', 'icon' => 'pages', 'permission' => 'content.manage'],
                 ],
             ],
             [
@@ -172,6 +174,8 @@ abstract class AdminController extends BaseController
                     ['label' => 'Appearance', 'url' => 'admin/appearance', 'match' => 'admin/appearance', 'icon' => 'banners', 'permission' => 'settings.view'],
                     ['label' => 'Settings', 'url' => 'admin/settings', 'match' => 'admin/settings', 'icon' => 'settings', 'permission' => 'settings.view'],
                     ['label' => 'Mail', 'url' => 'admin/mail', 'match' => 'admin/mail', 'icon' => 'mail', 'permission' => 'settings.view'],
+                    ['label' => 'Mail queue', 'url' => 'admin/mail/queue', 'match' => 'admin/mail/queue', 'icon' => 'orders', 'permission' => 'settings.manage'],
+                    ['label' => 'Sign-in screen', 'url' => 'admin/auth', 'match' => 'admin/auth', 'icon' => 'customers', 'permission' => 'settings.manage'],
                     ['label' => 'Audit log', 'url' => 'admin/audit', 'match' => 'admin/audit', 'icon' => 'audit', 'permission' => 'audit.view'],
                 ],
             ],

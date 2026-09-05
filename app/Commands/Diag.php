@@ -401,6 +401,38 @@ class Diag extends BaseCommand
             } else {
                 $this->pass('shop identity settings', $brand . ' installed');
 
+            }
+
+            /*
+             * PHP's own limits sit in front of ours. If upload_max_filesize is
+             * smaller than maxImageBytes the request never reaches the
+             * application, and the person uploading sees nothing happen at all.
+             */
+            $toBytes = static function (string $value): int {
+                $value = trim($value);
+                $unit  = strtolower(substr($value, -1));
+                $n     = (int) $value;
+
+                return match ($unit) {
+                    'g' => $n * 1024 * 1024 * 1024,
+                    'm' => $n * 1024 * 1024,
+                    'k' => $n * 1024,
+                    default => $n,
+                };
+            };
+
+            $wanted = config(\Config\Rasmein::class)->maxImageBytes;
+            $php    = min($toBytes((string) ini_get('upload_max_filesize')), $toBytes((string) ini_get('post_max_size')));
+
+            if ($php < $wanted) {
+                $this->fail(
+                    'PHP upload limit',
+                    'PHP allows ' . round($php / 1048576) . ' MB but the app expects ' . round($wanted / 1048576) . ' MB',
+                    'Raise upload_max_filesize and post_max_size in php.ini, or lower Rasmein::$maxImageBytes.'
+                );
+            } else {
+                $this->pass('PHP upload limit', round($php / 1048576) . ' MB');
+
             // A baseURL that does not match the host the admin browses on makes
             // fetch() cross-origin: cookies are withheld, CSRF fails, and the
             // editor's image upload returns a 403 that looks like a permissions

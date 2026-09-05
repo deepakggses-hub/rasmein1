@@ -15,7 +15,7 @@ class PageModel extends Model
     protected $useSoftDeletes = true;
 
     protected $allowedFields = [
-        'title', 'slug', 'excerpt', 'content', 'show_in_footer',
+        'title', 'slug', 'template', 'data', 'excerpt', 'content', 'show_in_footer',
         'sort_order', 'is_active', 'meta_title', 'meta_description',
     ];
 

@@ -206,7 +206,7 @@ class Checkout extends StorefrontController
                 'ship_name'        => ['label' => 'Recipient name', 'rules' => 'required|min_length[2]|max_length[120]'],
                 'ship_phone'       => ['label' => 'Recipient phone', 'rules' => 'required|min_length[10]|max_length[20]'],
                 'ship_line1'       => ['label' => 'Address', 'rules' => 'required|max_length[191]'],
-                'ship_city'        => ['label' => 'City', 'rules' => 'required|max_length[80]'],
+                'ship_city'        => ['label' => 'City', 'rules' => 'permit_empty|max_length[80]'],
                 'ship_state'       => ['label' => 'State', 'rules' => 'required|max_length[80]'],
                 'ship_postal_code' => ['label' => 'PIN code', 'rules' => 'required|regex_match[/^[1-9][0-9]{5}$/]'],
                 'ship_country'     => ['label' => 'Country', 'rules' => 'permit_empty|max_length[60]'],

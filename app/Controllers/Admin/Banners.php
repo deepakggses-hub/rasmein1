@@ -6,28 +6,174 @@ namespace App\Controllers\Admin;
 
 use App\Models\BannerModel;
 use CodeIgniter\Exceptions\PageNotFoundException;
+use Config\Rasmein;
 
+/**
+ * Banners, grouped by the slot they fill.
+ *
+ * WHY BY SLOT RATHER THAN ONE LIST
+ *
+ * A flat list of banners with a position dropdown makes the person adding one
+ * work out which slot they want from a name, and gives no sense of what is
+ * already there. Each slot behaves differently — a hero is a slide with text, a
+ * client logo is a wordmark, a gallery shot is one of many — so each gets its
+ * own section, its own guidance, and where it makes sense, a multi-file
+ * uploader.
+ */
 class Banners extends AdminController
 {
+    /**
+     * How each slot behaves.
+     *
+     * `multi` marks a slot where several images at once is the normal case, so
+     * it gets a bulk uploader rather than one form per image.
+     *
+     * @var array<string, array<string, mixed>>
+     */
+    private const SLOTS = [
+        'home_hero' => [
+            'key'    => 'hero',
+            'fields' => ['image', 'link', 'text', 'buttons', 'schedule'],
+            'label' => 'Homepage hero',
+            'note'  => 'Two or more turn the hero into a slider. Leave the text fields blank '
+                . 'and the picture is shown whole with the whole thing linked — use that when '
+                . 'the words are already part of the artwork.',
+            'multi' => true,
+            'ratio' => '1920 × 900',
+        ],
+        'home_feature' => [
+            'key'    => 'feature',
+            // No eyebrow: the band draws a title and a description only.
+            'fields' => ['image', 'link', 'title', 'buttons', 'schedule'],
+            'label' => 'Homepage feature band',
+            'note'  => 'The full-width picture midway down the page. Blank text shows the '
+                . 'artwork whole rather than cropping it to a band.',
+            'multi' => false,
+            'ratio' => '1920 × 720',
+        ],
+        'home_client' => [
+            'key'    => 'clients',
+            // A logo and a name. The row is not linked, so no link field.
+            'fields' => ['image', 'name'],
+            'label' => 'Client logos',
+            'note'  => 'Upload several at once. A logo image is used when there is one; '
+                . 'otherwise the title is set in the display face as a wordmark.',
+            'multi' => true,
+            'ratio' => 'Transparent PNG, around 400 × 160',
+        ],
+        'home_gallery' => [
+            'key'    => 'gallery',
+            // The picture, and nothing else.
+            'fields' => ['image'],
+            'label' => 'Bespoke journey gallery',
+            'note'  => 'The grid of square photographs. Upload the whole set at once.',
+            'multi' => true,
+            'ratio' => 'Square, around 800 × 800',
+        ],
+        'home_strip' => [
+            'key'    => 'strip',
+            'fields' => ['image', 'link', 'text', 'schedule'],
+            'label' => 'Homepage strip',
+            'note'  => 'Smaller promotional strips.',
+            'multi' => false,
+            'ratio' => '1600 × 400',
+        ],
+        'category_top' => [
+            'key'    => 'category',
+            'fields' => ['image', 'link', 'text', 'schedule'],
+            'label' => 'Category page banner',
+            'note'  => 'Shown above a category listing.',
+            'multi' => false,
+            'ratio' => '1920 × 480',
+        ],
+        'gift_builder' => [
+            'key'    => 'builder',
+            'fields' => ['image', 'link', 'text', 'schedule'],
+            'label' => 'Gift box builder',
+            'note'  => 'Shown on the build-a-box screen.',
+            'multi' => false,
+            'ratio' => '1600 × 500',
+        ],
+    ];
+
+    /** A chooser: which slot do you want to work on? */
     public function index()
     {
         if ($denied = $this->deny('content.manage')) {
             return $denied;
         }
 
+        $counts = [];
+
+        foreach (db_connect()->table('banners')
+            ->select('position, COUNT(*) AS n', false)
+            ->groupBy('position')->get()->getResultArray() as $row) {
+            $counts[$row['position']] = (int) $row['n'];
+        }
+
         return $this->adminPage('admin/banners/index', [
-            'banners' => model(BannerModel::class)
-                ->orderBy('position', 'ASC')->orderBy('sort_order', 'ASC')->findAll(),
+            'slots'  => self::SLOTS,
+            'counts' => $counts,
         ], 'Banners');
     }
 
-    public function create()
+    /**
+     * One slot, on its own page.
+     *
+     * Sections stacked on a single page were the wrong shape: a person managing
+     * the gallery had to scroll past six other slots, and the "which slot?"
+     * question was answered by a dropdown buried in the form rather than by
+     * where they already were. A page per slot means the URL says what you are
+     * editing, the browser remembers it, and the form has one less decision in
+     * it.
+     */
+    public function slot(string $key)
     {
         if ($denied = $this->deny('content.manage')) {
             return $denied;
         }
 
-        return $this->adminPage('admin/banners/form', ['banner' => null], 'New banner');
+        $position = $this->positionFor($key);
+
+        if ($position === null) {
+            throw PageNotFoundException::forPageNotFound();
+        }
+
+        return $this->adminPage('admin/banners/slot', [
+            'slot'     => $position,
+            'meta'     => self::SLOTS[$position],
+            'banners'  => model(BannerModel::class)
+                ->where('position', $position)
+                ->orderBy('sort_order', 'ASC')->orderBy('id', 'ASC')->findAll(),
+            'slots'    => self::SLOTS,
+        ], self::SLOTS[$position]['label']);
+    }
+
+    /** The stored position for a URL key, or null. */
+    private function positionFor(string $key): ?string
+    {
+        foreach (self::SLOTS as $position => $meta) {
+            if ($meta['key'] === $key) {
+                return $position;
+            }
+        }
+
+        return null;
+    }
+
+    public function create(string $key)
+    {
+        if ($denied = $this->deny('content.manage')) {
+            return $denied;
+        }
+
+        $position = $this->positionFor($key);
+
+        if ($position === null) {
+            throw PageNotFoundException::forPageNotFound();
+        }
+
+        return $this->form(null, $position);
     }
 
     public function edit(int $id)
@@ -42,7 +188,7 @@ class Banners extends AdminController
             throw PageNotFoundException::forPageNotFound();
         }
 
-        return $this->adminPage('admin/banners/form', ['banner' => $banner], 'Edit banner');
+        return $this->form($banner, (string) $banner['position']);
     }
 
     public function store()
@@ -67,6 +213,80 @@ class Banners extends AdminController
         return $this->save($id);
     }
 
+    /**
+     * Add several images to one slot at once.
+     *
+     * A gallery of twelve photographs through a single-image form is twelve
+     * round trips; this is the same operation done once. Each file becomes its
+     * own banner so it can still be reordered, dated or removed individually.
+     */
+    public function bulk()
+    {
+        if ($denied = $this->deny('content.manage')) {
+            return $denied;
+        }
+
+        $slot = (string) $this->request->getPost('position');
+
+        if (! isset(self::SLOTS[$slot])) {
+            return redirect()->back()->with('error', 'That is not a banner slot.');
+        }
+
+        $files = $this->request->getFileMultiple('images');
+
+        if ($files === null || $files === []) {
+            return redirect()->back()->with('error', 'No images were chosen.');
+        }
+
+        $model  = model(BannerModel::class);
+        $added  = 0;
+        $errors = [];
+        $notes  = [];
+
+        $next = (int) ($model->selectMax('sort_order')->where('position', $slot)
+            ->get()->getRowArray()['sort_order'] ?? 0);
+
+        foreach ($files as $file) {
+            if ($file->getError() === UPLOAD_ERR_NO_FILE) {
+                continue;
+            }
+
+            $result = service('images')->store($file, 'banners');
+
+            if (! $result['ok']) {
+                $errors[] = $file->getClientName() . ': ' . $result['error'];
+
+                continue;
+            }
+
+            if (($result['sharpness'] ?? null) !== null && $result['sharpness'] < 900) {
+                $notes[] = '“' . $file->getClientName() . '” looks soft.';
+            }
+
+            $model->insert([
+                'position'   => $slot,
+                // No text: a bulk upload is artwork, so it renders bare until
+                // someone opens it and writes a heading.
+                'title'      => '',
+                'image'      => $result['path'],
+                'alt_text'   => null,
+                'sort_order' => ++$next,
+                'is_active'  => 1,
+            ]);
+
+            $added++;
+        }
+
+        service('audit')->log('created', 'content', 'banner', null, $added . ' image(s) added to ' . $slot);
+
+        $message = $added . ' image' . ($added === 1 ? '' : 's') . ' added.'
+            . ($notes === [] ? '' : ' ' . implode(' ', $notes))
+            . ' Add alt text so they are described to screen readers.';
+
+        return redirect()->to(site_url('admin/banners/' . self::SLOTS[$slot]['key']))
+            ->with($errors === [] ? 'success' : 'error', $message . ($errors === [] ? '' : ' ' . implode(' ', $errors)));
+    }
+
     public function delete(int $id)
     {
         if ($denied = $this->deny('content.manage')) {
@@ -80,72 +300,146 @@ class Banners extends AdminController
             throw PageNotFoundException::forPageNotFound();
         }
 
-        service('images')->delete($banner['image']);
-        $model->delete($id);
-        service('audit')->log('deleted', 'content', 'banner', $id, $banner['title'] ?? 'banner');
+        if (! empty($banner['image'])) {
+            service('images')->delete((string) $banner['image']);
+        }
 
-        return redirect()->to(site_url('admin/banners'))->with('success', 'Banner removed.');
+        $model->delete($id);
+        service('audit')->log('deleted', 'content', 'banner', $id, (string) ($banner['title'] ?: $banner['position']));
+
+        return redirect()->to(site_url('admin/banners/' . self::SLOTS[$banner['position']]['key']))
+            ->with('success', 'Banner removed.');
+    }
+
+    // -----------------------------------------------------------------
+
+    private function form(?array $banner, string $slot): string
+    {
+        return $this->adminPage('admin/banners/form', [
+            'banner' => $banner,
+            'slot'   => $slot,
+            'meta'   => self::SLOTS[$slot],
+            'slots'  => self::SLOTS,
+        ], $banner === null ? 'New banner' : 'Edit banner');
     }
 
     private function save(?int $id)
     {
         $model = model(BannerModel::class);
+        $slot  = (string) $this->request->getPost('position');
 
+        // Still validated: the field is hidden, and a hidden field is a posted
+        // value like any other.
+        if (! isset(self::SLOTS[$slot])) {
+            return redirect()->back()->withInput()->with('error', 'That is not a banner slot.');
+        }
+
+        // Same-site only, for BOTH buttons. A banner link that accepted absolute
+        // URLs would be a way to point a shop's own hero somewhere else.
+        $link  = trim((string) $this->request->getPost('link_url'));
+        $link2 = trim((string) $this->request->getPost('link_url_2'));
+
+        foreach ([$link, $link2] as $candidate) {
+            if ($candidate !== ''
+                && (preg_match('#^[a-z]+://#i', $candidate) === 1 || str_starts_with($candidate, '//'))) {
+                return redirect()->back()->withInput()->with(
+                    'error',
+                    'Links must be paths on this site, like /shop or /diwali-2026.'
+                );
+            }
+        }
+
+        $fields = self::SLOTS[$slot]['fields'];
+
+        /*
+         * Only the fields this slot actually renders are written, and the rest
+         * are explicitly cleared. Without that, moving a banner from the hero to
+         * the client row would leave a subtitle in the database that nothing
+         * draws — invisible, and confusing the next time someone looks.
+         */
         $payload = [
-            'eyebrow'    => trim((string) $this->request->getPost('eyebrow')) ?: null,
-            'title'      => trim((string) $this->request->getPost('title')) ?: null,
+            'position'   => $slot,
+            'title'      => trim((string) $this->request->getPost('title')),
             'subtitle'   => trim((string) $this->request->getPost('subtitle')) ?: null,
+            'eyebrow'    => trim((string) $this->request->getPost('eyebrow')) ?: null,
             'alt_text'   => trim((string) $this->request->getPost('alt_text')) ?: null,
-            'cta_label'  => trim((string) $this->request->getPost('cta_label')) ?: null,
-            'position'   => (string) $this->request->getPost('position'),
+            'link_url'   => $link ?: null,
+            'link_url_2' => $link2 ?: null,
+            'cta_label'   => trim((string) $this->request->getPost('cta_label')) ?: null,
+            'cta_label_2' => trim((string) $this->request->getPost('cta_label_2')) ?: null,
             'sort_order' => (int) $this->request->getPost('sort_order'),
-            'starts_at'  => $this->request->getPost('starts_at') ?: null,
-            'ends_at'    => $this->request->getPost('ends_at') ?: null,
+            'starts_at'  => trim((string) $this->request->getPost('starts_at')) ?: null,
+            'ends_at'    => trim((string) $this->request->getPost('ends_at')) ?: null,
             'is_active'  => $this->request->getPost('is_active') !== null ? 1 : 0,
         ];
 
-        // A banner link must stay on this site — an admin-set off-site redirect
-        // on the homepage hero is exactly what an attacker with a stolen staff
-        // password would reach for.
-        $link = trim((string) $this->request->getPost('link_url'));
-
-        if ($link !== '' && ! str_starts_with($link, '/') && ! str_starts_with($link, site_url())) {
-            return redirect()->back()->withInput()->with(
-                'error',
-                'Banner links must point somewhere on this site — start with / or the site address.'
-            );
+        // 'text' = eyebrow + title + description. 'title' = the same without the
+        // eyebrow, for slots that never draw one.
+        if (! in_array('text', $fields, true) && ! in_array('title', $fields, true)) {
+            $payload['subtitle'] = null;
         }
 
-        $payload['link_url'] = $link ?: null;
-
-        if ($payload['starts_at'] !== null && $payload['ends_at'] !== null
-            && strtotime((string) $payload['ends_at']) < strtotime((string) $payload['starts_at'])) {
-            return redirect()->back()->withInput()->with('error', 'The end date falls before the start date.');
+        if (! in_array('text', $fields, true)) {
+            $payload['eyebrow'] = null;
         }
 
-        $image = $this->request->getFile('image');
+        if (! in_array('buttons', $fields, true)) {
+            $payload['cta_label']   = null;
+            $payload['cta_label_2'] = null;
+            $payload['link_url_2']  = null;
+        }
+
+        if (! in_array('link', $fields, true)) {
+            $payload['link_url'] = null;
+        }
+
+        if (! in_array('schedule', $fields, true)) {
+            $payload['starts_at'] = null;
+            $payload['ends_at']   = null;
+        }
+
         $uploadError = null;
 
-        if ($image !== null && $image->getError() !== UPLOAD_ERR_NO_FILE) {
-            $result = service('images')->store($image, 'banners');
+        foreach (['image', 'mobile_image'] as $field) {
+            $file = $this->request->getFile($field);
 
-            $result['ok'] ? $payload['image'] = $result['path'] : $uploadError = $result['error'];
+            if ($file === null || $file->getError() === UPLOAD_ERR_NO_FILE) {
+                continue;
+            }
+
+            $result = service('images')->store($file, 'banners');
+
+            if ($result['ok']) {
+                $payload[$field] = $result['path'];
+            } else {
+                $uploadError = $result['error'];
+            }
         }
 
+        // See CLAUDE.md — {id} placeholders read from the payload.
         if ($id !== null) {
             $payload['id'] = $id;
         }
 
         $saved = $id === null ? $model->insert($payload) : $model->update($id, $payload);
 
+        if ($id !== null) {
+            unset($payload['id']);
+        }
+
         if ($saved === false) {
             return redirect()->back()->withInput()->with('errors', $model->errors());
         }
 
-        $newId = $id ?? (int) $model->getInsertID();
-        service('audit')->log($id === null ? 'created' : 'updated', 'content', 'banner', $newId, $payload['title'] ?? 'banner');
+        service('audit')->log(
+            $id === null ? 'created' : 'updated',
+            'content',
+            'banner',
+            $id ?? (int) $model->getInsertID(),
+            ($payload['title'] ?: 'Untitled') . ' — ' . $slot
+        );
 
-        return redirect()->to(site_url('admin/banners/' . $newId . '/edit'))
+        return redirect()->to(site_url('admin/banners/' . self::SLOTS[$slot]['key']))
             ->with($uploadError !== null ? 'error' : 'success', $uploadError ?? 'Banner saved.');
     }
 }

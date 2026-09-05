@@ -21,7 +21,7 @@ class CartItemModel extends Model
     protected $useTimestamps = true;
 
     protected $allowedFields = [
-        'cart_id', 'item_type', 'product_id', 'gift_box_id', 'quantity',
+        'cart_id', 'item_type', 'product_id', 'gift_box_id', 'quantity', 'variant_id', 'chosen_attributes',
         'gift_recipient', 'gift_message', 'special_note',
         'unit_price_snapshot', 'line_total_snapshot', 'slots_used',
     ];
@@ -71,12 +71,24 @@ class CartItemModel extends Model
     }
 
     /** An existing plain-product line, so adding the same thing increments it. */
-    public function findProductLine(int $cartId, int $productId): ?array
+    /**
+     * The line for a product AND variant.
+     *
+     * The variant is part of the identity. Without it, adding the gold one
+     * would silently increment the silver line already in the basket — the
+     * customer ends up with two of a colour they did not choose.
+     */
+    public function findProductLine(int $cartId, int $productId, ?int $variantId = null): ?array
     {
-        return $this->where('cart_id', $cartId)
+        $builder = $this->where('cart_id', $cartId)
             ->where('item_type', 'product')
-            ->where('product_id', $productId)
-            ->first();
+            ->where('product_id', $productId);
+
+        $variantId === null
+            ? $builder->where('variant_id', null)
+            : $builder->where('variant_id', $variantId);
+
+        return $builder->first();
     }
 
     public function countForCart(int $cartId): int

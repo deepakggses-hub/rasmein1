@@ -37,6 +37,43 @@ class EmailTemplateSeeder extends Seeder
 
         $templates = [
             [
+                'template_key' => 'customer_login_code',
+                'audience'     => 'customer',
+                'placeholders' => [
+                    'customer_name' => "the person's name",
+                    'otp_code'      => 'the six-digit code',
+                    'otp_minutes'   => 'how long it lasts',
+                ],
+                'name'         => 'Sign-in code',
+                'description'  => 'The one-time code sent when someone signs in.',
+                'subject'      => 'Your sign-in code — {{otp_code}}',
+                'body'         => '<p>Hello {{customer_name}},</p>'
+                    . '<p>Use this code to sign in to {{brand_name}}.</p>'
+                    . '<p style="font-family:monospace;font-size:30px;letter-spacing:8px;margin:24px 0;">'
+                    . '<strong>{{otp_code}}</strong></p>'
+                    . '<p>It expires in {{otp_minutes}} minutes and can be used once.</p>'
+                    . '<p style="color:#6B6070;font-size:13px;">If you did not ask for this, ignore this message — nothing has changed.</p>',
+            ],
+            [
+                'template_key' => 'customer_verify_email',
+                'audience'     => 'customer',
+                'placeholders' => [
+                    'customer_name' => "the person's name",
+                    'otp_code'      => 'the six-digit code',
+                    'otp_minutes'   => 'how long it lasts',
+                ],
+                'name'         => 'Confirm your email',
+                'description'  => 'Sent when someone creates an account, before it exists.',
+                'subject'      => 'Confirm your email — {{otp_code}}',
+                'body'         => '<p>Hello {{customer_name}},</p>'
+                    . '<p>Enter this code to finish creating your {{brand_name}} account.</p>'
+                    . '<p style="font-family:monospace;font-size:30px;letter-spacing:8px;margin:24px 0;">'
+                    . '<strong>{{otp_code}}</strong></p>'
+                    . '<p>It expires in {{otp_minutes}} minutes.</p>'
+                    . '<p style="color:#6B6070;font-size:13px;">If this was not you, no account has been created.</p>',
+            ],
+
+            [
                 'template_key' => 'order_placed_customer',
                 'name'         => 'Order placed — to the customer',
                 'description'  => 'Sent the moment an order is submitted.',
@@ -170,7 +207,7 @@ class EmailTemplateSeeder extends Seeder
                 'body'         => '<p>{{customer_name}}, someone just tried to create a {{brand_name}} '
                     . 'account with this address. You already have one, so nothing was created.</p>'
                     . '<p>If that was you, <a href="{{site_url}}/account/login">sign in</a> — or '
-                    . '<a href="{{site_url}}/account/forgot">reset your password</a> if you have '
+                    . '<a href="{{site_url}}/account/login">sign in with a code</a> if you have '
                     . 'forgotten it. If it was not you, no action is needed.</p>',
             ],
             [

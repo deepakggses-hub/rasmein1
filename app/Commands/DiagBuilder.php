@@ -85,8 +85,22 @@ class DiagBuilder extends BaseCommand
         CLI::write('  Eligibility', 'white');
         CLI::write('  ' . str_repeat('-', 58), 'dark_gray');
 
-        // Classic Tray allows 5 categories but NOT ceramics or stationery.
-        $notebook = model(ProductModel::class)->findVisibleBySlug('cotton-paper-notebook');
+        /*
+         * A product from a category this box does NOT allow — found rather than
+         * pinned, so the test survives any catalogue. Pinning a slug is what
+         * broke it: the fixture named a demo notebook that no longer exists.
+         */
+        $allowedCats = array_column(
+            db_connect()->table('gift_box_categories')->select('category_id')
+                ->where('gift_box_id', (int) $state['box']->id)->get()->getResultArray(),
+            'category_id'
+        );
+
+        $notebook = model(ProductModel::class)
+            ->where('is_active', 1)->where('deleted_at', null)
+            ->where('stock_qty >', 5)
+            ->whereNotIn('category_id', $allowedCats === [] ? [0] : $allowedCats)
+            ->first();
         $refused  = $this->builder()->addProduct($lineId, $notebook->id, 1);
         $this->check('product outside allowed categories refused', ! $refused['ok'], $refused['message']);
 
@@ -97,19 +111,32 @@ class DiagBuilder extends BaseCommand
             count($allowed) . ' allowed, notebook excluded'
         );
 
-        $soldOut = model(ProductModel::class)->findVisibleBySlug('walnut-halves');
+        $soldOut = model(ProductModel::class)
+            ->where('is_active', 1)->where('deleted_at', null)
+            ->where('track_inventory', 1)->where('stock_qty', 0)
+            ->first();
         $out     = $this->builder()->addProduct($lineId, $soldOut->id, 1);
         $this->check('sold-out item refused', ! $out['ok'], $out['message']);
 
         CLI::write('  Capacity', 'white');
         CLI::write('  ' . str_repeat('-', 58), 'dark_gray');
 
-        $bar = model(ProductModel::class)->findVisibleBySlug('dark-chocolate-72'); // 1 slot
+        // Genuinely a one-slot piece.
+        $bar = model(ProductModel::class)
+            ->where('is_active', 1)->where('deleted_at', null)
+            ->where('stock_qty >', 5)->where('giftbox_slots', 1)
+            ->whereIn('category_id', $allowedCats === [] ? [0] : $allowedCats)
+            ->first();
         $this->builder()->addProduct($lineId, $bar->id, 1);
         $state = $this->builder()->state($lineId);
         $this->check('1-slot item uses 1 compartment', $state['slots_used'] === 1, 'used ' . $state['slots_used']);
 
-        $candle = model(ProductModel::class)->findVisibleBySlug('oudh-amber-candle'); // 2 slots
+        // Genuinely a two-slot piece, and NOT the one above.
+        $candle = model(ProductModel::class)
+            ->where('is_active', 1)->where('deleted_at', null)
+            ->where('stock_qty >', 5)->where('giftbox_slots', 2)
+            ->whereIn('category_id', $allowedCats === [] ? [0] : $allowedCats)
+            ->first();
         $this->builder()->addProduct($lineId, $candle->id, 1);
         $state = $this->builder()->state($lineId);
         $this->check('2-slot item uses 2 compartments', $state['slots_used'] === 3, 'used ' . $state['slots_used']);
@@ -123,7 +150,12 @@ class DiagBuilder extends BaseCommand
 
         // Fill exactly.
         $this->builder()->addProduct($lineId, $bar->id, 2);   // +2 → 5
-        $tea = model(ProductModel::class)->findVisibleBySlug('masala-chai-blend');
+        $tea = model(ProductModel::class)
+            ->where('is_active', 1)->where('deleted_at', null)
+            ->where('stock_qty >', 5)->where('giftbox_slots', 1)
+            ->whereIn('category_id', $allowedCats === [] ? [0] : $allowedCats)
+            ->where('id !=', $bar->id)
+            ->first();
         $this->builder()->addProduct($lineId, $tea->id, 1);    // +1 → 6
         $state = $this->builder()->state($lineId);
         $this->check('fills to exactly capacity', $state['slots_used'] === 6, 'used ' . $state['slots_used']);
@@ -192,7 +224,9 @@ class DiagBuilder extends BaseCommand
         $this->check('at minimum, no longer blocking', $snapshot['blocking'] === [], '3 of 6 filled');
 
         $boxLine = $snapshot['lines'][0];
-        $expected = 550.0 + (320.0 * 3);   // box + 3 bars
+        // Computed from the box and the product actually used, so the test
+        // checks the ARITHMETIC rather than one fixture's price tag.
+        $expected = (float) $state['box']->base_price + ((float) $bar->price * 3);
         $this->check(
             'box priced as box + contents',
             abs((float) $boxLine['line_total'] - $expected) < 0.01,

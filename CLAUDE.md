@@ -1152,6 +1152,1024 @@ refused anything with a scheme. That produced a real `src=""`. `rs_url()` now
 passes finished http(s) URLs through.
 
 
+### Image handling
+
+- **Every upload builds a size ladder** (320/480/768/1024/1440/1920) plus a WebP
+  of each, written beside the original with a width suffix. The database column
+  is unchanged — variants are found by convention, so images uploaded before
+  this still work and fall back to the single file.
+- **Never upscale.** A variant wider than the original is skipped: inventing
+  pixels gives a bigger file that looks worse than letting the browser stretch.
+- **A mild unsharp mask after every downscale.** Resampling averages
+  neighbouring pixels, which IS blurring, so the result is always softer than
+  the original looked. The kernel divisor equals the kernel sum so brightness is
+  unchanged. This compensates for resize loss; it does NOT recover detail that
+  was never captured.
+- `rs_picture($path, $sizes, $attrs)` emits `<picture>` with a WebP source and a
+  fallback `<img srcset>`. **`sizes` describes the SLOT, not the file** — get it
+  wrong and the browser picks too small, which is the usual cause of "my
+  high-res photo still looks soft".
+- src/srcset/sizes are output RAW (built from base_url() and developer
+  literals); alt/class/data-* are escaped because those carry product names.
+- **`maxImageBytes` was 2 MB, which rejected the photographs a shop should be
+  uploading.** Now 12 MB. `rasmein:diag` fails when PHP's own
+  `upload_max_filesize`/`post_max_size` is lower, because the request is then
+  discarded before the app sees it and the uploader sees nothing happen at all.
+- `estimateSharpness()` (variance of a Laplacian) WARNS on soft or small
+  uploads. It never rejects — a deliberately shallow-focus shot scores low too.
+- Deleting an image purges its variants, or every replacement litters the disk.
+- Swapping a gallery image must clear the `<source srcset>` too: a browser that
+  matched a source ignores a changed `img.src` and the picture appears stuck.
+
+### Uploaded filenames are KEPT, safely
+
+The stored name is the uploaded one, slugified, with `-2`, `-3`… on collision.
+
+- **The extension ALWAYS comes from the detected type**, never the client name.
+  That is the whole security property: `cat.php.jpg` becomes `cat-php.jpg`
+  because the type was read from the file's bytes. Do not weaken this.
+- The stem is rebuilt from `[a-z0-9-]` only — `basename()` first, then
+  transliterate, then filter — so traversal, null bytes, control characters, RTL
+  marks and second extensions cannot survive. Verified against all of them.
+- A stem ending `-<width>` matching a ladder step gets `-img` appended, or
+  uploading `photo-320.jpg` would later be overwritten by `photo.jpg`'s 320px
+  variant. Silent and very confusing without the guard.
+- Collision checking covers the VARIANTS: reserving `photo.jpg` reserves
+  `photo-320.jpg`, or a later ladder overwrites an existing file.
+- Windows device names (con, prn, lpt1…) get a suffix; the loop is bounded.
+
+### Alt text
+
+- `product_images.alt_text` existed from the start but **the product form never
+  rendered a field**, so every product image shipped with an empty alt. Fixed;
+  categories, collections and testimonials gained the column.
+- **Content → Image alt text** lists every image site-wide with coverage and a
+  missing-only filter. Each row links to the screen that owns the image, so this
+  is a place to SEE and FIX, not a second owner.
+- The save is keyed `source:id` and both halves are checked against a fixed list,
+  so a crafted key cannot reach another table. Verified.
+- `alt=""` is correct ONLY where adjacent text already says it — a card whose
+  link text is the product name, or a thumbnail whose button carries an
+  aria-label. Elsewhere the stored description is used.
+- In `rs_picture()`, src/srcset/sizes/class go out raw (built from base_url() and
+  developer literals); **alt stays escaped** because it carries typed text.
+
+### Cormorant Garamond
+
+A light, high-contrast garalde with a small x-height: it reads a size or two
+below its nominal point size, and its hairlines thin to nothing at weight 400 on
+a standard-density screen. Compensated in and around `--font-display`:
+
+- Display weight starts at **500**, headings at 600.
+- Every display step is roughly a tenth larger than the previous face needed.
+- Tracking is slightly **positive** (0.002-0.004em). A garalde opens up at
+  display size where a modern face tightens — negative tracking closes the
+  counters and muddies it.
+
+Still loaded from Google Fonts, so the self-hosting + CSP item stands.
+
+### Homepage section rhythm
+
+`.rs-section` padding was `clamp(3.5rem, 7vw, 6.5rem)` — enough that a single
+section filled a screen, which made the page feel slower to move through than it
+is. Now `clamp(2.25rem, 4.2vw, 4rem)`.
+
+`.rs-rail--bleed` runs a scroller to the screen edges while keeping inline
+padding equal to the shell gutter, so the FIRST card still lines up with the
+heading above it — a full-bleed scroller flush to the edge reads as broken
+rather than deliberate. `scroll-padding-inline` preserves that on snap-back.
+
+The homepage mosaic renders OCCASIONS, not categories. Note that the occasion
+rail below it draws from the same source, so with few occasions the two sections
+show the same things.
+
+### The infinite slider
+
+`.rs-loop` is a NATIVE horizontal scroller, not a transform: touch keeps its
+momentum, the keyboard reaches every tile, and a browser that never runs the
+script still gets a usable scroller.
+
+- The loop is made by cloning the set and subtracting one set's width from
+  `scrollLeft` once the reader passes the first copy. The jump is invisible
+  because the pixels either side of it are identical.
+- **Clone to at least THREE copies, whatever the widths.** The wrap starts one
+  set in and jumps back at two sets in, so the track needs two sets plus a
+  viewport. Cloning only "until three viewports wide" looks equivalent and is
+  not: when a single set is ALREADY wider than three viewports — four tiles on a
+  phone, twelve on an ultrawide — nothing cloned, the wrap point was never
+  reached, and the slider ran to the end and stopped. Found by simulating the
+  arithmetic across viewport sizes rather than by reading it.
+- Clones are `aria-hidden` with their links given `tabindex="-1"`, or a screen
+  reader announces every item three times.
+- Autoplay is suppressed under `prefers-reduced-motion`, and pauses on hover,
+  focus and tab-hidden.
+- A drag that moved more than a few pixels swallows the click, or letting go
+  over a tile follows its link.
+- Re-measures on resize: card width comes from CSS that depends on the viewport,
+  and a stale set width makes the jump visible.
+
+`.rs-rail--bleed` has no inline padding at all — the first and last cards run off
+screen, which is what makes a scroller read as continuing.
+
+### Banners: artwork vs overlay
+
+`BannerModel::isBare()` — no title, subtitle OR eyebrow — decides the treatment.
+
+- **Bare**: the picture is shown WHOLE (height follows its own ratio, never a
+  forced crop), the entire image is wrapped in its link, and there is no scrim.
+  A shop that uploads finished artwork has already put the words inside it;
+  overlaying a heading would duplicate them and cover the design.
+- **Any text**: scrim, heading, description and button, because that text has to
+  be readable over a photograph.
+- A bare image MUST carry alt text — it is the only content, so without it the
+  hero is silent to a screen reader. A text banner's image is decorative and
+  takes `alt=""`.
+- `BannerModel::safeLink()` refuses anything with a scheme. An editable banner
+  link accepting absolute URLs is a way to point a shop's own hero elsewhere.
+  Enforced at BOTH save and render — a row seeded before the check existed is
+  still refused when drawn.
+- Admin is grouped BY SLOT, each with its own guidance and ideal size, because
+  "home_feature" tells a shop owner nothing. Slots where several images is the
+  normal case (hero, clients, gallery) get a bulk uploader; each file becomes its
+  own banner so it can still be reordered or removed individually.
+
+### Banners: a PAGE per slot, not sections on one page
+
+`/admin/banners` is a chooser; each slot has its own address —
+`/admin/banners/hero`, `/feature`, `/clients`, `/gallery`, `/strip`,
+`/category`, `/builder`. Stacking every slot on one page meant scrolling past
+six others to reach the gallery, and answering "which slot?" with a dropdown
+buried in the form rather than with where the person already was.
+
+- **Slug routes must come AFTER the numeric ones**, or `banners/12/edit` is read
+  as a slot named "12".
+- The form has no slot dropdown — the page IS the slot. It is still posted as a
+  hidden field and still validated, because a hidden field is a posted value
+  like any other.
+
+### Banners have TWO buttons
+
+`cta_label` / `link_url` and `cta_label_2` / `link_url_2`. The second used to be
+hard-coded to `/build` in the hero template, so a shop could not change its
+wording or destination or remove it. A button with an empty label is not drawn,
+so one button, two, or none all fall out of the same fields.
+
+Both links go through `safeLink()` and both are refused at save if they carry a
+scheme. For a bare (text-free) banner the FIRST link is what wraps the whole
+image.
+
+### Each banner slot declares the fields it uses
+
+`Banners::SLOTS[...]['fields']` lists which groups a slot renders — image, name,
+link, text, buttons, schedule — and the form shows only those. A gallery
+photograph asks for three fields instead of thirteen.
+
+A field that never appears anywhere is worse than a missing one: someone fills it
+in, nothing happens, and nothing tells them why.
+
+`save()` also CLEARS the columns a slot does not use. Without that, moving a
+banner from the hero to the client row would leave a subtitle in the database
+that nothing draws — invisible, and confusing next time someone looks.
+
+**Alt text is not on the banner form.** It is managed for every image on the site
+at once under Content → Image alt text, and the form links there. One place to
+fill it in beats the same field scattered across eight forms.
+
+### Never use 1fr as the MAX in grid-auto-columns
+
+`minmax(13rem, 1fr)` on a `grid-auto-flow: column` scroller means a lone item
+absorbs the entire track. With one occasion seeded, the row of small cards
+rendered as a single enormous full-bleed picture — obvious on screen, invisible
+to any test that counted elements or checked status codes.
+
+Use a real maximum (`minmax(13rem, 15rem)`). A scroller holding two items SHOULD
+look like two items rather than stretching to fill the width. Fixed on
+`.rs-rail`, `.rs-rail--cards`, `.rs-rail--occasions` and `.rs-loop__track`.
+
+Also: best-seller cards carry their own white surface, because on the alternate
+band the picture floated on the same colour and the card edge disappeared. Add
+to Cart sits ON the card rather than behind a hover — a hover-only control is
+unreachable on touch and undiscoverable with a keyboard.
+
+### Homepage section behaviour
+
+- **Marquee** sits on the deep band with light italic text, continuing the hero
+  rather than breaking to cream.
+- **Three sliders share one component** (`.rs-loop`): collections, occasions and
+  testimonials. Only the column width differs, via `--small` and `--quotes`
+  modifiers, so all three behave identically and one fix reaches all of them.
+- **Parallax uses a clipped wrapper holding a `position: fixed` child**, NOT
+  `background-attachment: fixed` — iOS ignores that entirely and shows a
+  stretched still. `clip-path: inset(0)` makes the wrapper a containing block for
+  the fixed child. Falls back to a normal cover image below 768px and under
+  `prefers-reduced-motion`, where a fixed plate costs more than it gives.
+- **The gallery drifts in two rows, opposite directions**, in CSS rather than
+  JavaScript: the track is duplicated and the keyframe translates by exactly
+  -50%. Any other value and the loop visibly jumps. Hover pauses it; reduced
+  motion turns it into a plain scroller.
+- Best-seller cards are transparent — the design lets the photograph sit on the
+  band, and a white panel fights the cream.
+
+### Editing a CSS rule by replacing one property
+
+Adding breakpoint overrides for `.rs-loop__track` by replacing its
+`grid-auto-columns` line closed the rule early — `gap`, `padding-inline`,
+`overflow-x` and `scrollbar-width` were left orphaned inside a media query,
+applying to nothing. The slider collapsed into a strip of tiny tiles.
+
+CSS does not fail loudly: an orphaned property is simply ignored. When adding a
+breakpoint, write the override as its OWN rule after the block, never by
+splitting the block open. Afterwards, check the rule still lists every property
+it used to, and that no `@media` opens straight onto a property.
+
+Also on the homepage:
+
+- `align-items: start` on the quote slider. With `stretch`, every cloned card
+  grew to the tallest in the whole cloned set — an enormous empty white box.
+- Marquee text is the warm gold, not white: white on maroon is a colder, harder
+  contrast than the rest of the page uses.
+- The current hero dot doubles as a progress bar — a `::after` fills over
+  `--rs-slide-ms`, which the SCRIPT sets from its own `DELAY`, so the timing has
+  one home. Restarting it needs a forced reflow (`void el.offsetWidth`) between
+  removing and re-adding the class, or the browser coalesces both into a single
+  recalculation and the animation never restarts.
+
+### A slider must not clone a row that already fits
+
+The infinite loop clones until the track is three viewports wide. With ONE
+occasion that produced thirteen identical Diwali tiles across the screen — the
+component working exactly as written, and looking completely broken.
+
+`.rs-loop` now measures first: if the original content does not overflow its
+container, it adds `.is-static`, hides the arrows, skips autoplay and returns.
+A row that fits should BE a row.
+
+Measured against the CONTAINER, not a count — "enough items" depends on card
+width and viewport, not on how many records exist.
+
+This also matters for diagnosis: two rounds of CSS fixes were aimed at sections
+that were never a CSS problem. Check what the DATA is before changing styling.
+
+### Testimonial slider sizing
+
+One card per view on a phone (86vw — the sliver of the next card is the only
+thing telling a reader there IS one), two on a tablet, EXACTLY three from
+1024px via `calc((100% - 2 * gap) / 3)`. Derived from the track's own width
+rather than a fixed rem value, which leaves a ragged gap on some viewports and
+spills to a fourth on others. Verified against eight real device widths.
+
+The static check needs ~24px of tolerance: three cards sized to exactly a third
+measure a fraction wider through sub-pixel rounding, and without slack a row
+that visually fits turns itself into a slider.
+
+**`TestimonialModel::live()` capped at 3.** Adding a fourth testimonial changed
+nothing on the page and nothing said why — a slider fed a query returning
+exactly what fits can never slide. Now 12. Any "show N at a time" section needs
+its query to return MORE than N.
+
+### Never use minmax(0, X) for grid-auto-columns in a scroller
+
+`minmax(0, X)` means "may shrink to nothing, up to X". When the content is wider
+than the track — ALWAYS true in a horizontal scroller — every column collapses
+toward zero: five cards squeezed into a phone at 62px each. Use a bare width, so
+the CARD keeps its size and the TRACK overflows, which is the point of a
+scroller.
+
+`justify-content: center` on `.is-static` compounded it by removing the free
+space that partly masked the collapse. Use `start`.
+
+**Reason about CSS from measurements, not from reading it.** Three rounds of
+edits went into a stylesheet whose source order, specificity and compiled output
+were all correct — the bug was in what the values MEAN under overflow, invisible
+without computed widths. Playwright is installed: set
+`NODE_PATH=$(npm root -g)` and
+`PLAYWRIGHT_BROWSERS_PATH=/home/claude/.cache/ms-playwright`, then read
+`getBoundingClientRect()` on the first child at several viewports.
+
+The dev server MUST run on the port in `app.baseURL`, or every asset 404s and
+every computed style is a browser default. That cost a diagnostic round on its
+own.
+
+### Guest baskets that survive a closed browser
+
+`VisitorService` mints a 32-byte random token into `rs_visitor` — httpOnly,
+SameSite=Lax, Secure on HTTPS, one year. It is the CREDENTIAL for a guest
+basket, so it is rotated on sign-in: a token someone else may have seen cannot
+be replayed against the account afterwards. Minted only when something is
+actually saved, never for a passer-by.
+
+**Set the cookie with PHP's own `setcookie()`, not CI4's.** CI4 keeps cookies on
+the shared Response, but `redirect()` returns a NEW RedirectResponse and only
+carries them if the caller remembers `->withCookies()`. Every wishlist action
+ends in a redirect, so the row saved and the cookie was thrown away — the next
+request could not find its own data. `$_COOKIE` is also updated so a save and a
+read inside one request agree.
+
+`wishlist_items.customer_id` was NOT NULL, so a guest could not save anything
+and the heart did nothing until you registered — backwards, since saving is
+what someone does BEFORE deciding to make an account. Now nullable with a
+`visitor_token` alternative, and the wishlist moved OUT of the customerAuth
+route group.
+
+Two silent failures on the way: the model's `validationRules` still said
+`customer_id => required` (insert returned false, nobody read `errors()`), and
+`set_cookie()` needs `helper('cookie')` loaded or it is simply undefined.
+
+`BasketMergeService::adopt()` runs from `establishSession()`, the single point
+every login and registration passes through. Wishlist merges as a UNION; cart
+quantities are REPLACED not summed — two in the account plus one from the guest
+basket is one, the number the person last chose, not three.
+
+### Pausing a slider must remember when
+
+`setInterval` has no notion of elapsed time, so resuming with a fresh interval
+restarts the whole delay however briefly the pointer rested. `play()` now
+resumes with a one-shot `setTimeout` for the REMAINING time before handing back
+to the steady interval, and the CSS dot fill is paused via a class rather than
+restarted, so it simply continues.
+
+Promise strip: the WORDING is homepage copy and lives on `admin/homepage`; the
+on/off flag is layout and stays under Appearance, which now links across rather
+than duplicating the field.
+
+### Clean up after moving a feature between controllers
+
+Moving the wishlist to `Storefront\Wishlist` left `AccountArea::wishlist()` and
+`::toggleWishlist()` behind, unreachable. A dead controller action is worse than
+a missing one: the next person reads it, assumes it runs, and edits the wrong
+file. Same for `WishlistModel::forCustomer()` and `::toggle()` — customer-only
+helpers sitting beside `forViewer()`/`saveFor()` invite someone to reach for the
+wrong pair and silently drop every guest row.
+
+### Guest data has to expire
+
+A wishlist row keyed to a visitor token has no owner who can ever delete it —
+the person may have cleared their cookies a year ago. `rasmein:housekeeping`
+prunes guest wishlist rows and abandoned guest carts after 13 months (a month
+past the cookie's own life, so a surviving token gets a grace period rather than
+being cut off the day it expires). A signed-in customer's saves are never
+pruned, whatever their age.
+
+### Sign-in: one-time codes, and Google
+
+No passwords. `Storefront\Auth` owns everything; `Storefront\Account` keeps
+only logout. The password actions were DELETED, not merely unrouted — an
+unreachable password login sitting beside a passwordless one invites someone to
+wire it back up, and that reopens exactly what this closed.
+
+- Codes are stored HASHED and compared with `password_verify`. Six digits is
+  only safe because guesses are capped at five, and a code lives ten minutes.
+- Issuing is rate-limited to five per address per hour, or the endpoint is a way
+  to flood an inbox using our mail server.
+- A new code retires any earlier unused one. Two live codes means the one an
+  attacker glimpsed still works after the victim asks for a replacement.
+- **Nothing is written to `customers` until the code is confirmed.** The signup
+  details ride in `auth_codes.payload`. An unverified row would let someone
+  squat on an address its real owner wants.
+- "No such account" is never revealed: the screen advances identically and a
+  code simply never arrives. The masked address (`de•••••@gmail.com`) is enough
+  for the owner and near-useless to anyone else.
+- Login accepts an email OR a phone number; the code always goes to the email,
+  and the screen says which.
+- Google matches on `sub`, never the email — an address can change hands, a
+  subject id cannot. `email_verified` is required. `state` is random per attempt
+  and compared with `hash_equals`.
+- A Google sign-up lands on `account/finish` because it still owes a phone
+  number; the name arrives pre-filled and editable.
+
+Copy for all four screens is editable under the `auth` settings group.
+
+Two traps worth remembering: a controller action typed `: string` cannot return
+a redirect (500 on the "nothing pending" path), and `CustomerModel` must
+allowlist every new column or the write silently drops it — `profile_completed_at`
+saved as NULL until it was added.
+
+### A new seeder must be added to DatabaseSeeder
+
+`AuthContentSeeder` existed and worked, but was never added to the chain — so a
+fresh install had no `google_auth_*` rows, `isConfigured()` was false, and the
+Google button silently never rendered. Nothing failed; the feature was just
+absent. Any new seeder goes into `DatabaseSeeder::run()` in the same change that
+creates it.
+
+The sign-in screen now shows an admin-only note explaining WHY the Google button
+is missing, gated on `session('admin_id')`. A visitor must never be shown a route
+that cannot work, but the person setting the shop up needs to know it is
+unconfigured rather than broken.
+
+### Progressive enhancement is not optional on the switch links
+
+The sign-in / create-account links were `href="#create"` and `href="#"`, with
+the panes swapped by script. If the script does not run — a blocked file, an
+error earlier in the bundle — clicking one only adds a hash and the server keeps
+rendering the login pane, so the person sees the wrong form and nothing explains
+it. They are now real `?mode=` URLs the server honours, and the panel's CTA is
+an anchor rather than a `<button>` for the same reason. The script still
+intercepts them for the instant switch and keeps the CTA's href in step.
+
+### Mail queue
+
+`admin/mail/queue` lists what has been sent and what failed, with per-message
+retry and a manual drain. **Message bodies are deliberately not shown** — a
+queued message can hold a one-time sign-in code or an order total, and that does
+not belong in a table anyone with panel access can scroll past. Retry refuses a
+message already marked sent: re-sending something the customer received is worse
+than doing nothing.
+
+### The sliding auth panel must move the FORMS too
+
+The panel slid from the right half to the left, but the forms stayed pinned to
+column 1 — so in register mode an opaque aside sat directly on top of every
+field. Markup correct, `opacity: 1`, `visibility: visible`, four inputs present:
+nothing looked wrong. Only `document.elementFromPoint()` over an input showed
+`ASIDE.rs-auth__panel` on top.
+
+`.rs-auth[data-mode="register"] .rs-auth__forms { grid-column: 2 / 3; }` moves
+them out from under it, and the panel is `pointer-events: none` (its links
+re-enabled) so a click mid-slide still reaches the field.
+
+**Checking visibility is not checking visibility.** For "the user says they
+cannot see it", ask what is ON TOP, and click the thing with a real driver —
+`elementFromPoint` alone also gives a false FAIL for anything below the fold,
+which sent me chasing a second phantom bug on mobile.
+
+### Do not lock a setting without building its screen
+
+`google_auth_client_secret` was seeded `is_locked = 1` because it must be stored
+encrypted and a plain settings field would write it in clear. But no screen
+existed, so it could not be set anywhere at all — the feature was unreachable by
+design. `admin/auth` now owns the sign-in wording and both Google credentials:
+the secret is written encrypted, never rendered back (only whether one exists),
+a blank field means "keep it" rather than "clear it", and the audit trail records
+that it changed without recording what it is.
+
+The `auth` group is excluded from the generic Settings screen and `SettingHomes`
+points it at `admin/auth`, so the same keys never appear in two places.
+
+### Email template placeholders are a MAP, not a list
+
+`MailService::render()` iterates `array_keys($allowed)`. Declaring
+`'placeholders' => ['otp_code', 'customer_name']` therefore yields tokens
+`0, 1` — every real token is "declared but not supplied" and gets blanked. The
+sign-in emails went out with an EMPTY code and no name, and nothing failed:
+queue() returned true, the row was written, the customer just received a blank.
+
+Always `'token' => 'what it is'`, as every other template does.
+
+### Mail detail view
+
+`admin/mail/queue/{id}` shows the message as the customer saw it, inside an
+iframe with a bare `sandbox` attribute — no scripts, no forms, no navigation.
+Email templates are editable from the panel, so a badly-edited one must not be
+able to run script against an admin session.
+
+**The one-time code IS shown**, in its own panel, with whether it is still
+usable ("Still valid for 8 more minutes" / "Already used" / "Expired").
+
+Redacting it was the wrong call. Until SMTP is configured this queue is the only
+inbox there is, so a shop could not test its own sign-in; and in support, "read
+me the code you were sent" is the entire question. It was also thinner
+protection than it looked — anyone who can reach this screen can already change
+a customer's email address and request a code to it.
+
+What protects the customer is that looking is RECORDED: viewing a message with a
+code logs `mail_code_viewed` with the recipient's address, so it can be asked
+about afterwards. Ordinary messages log `mail_viewed`.
+
+The code is read from the SENT BODY, not `auth_codes` — the stored copy is
+hashed and cannot be read back, which is correct. Extraction is anchored on the
+template's `<strong>` wrapper, so an order total or a year is never mistaken for
+a code. Bodies stay off the list view: one at a time is a deliberate act.
+
+### Put a nav item in the group that matches its permission
+
+`Mail queue` and `Sign-in screen` were added to the Content group but require
+`settings.manage`, so they were both in the wrong place AND invisible to anyone
+holding `content.manage` alone. They live under System with the other settings
+screens.
+
+### A loop that only applies below a breakpoint
+
+`data-loop="mobile"` with `data-loop-below="768"` — the collections row is a
+boxed 3-column grid on desktop and a two-up infinite slider on a phone.
+
+The script cannot simply set itself up once: cloning while the track is a grid
+fills it with duplicate tiles. It listens to a `matchMedia` change and TEARS
+DOWN — removing every `[aria-hidden="true"]` child, resetting scroll, hiding the
+arrows — then rebuilds on the way back. Verified across four breakpoint
+crossings with no clone accumulation (6 originals / 12 clones on mobile, 6 / 0
+on desktop, every time).
+
+`grid-auto-flow` must go back to `row` for the desktop grid, or the columns
+never wrap, and the loop's negative `margin-inline` (which exists to let a
+scroller bleed past the shell) has to be cancelled so a boxed grid sits inside
+it.
+
+**Counting clones with `querySelectorAll('[aria-hidden]')` is wrong.** It
+descends into each tile and finds the decorative veil and arrow spans, which
+reported 66 clones where there were 12. Filter `track.children` instead.
+
+### Test with a TOUCH device profile, not a narrow window
+
+`@media (hover: none)` was hiding the slider arrows, so they were missing on
+every real phone — and invisible to every test I had run, because a resized
+desktop viewport still reports `hover: hover`. Playwright's device profiles
+(`devices['iPhone 14']`) set it properly; a narrow `viewport` alone does not.
+
+The arrows now stay on touch, smaller and pulled to the very edge. Hiding them
+was wrong reasoning anyway: a scroller with no visible affordance reads as a
+static row, and nobody swipes something they do not know moves.
+
+Note the `!important` on `.rs-loop--gridup .rs-loop__nav` — the touch rule and
+the grid rule are both single-class selectors in the same layer, and the grid
+must win regardless of source order.
+
+### Rail scrollbars
+
+`.rs-rail` gets a 4px bar in the shop's mulberry via `scrollbar-width: thin` +
+`scrollbar-color` (Firefox/standard) AND `::-webkit-scrollbar` (Blink/WebKit) —
+both are needed, neither alone covers every browser.
+
+The LOOPING sliders restate `scrollbar-width: none` afterwards, because the
+shared rule above would otherwise give them a bar, and a scrollbar position on a
+row that never ends is meaningless.
+
+### Facets are scoped to the page, not the shop
+
+`FacetService::base()` now applies the page's own context (occasion, category)
+to EVERY count. On an occasion page the Category facet lists the categories its
+own gifts fall into — three, not the whole tree — and "Brass 32" can no longer
+appear beside a page showing four things. A count that the page cannot honour is
+worse than no count.
+
+- Inside an occasion, Category is a CHECKBOX (`cat[]`) that narrows this
+  occasion. On the shop it stays a LINK, because a category there is a place
+  with its own page. Different jobs, so different controls.
+- The Occasion facet is shown on occasion pages too, as links with the current
+  one marked `aria-current`. Dropping it left the page with no way sideways
+  except the nav.
+- Price survives at a SINGLE band, unlike the other facets: it is the filter
+  people look for first, and on a small page every gift may genuinely sit in one
+  band. An empty space reads as missing; "Under 2,000 (4)" reads as an answer.
+
+Facets are `<details>` — first open, rest closed, and any facet with something
+ticked opens regardless so a narrowed result set is never unexplained. A closed
+facet that is filtering shows a dot.
+
+**A `static` closure has no `$this`.** CI4 calls `whereIn` subquery closures
+statically, so capture what it needs into a local first — otherwise the page
+500s with "Using $this when not in object context".
+
+### The wishlist heart is AJAX over a real form
+
+The heart sits inside a `<form>` that posts to `wishlist/toggle`. The script
+intercepts submit, calls `wishlist/toggle.json`, fills the heart in place and
+updates the header badge — no reload, so a listing keeps its scroll position.
+With no JavaScript the form still posts. If the request fails, the handler
+removes `data-wish` and submits the form for real rather than leaving the person
+stuck.
+
+- **The JSON response returns `csrf_hash()`.** CI4 rotates the token on every
+  POST, so without writing the fresh one back into the form the SECOND tap is
+  rejected as a forgery.
+- `savedAmong()` fetches the saved ids for a whole page in ONE query. Asking per
+  card is an N+1 and a listing can show fifty.
+- A guest still SAVES (against the visitor token, as before) and then sees a
+  modal offering an account. Refusing the save would have thrown away the guest
+  basket work and the merge on sign-in; prompting after saving keeps both.
+
+### Two escaping traps hit again
+
+`rs_icon()` escapes its class string, and a Tailwind class containing a dot
+(`h-3.5`) comes out as `h-35` — the icon then renders at its intrinsic size,
+which is what made the filter chevron enormous. Size icons from their own CSS
+class, not a utility with a dot in it.
+
+Quick actions on band/rail cards are `position: absolute` at the bottom of the
+IMAGE. Making them `static` put them in a row of their own between the picture
+and the name, which split the card in two.
+
+### CSRF rotation breaks the SECOND background request
+
+CI4 rotates the token on every POST. Writing the fresh one back into only the
+submitted form leaves every other form on the page holding a spent token — so
+the second heart failed CSRF, the error path submitted the form for real, and
+the browser landed on `/wishlist/toggle`. That was the reported bug.
+
+**Refresh every `input[name^="csrf"]` on the page** after any background POST.
+Both the wishlist and cart handlers do this, on success AND on failure.
+
+### Icons must be pointer-transparent
+
+Inside a button or a `<summary>`, an SVG sits on top: `e.target` is the icon,
+not the control, and a click on the icon can miss a summary's native toggle.
+`.rs-heart svg, .rs-qty__btn svg, .rs-facet__head svg, … { pointer-events: none }`
+once, rather than `.closest()` in every handler.
+
+### Cart quantities are ABSOLUTE, never deltas
+
+`cart/add.json` takes the number wanted, not "+1". A delta sent twice because a
+tap was slow gives two increments and the customer receives three of something
+they wanted one of. `CartService::setProductQuantity()` finds the loose line for
+a product (`gift_box_id IS NULL` — a configured box is a different line) and
+sets it, adding or removing as needed.
+
+### A badge that does not exist cannot be updated
+
+The basket count was wrapped in `<?php if ($count > 0) ?>`, so after the first
+add there was no node to write to and the badge stayed missing. Always render
+it, `hidden` when empty, with `[hidden] { display: none }` to beat its own
+display rule.
+
+### Filters apply in place
+
+The filter form is fetched and only the grid, count, chips and facet counts are
+swapped. A full reload throws away the scroll position and closes every
+accordion — most of the work the reader just did. The URL is still pushed, so
+back and copied links behave normally, and an aborted controller supersedes a
+slow earlier response so results cannot arrive out of order.
+
+Price is a two-handle RANGE bounded by MIN/MAX of the page's own products, not
+fixed bands: bands make a shop guess the boundaries, and on a small page every
+product lands in one. Facets are single-open — expanding one closes the rest.
+
+### Two more CartService traps
+
+There is no `$this->db` property on `CartService`; it uses `db_connect()`
+inline. And `ProductModel` is not imported in `Storefront\Cart`, so a new method
+needs the fully-qualified name.
+
+### Page templates
+
+`pages.template` picks a layout, `pages.data` (JSON) holds whatever that layout
+needs. JSON rather than a blocks table: the fields are read as one whole, always,
+and never queried across pages — a join table would buy nothing and cost a query.
+
+**`Config\PageTemplates` is the single definition.** It drives the picker, the
+admin fields AND the storefront view. Split across three places, a field ends up
+saveable but never shown, or shown but not editable — and nothing says why.
+
+- Saving keeps only fields the CHOSEN template declares, so a posted key no
+  template asks for is dropped rather than stored. The column cannot become a
+  dumping ground.
+- Empty repeated rows are discarded: three blank slots on screen must not become
+  three blank cards on the page.
+- A failed image upload keeps the OLD image rather than clearing it.
+- Defaults fill a template chosen for the first time and only then — merging
+  them into an edited page would resurrect copy the shop deliberately cleared.
+- Repeatable rows render as fixed slots (existing + 1 spare) rather than a JS
+  repeater. Four visible boxes beat a button that makes boxes appear.
+- Contact gets a bare `/contact`; other pages keep `/page/{slug}`. It is linked
+  from the header, footer and email signatures, where `/page/contact` reads like
+  a filing system rather than an address.
+- Channel links accept `mailto:`, `tel:`, `https://` and site paths — the scheme
+  cannot simply be refused here — and anything else, `javascript:` above all, is
+  dropped.
+
+`ContactPageSeeder` is idempotent and IS in `DatabaseSeeder` (the mistake made
+with AuthContentSeeder). The photograph is seeded empty on purpose: a
+placeholder on a contact page looks like a fault, and the band hides itself
+until a real image is uploaded.
+
+### PIN code lookup
+
+`Storefront\Pincode` proxies India Post (free, no key) and caches for a month.
+A proxy rather than a direct browser call because: the same few hundred PINs get
+typed repeatedly, the upstream can change in ONE place rather than three forms,
+and no third party learns a customer's address before they have ordered.
+
+- Only a real answer is cached. Caching a network failure for a month would
+  turn a blip into a lasting outage for that PIN.
+- On failure the city and state fields become writable and say so. **A lookup
+  must never block a checkout.**
+- `District`, not `Name` — `Name` is the individual post office ("Amer Fort")
+  where the customer expects their city.
+- The lookup is scoped to `closest('[data-bill-fields], fieldset, form')`, so
+  the billing PIN cannot overwrite the shipping fields.
+- City is now `permit_empty`: it is filled by the lookup and a PIN can
+  legitimately have no district, so requiring it would block a real address.
+
+Billing fields are `hidden`, not removed, so a value typed and then re-ticked
+survives. The box is ticked by default because for most orders the two ARE the
+same.
+
+### Cart quantity, in place
+
+The cart re-fetches its own page and swaps `[data-cart-lines]` and
+`[data-cart-summary]`. Totals stay server-side — coupons, shipping bands and
+gift-box pricing all live there, and recomputing in the browser is a second
+implementation that eventually disagrees with the first.
+
+Note the badge counts LINES, not units, so 3 of one product still shows 1. That
+is the existing convention, not a bug.
+
+### Wishlist page
+
+Hearts render `aria-pressed="true"` (everything there is saved, by definition)
+and un-saving REMOVES the card — an empty outline on a page of saved things
+reads as a fault, and the heading count would disagree with the screen. The last
+one triggers a reload so the empty state renders properly.
+
+`cursor: pointer` on hearts and steppers: a button's default cursor is an arrow,
+and one control on a card that does not show a hand reads as decoration.
+
+### The mail preview shows the WRAPPED message
+
+`body_html` is only the inner content; `deliver()` runs it through
+`MailService::wrap()`, which adds the branded shell. Previewing the raw column
+showed something no customer ever receives — the right words in none of the
+right dressing. The preview now calls the same `wrap()` that sends it, so it
+cannot drift from the real thing, and a second tab shows the plain-text
+alternative (invisible otherwise, and a broken one is only found by someone
+reading mail in a text-only client).
+
+`sandbox="allow-same-origin"` rather than a bare `sandbox`: the height cannot be
+measured through an opaque document, so the frame stayed at a fixed size and
+cropped long emails. **Scripts stay off** — `allow-scripts` is the token that
+matters, and an email template edited badly still cannot run anything against
+the panel.
+
+**Collapse the iframe to 0 before measuring it.** `scrollHeight` on a short
+document returns at least the frame's own height, so a 640px frame holding 470px
+of email reports 640 and each pass makes it taller than the last — 640 → 720 →
+… Shrinking first means the number that comes back is the content's. Also
+measure immediately, not only on `load`: a `srcdoc` frame often finishes before
+the script runs, so `load` may never fire.
+
+### A code that was never in the message cannot be shown
+
+Messages queued before the placeholder bug was fixed were stored with an empty
+`<strong></strong>` — the customer received a blank, and `codeFrom()` correctly
+returns null. `auth_codes` holds the code hashed, deliberately, so it is
+unrecoverable.
+
+Those rows now say so LOUDLY rather than silently omitting the panel. "There is
+no panel" and "the panel is empty" look identical from the outside, and one of
+them means the email itself was broken — which is exactly the confusion this
+caused.
+
+The code also appears **in the queue list**, beside each row. Until SMTP is
+configured this queue IS the inbox, and opening a message to read six digits is
+a step for nothing. The list view audits `mail_code_viewed` when any code was on
+screen.
+
+### Corporate mode is a per-VISITOR journey switch
+
+`journey_mode` was a global admin setting. It now reads a `rs_mode` cookie
+first, so a corporate buyer can put the whole site into enquiry mode from the
+header — someone ordering two hundred hampers will not use a basket, and someone
+buying one gift should not fill in an enquiry form.
+
+- The switch is a **POST**. It changes how the whole site behaves, and a GET
+  that does that can be fired by any image tag on any page.
+- The cookie is deliberately NOT httpOnly: it holds nothing personal, is not a
+  credential, and the header needs to reflect the mode without a round trip.
+- A banner runs under the header while corporate mode is on. A shop that
+  suddenly has no Add to Cart looks broken otherwise.
+- The switch appears twice — header and mobile drawer — because the header one
+  is hidden below 900px where the icon row has no room.
+
+**`'inherit'` must be RESOLVED, not passed through.** `rs_cta_label('inherit')`
+matched neither branch and every card said "Add to cart" even in corporate mode.
+It now goes through `resolveItemMode()`, which is what turns a product's
+`inherit` into the site's current journey.
+
+### settings.value_type is an ENUM without 'text'
+
+Seeding `'text'` made MySQL store an empty string, `cast()` fell through to the
+default, and every one of those settings read back EMPTY — nothing errored. Use
+`'string'`. Check `SHOW COLUMNS` before inventing a type name.
+
+### The animated search placeholder
+
+Types a phrase, holds it, wipes it, moves to the next. Phrases come from
+`search_placeholders`, one per line, so a shop advertises what it actually
+sells. It stops entirely under `prefers-reduced-motion`, and on focus — leaving
+a COMPLETE phrase, never half a word, because text moving under someone who is
+typing is a distraction.
+
+### Product attributes are SPECIFICATIONS, not variants
+
+The catalogues show "COLOR VARIANT" and "SIZE 8x3.5x5" as descriptions of ONE
+product with one quantity-tiered price ladder — not separate SKUs each with
+their own stock and price. Full variants would need a row per combination with
+stock and price on each, none of which the catalogue has and none of which the
+shop tracks.
+
+`attributes.is_selectable` is the whole difference: "this bowl is 8 inches" is a
+spec (listed), "which colour would you like" is a chooser (offered as chips).
+
+- Values are a **controlled list**, not free text on the product. "Silver",
+  "silver" and "SILVER" typed on three products become three facets otherwise.
+- Filtering is **OR within an attribute, AND across attributes** — silver or
+  gold, AND peacock. That needs ONE SUBQUERY PER ATTRIBUTE; a single `whereIn`
+  over all values returns anything matching any one of them.
+- `AttributeValueModel::forProducts()` loads a whole page in one query, the same
+  shape as `imagesFor()`. Per-card would be fifty queries on a listing.
+- Deleting a value in use is **refused**, not cascaded. The foreign key would
+  happily strip it from forty products with no way back.
+- The chosen value is stored as TEXT on the cart and order line, never as an id:
+  an order is a record of what was agreed, and it must still read correctly
+  after a value is renamed or deleted.
+- Facet counts come from `base()`, so they are scoped — Silver (2) on the Diwali
+  page, Silver (6) shop-wide.
+
+Seeded from the shop's own PDFs: Peacock and Elephant are real shapes Rasmein
+sells, not placeholders.
+
+**Three traps hit again while building this:**
+
+- `ProductModel` returns ENTITIES — `$product['id']` throws "Cannot use object
+  of type Product as array". Use `$product->id`.
+- `addColumn`'s `after` names a column that must exist on THAT table. It named
+  one from a different table and the ALTER was silently rejected.
+- `PricingService` builds an EXPLICIT line array, so a new `cart_items` column
+  does not reach the cart view for free — it has to be added there too.
+
+### The real catalogue: ProductCatalogueSeeder
+
+155 products, 11 categories, 224 attribute links, parsed from the German Silver
+and Premium Collection PDFs. It TRUNCATES products, categories and their joins
+first — destructive on purpose, because a merge would interleave the demo
+catalogue with the real one. Orders are untouched: they keep name and price
+snapshots precisely so the catalogue can change underneath them.
+
+- **A PL code labels a catalogue PAGE, not a product.** `PL-7002` covers a
+  platter and an urli; 67 SKUs needed a `-2`/`-3` suffix to satisfy the unique
+  key. Worth renumbering properly before launch.
+- **113 of 155 prices are ESTIMATED** (category median). The Premium Collection
+  is two-column, so `pdftotext` ties the price to the code rather than the name.
+  The 42 German Silver prices are the catalogue's own figures.
+- The seeder deliberately varies the data: pieces over ₹5,000 become
+  `enquire_now`, two go out of stock, slots scale 1/2/3 with price, one product
+  per category is featured. **Uniform seed data leaves whole code paths
+  untested** — that is how the builder's capacity maths and the sold-out path
+  went unexercised.
+
+### Diagnostics must not pin demo fixtures
+
+Nine checks broke when the real catalogue replaced the demo one, and every
+failure was the TEST, not the app: hard-coded slugs (`dark-chocolate-72`,
+`blue-pottery-platter`), hard-coded prices (`320.0 * 3`), and a search for
+"chocolate".
+
+Fixed by asking for the TRAIT each assertion depends on — a sold-out test wants
+`stock_qty = 0`, a two-slot test wants `giftbox_slots = 2`, a refused-category
+test reads `gift_box_categories` and picks something outside it — and by
+computing expectations from the row actually chosen. Assert the RULE (free
+delivery above the threshold) rather than a figure (₹960).
+
+One trap in the fixing: a blanket find-and-replace gave every lookup the same
+filter, so `$bar` and `$candle` became the SAME product and the 1-slot and
+2-slot tests measured one row twice.
+
+### A seeder must seed its own dependencies
+
+`ProductCatalogueSeeder` looks attribute values up BY LABEL, so it silently
+linked nothing when run before `AttributeSeeder` — and printed
+"0 attribute links" as though that were a normal result. The shop then found an
+empty Attributes screen and no attribute section on the product form, with
+nothing anywhere explaining why.
+
+It now calls `AttributeSeeder` itself when `attributes` is empty (that seeder is
+idempotent, so calling it twice costs nothing) and prints a WARNING if the link
+count still comes out zero.
+
+**Ordering documented in a chain is not a dependency.** Anyone running one
+seeder directly — which is the normal way to re-seed one thing — bypasses the
+chain entirely. A zero-result run that prints a cheerful summary is worse than
+an error.
+
+### Variants sit ON TOP of attributes
+
+Attributes alone are a bag of unrelated facts: "silver, antique silver, round,
+antique finish". They cannot answer "is antique silver available in the large
+size", cannot price one colour higher, and cannot give a colour its own
+photograph. Modelling them as specifications only was the wrong call.
+
+A VARIANT is one combination that can be bought. `product_variants` +
+`variant_values`.
+
+- **Every override column is NULLABLE and falls back to the product.** A variant
+  differing only in colour does not restate price, picture and description — and
+  when the product's price changes, it follows.
+- **`variant_key` is stored, not derived**, so a shared URL survives a value
+  being renamed from "Silver" to "Sterling Silver".
+- **The whole matrix goes to the browser as JSON.** Selecting a colour has to
+  grey out sizes that colour does not come in; asking the server per click would
+  feel like dial-up.
+- **Unavailable options are disabled, not hidden.** Hiding them makes a shop
+  look like it does not stock something it does. Sold-out and non-existent are
+  shown differently — they are different facts.
+- **The variant is part of cart line identity.** `findProductLine()` takes it,
+  or adding gold silently increments the silver line already in the basket.
+- **`replaceState`, not `pushState`** — trying three colours should not mean
+  pressing back three times to leave.
+- An unknown variant key is NOT a 404: links get shared after a variant is
+  retired, and the piece still exists.
+- Only ONE of the two product routes is named. Two routes cannot share a name,
+  and the two-segment rule must be declared FIRST or the single-segment one
+  swallows it.
+
+### Money is formatted server-side
+
+The variant JSON carries `rs_money()` output, not raw numbers. The browser must
+not reimplement currency rules — that is how a second, subtly different format
+appears on one page.
+
+### The variant admin
+
+`admin/products/{id}/variants` — a table, one row per combination, one form for
+the lot. Someone repricing a colour range is changing four numbers, not making
+four decisions, so a save button per row would be four times the clicking for
+nothing.
+
+- **A blank price means "follow the product", not zero.** That distinction is
+  the whole point of the nullable columns; a cleared field must return the
+  variant to the product's price, not make it free.
+- A posted variant id is checked against THIS product, or a hand-edited form
+  could reprice someone else's.
+- `is_default` is a RADIO, so exactly one variant opens the page. Two would make
+  `pick()` arbitrary; none would open on whatever sorted first.
+- Deleting a variant that is **in a basket is refused** — the cascade would take
+  the line with it and the customer would find their basket lighter with nothing
+  explaining why. Switching it off hides it from the storefront and leaves the
+  basket intact.
+- The same combination twice is refused: two variants would match one set of
+  choices and selection becomes ambiguous.
+- A failed image upload keeps the OLD picture rather than clearing it.
+- The description is behind a `<details>`, not a table column — a paragraph in a
+  column squashes everything else.
+
+The link lives on the product form beside Attributes, because variants are built
+FROM those ticks and that is where someone will look for them.
+
+### syncAttributes() landed in delete(), not save()
+
+A regex insert matched the audit call in `delete()` instead of the one in
+`save()`. Two consequences, both silent:
+
+- Ticking attribute values on the product form **never persisted** — the form
+  posted them, nothing read them.
+- **Deleting a product wiped its attribute links** as a side effect, which is
+  not what a soft delete is for.
+
+Nothing errored. The tick simply reappeared unticked after a reload.
+
+It now sits beside the occasions sync, after `$id` is known — on a new product
+the id does not exist until `getInsertID()`.
+
+**Anchor an insert on the method, not on a line that appears in several.**
+`service('audit')->log(...)` appears in every controller action; matching one by
+its arguments is matching a coincidence. Verify placement afterwards by grepping
+for the call and reading the enclosing function name.
+
+### Multi-axis variants: selection is BIDIRECTIONAL
+
+A product can have any number of choosable axes — colour x size x finish — and
+they need not be symmetric: silver in 8" and 12", gold only in 12". The schema
+already handled this (`variant_values` is a row per value), but the browser
+logic did not.
+
+**The bug:** availability was tested against every OTHER chosen axis. With
+Silver and 8" selected, Gold was measured against 8"; there is no Gold 8", so
+Gold greyed out — and the buyer could never reach the Gold 12" that exists. A
+dead end with no way back, on a product that was perfectly well stocked.
+
+**First fix, also wrong:** narrowing only downward meant choosing a size could
+never move the colour. But if 2 cm exists only in blue, choosing 2 cm MUST mean
+blue — otherwise the size is greyed out despite being stocked, or the page sits
+on a combination nobody can buy.
+
+**The rule now:** clicking any option keeps it fixed and `bestFor()` picks the
+variant carrying it that KEEPS THE MOST of the buyer's other choices, breaking
+ties towards stock. Nothing moves that does not have to, and anything that must
+move, does — in either direction.
+
+Three states, and the distinction matters:
+
+- **impossible** — no variant carries this value at all. Struck through and
+  disabled.
+- **fits** — works with everything currently chosen. Plain.
+- **adjusts** — exists, but choosing it moves another axis. Dimmed and STILL
+  CLICKABLE. Greying it would hide stock the shop actually has.
+
+Verified with three axes: clicking Gold moves size 8"→12" AND finish
+Polished→Matte in a single step, and the greying updates to match.
+
+Colour, size, shape and finish are all axes now. Capacity stays a spec.
+
+The catalogue seeder BROADENS the palette: the PDFs name the colour a piece was
+photographed in, not the range it is offered in, and one colour per product
+makes a "choose a colour" control with one option. It also gives half the range
+a second size. Both are deterministic on the SKU, so the catalogue is identical
+on every machine and every rerun.
+
+`VariantSeeder` drops about a fifth of the cross product for the same reason a
+real catalogue is asymmetric — and because seeding a perfect grid hides the
+whole problem the selector exists to solve. The first combination of every piece
+always survives, or a product could end up with nothing to sell.
+
 ### Outstanding security work (tracked, not yet done)
 
 - [ ] **CSP is written but not enabled.** `Config/ContentSecurityPolicy.php`

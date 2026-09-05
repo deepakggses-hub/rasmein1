@@ -122,6 +122,19 @@
       thumb.addEventListener('click', function () {
         var src = thumb.getAttribute('data-src');
         if (!src) return;
+        // A <picture> wraps the img in <source> elements, and a browser that
+        // matched a source ignores a changed img.src entirely — the picture
+        // would appear stuck. Clear the sources and let it fall back to the
+        // img, whose srcset is swapped too.
+        var picture = main.parentElement;
+
+        if (picture && picture.tagName === 'PICTURE') {
+          picture.querySelectorAll('source').forEach(function (s) {
+            s.removeAttribute('srcset');
+          });
+        }
+
+        main.removeAttribute('srcset');
         main.src = src;
         main.alt = thumb.getAttribute('data-alt') || '';
         thumbs.forEach(function (t) { t.removeAttribute('aria-current'); });
@@ -346,6 +359,10 @@
     var timer = null;
     var DELAY = 6500;
 
+    // One source of truth for the timing: the CSS fill reads this, so changing
+    // DELAY moves the bar with it rather than leaving the two out of step.
+    hero.style.setProperty('--rs-slide-ms', DELAY + 'ms');
+
     var calm = window.matchMedia('(prefers-reduced-motion: reduce)');
 
     function show(next) {
@@ -359,6 +376,16 @@
       if (dots.length) {
         dots[current].classList.remove('is-current');
         dots[next].classList.add('is-current');
+
+        /*
+         * Restart the fill.
+         *
+         * Removing and re-adding the class is not enough on its own: the
+         * browser coalesces both into one style recalculation and the animation
+         * never restarts. Reading offsetWidth in between forces the reflow that
+         * makes it take.
+         */
+        void dots[next].offsetWidth;
       }
 
       current = next;
@@ -370,12 +397,51 @@
       // Someone who has asked for less motion should not get a carousel that
       // moves on its own. The dots still work.
       if (calm.matches || slides.length < 2) return;
-      stop();
-      timer = window.setInterval(advance, DELAY);
+      if (timer) return;
+
+      hero.classList.remove('is-paused');
+      startedAt = Date.now();
+
+      /*
+       * The CSS animation is paused by .is-paused rather than restarted, so it
+       * simply continues — no reflow, no jump. The timer has to be told how
+       * much of the delay is already spent, which is what the one-shot timeout
+       * below does before handing back to the steady interval.
+       */
+      var remaining = Math.max(400, DELAY - elapsed);
+
+      timer = window.setTimeout(function () {
+        advance();
+        elapsed = 0;
+        startedAt = Date.now();
+        timer = window.setInterval(function () {
+          advance();
+          startedAt = Date.now();
+        }, DELAY);
+      }, remaining);
     }
 
+    /*
+     * Pausing has to remember WHEN it happened.
+     *
+     * setInterval has no notion of elapsed time, so resuming with a fresh
+     * interval restarts the full delay however briefly the pointer rested on
+     * the slide — and the CSS fill restarted with it. Recording the elapsed
+     * portion lets both carry on from where they stopped.
+     */
+    var startedAt = 0;
+    var elapsed = 0;
+
     function stop() {
-      if (timer) { window.clearInterval(timer); timer = null; }
+      if (timer) {
+        // Either kind — play() uses a timeout first, then an interval.
+        window.clearTimeout(timer);
+        window.clearInterval(timer);
+        timer = null;
+        elapsed += Date.now() - startedAt;
+      }
+
+      hero.classList.add('is-paused');
     }
 
     dots.forEach(function (dot, index) {
@@ -509,7 +575,7 @@
     }
   });
 
-  // ---------------------------------------------------- filter auto-submit
+  // ---------------------------------------------------- filters, in place
   var filters = document.querySelector('[data-filters]');
 
   if (filters) {
@@ -518,19 +584,122 @@
     if (manual) manual.hidden = true;
 
     var pending = null;
+    var inflight = null;
+
+    /*
+     * Fetch the filtered page and swap in just the parts that changed.
+     *
+     * A full reload throws away the reader's scroll position and collapses
+     * every open facet, which on a long sidebar is most of the work they just
+     * did. The URL is still updated, so the back button and a copied link both
+     * behave exactly as they would have.
+     */
+    function apply() {
+      var data = new FormData(filters);
+      var qs = new URLSearchParams();
+
+      data.forEach(function (v, k) {
+        if (String(v) !== '') qs.append(k, v);
+      });
+
+      var url = window.location.pathname + (qs.toString() ? '?' + qs.toString() : '');
+      var grid = document.querySelector('[data-grid]');
+
+      if (grid) grid.setAttribute('aria-busy', 'true');
+
+      // A newer request supersedes an older one; without this a slow first
+      // response can land after a fast second and show the wrong results.
+      if (inflight) inflight.abort();
+      inflight = new AbortController();
+
+      fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' }, signal: inflight.signal })
+        .then(function (r) { return r.ok ? r.text() : Promise.reject(r); })
+        .then(function (html) {
+          var doc = new DOMParser().parseFromString(html, 'text/html');
+
+          // The grid, the count, the chips and the facet counts all change.
+          [['[data-grid]', true], ['[data-result-count]', true], ['[data-chips]', true]].forEach(function (pair) {
+            var next = doc.querySelector(pair[0]);
+            var here = document.querySelector(pair[0]);
+
+            if (next && here) here.innerHTML = next.innerHTML;
+          });
+
+          // Facet counts move as filters narrow, but replacing the whole
+          // sidebar would close every accordion and lose focus mid-interaction.
+          doc.querySelectorAll('[data-facet-count]').forEach(function (next) {
+            var here = document.querySelector('[data-facet-count="' + next.getAttribute('data-facet-count') + '"]');
+            if (here) here.textContent = next.textContent;
+          });
+
+          window.history.pushState({}, '', url);
+        })
+        .catch(function (e) {
+          if (e && e.name === 'AbortError') return;
+          window.location.href = url;   // fall back to a real navigation
+        })
+        .finally(function () {
+          if (grid) grid.removeAttribute('aria-busy');
+        });
+    }
 
     filters.addEventListener('change', function (e) {
-      if (!e.target.matches('input[type="checkbox"]')) return;
+      if (!e.target.matches('input')) return;
 
-      // A short debounce, so ticking three boxes in a row is one navigation
-      // rather than three.
+      // A short debounce, so ticking three boxes in a row is one request
+      // rather than three — and so a slider drag does not fire per pixel.
       window.clearTimeout(pending);
-      pending = window.setTimeout(function () {
-        filters.setAttribute('aria-busy', 'true');
-        filters.submit();
-      }, 350);
+      pending = window.setTimeout(apply, 350);
     });
+
+    // The back button must undo a filter, not leave the page stale.
+    window.addEventListener('popstate', function () { window.location.reload(); });
   }
+
+  // ------------------------------------------------- one facet open at a time
+  document.querySelectorAll('.rs-facet').forEach(function (facet) {
+    facet.addEventListener('toggle', function () {
+      if (!facet.open) return;
+
+      document.querySelectorAll('.rs-facet[open]').forEach(function (other) {
+        if (other !== facet) other.open = false;
+      });
+    });
+  });
+
+  // ------------------------------------------------------- price range slider
+  document.querySelectorAll('[data-range]').forEach(function (range) {
+    var from = range.querySelector('[data-range-from]');
+    var to = range.querySelector('[data-range-to]');
+    var fill = range.querySelector('[data-range-fill]');
+    var lo = range.querySelector('[data-range-lo]');
+    var hi = range.querySelector('[data-range-hi]');
+    var min = Number(range.getAttribute('data-min'));
+    var max = Number(range.getAttribute('data-max'));
+
+    function money(n) {
+      return '\u20B9\u00A0' + Number(n).toLocaleString('en-IN');
+    }
+
+    function paint() {
+      // The handles must not cross. Whichever moved gives way.
+      if (Number(from.value) > Number(to.value)) {
+        if (document.activeElement === from) from.value = to.value;
+        else to.value = from.value;
+      }
+
+      var a = ((from.value - min) / (max - min)) * 100;
+      var b = ((to.value - min) / (max - min)) * 100;
+
+      fill.style.left = a + '%';
+      fill.style.width = (b - a) + '%';
+      lo.textContent = money(from.value);
+      hi.textContent = money(to.value);
+    }
+
+    [from, to].forEach(function (el) { el.addEventListener('input', paint); });
+    paint();
+  });
 
   // ------------------------------------------------------- filter sheet
   var sidebar = document.querySelector('[data-sidebar]');
@@ -630,4 +799,1015 @@
       done(ok);
     });
   });
+})();
+
+/**
+ * Infinite slider.
+ *
+ * HOW THE LOOP WORKS
+ *
+ * The set is cloned until the track is comfortably wider than the viewport,
+ * then, whenever the reader passes the end of the first copy, that copy's width
+ * is subtracted from scrollLeft. The jump is invisible because the pixels on
+ * either side of it are identical — the reader is looking at a clone of what
+ * they were just looking at.
+ *
+ * Built on a native scroller rather than a transform, so touch keeps its
+ * momentum, the keyboard reaches every tile, and a browser that never runs this
+ * file still gets a usable horizontal scroller.
+ *
+ * Clones are aria-hidden with their links taken out of the tab order, or a
+ * screen reader would announce every occasion two or three times.
+ */
+(function () {
+  'use strict';
+
+  var calm = window.matchMedia('(prefers-reduced-motion: reduce)');
+
+  document.querySelectorAll('[data-loop]').forEach(function (root) {
+    var track = root.querySelector('[data-loop-track]');
+    if (!track) return;
+
+    var originals = Array.prototype.slice.call(track.children);
+    if (!originals.length) return;
+
+    var setWidth = 0;
+    var timer = null;
+    var dragging = false;
+    var prev = root.querySelector('[data-loop-prev]');
+    var next = root.querySelector('[data-loop-next]');
+
+    function measure() {
+      // The width of ONE original set, including the gap after it.
+      var gap = parseFloat(getComputedStyle(track).columnGap) || 0;
+      setWidth = originals.reduce(function (sum, el) {
+        return sum + el.getBoundingClientRect().width + gap;
+      }, 0);
+    }
+
+    function clone() {
+      /*
+       * THREE copies at minimum, whatever the widths.
+       *
+       * The wrap starts at one set in and jumps back at two sets in, so the
+       * track must hold at least two sets plus a viewport. Cloning only until
+       * the track was three viewports wide looked equivalent and is not: when a
+       * single set is ALREADY wider than three viewports — four tiles on a
+       * phone, twelve on an ultrawide — the loop never cloned, scrollLeft never
+       * reached the wrap point, and the slider simply ran to the end and
+       * stopped. Caught by simulating the arithmetic rather than by looking at
+       * it.
+       */
+      var copies = 1;
+      var guard = 0;
+
+      while ((copies < 3 || track.scrollWidth < track.clientWidth * 3) && guard < 12) {
+        copies++;
+        originals.forEach(function (el) {
+          var copy = el.cloneNode(true);
+          copy.setAttribute('aria-hidden', 'true');
+          copy.querySelectorAll('a, button').forEach(function (control) {
+            control.setAttribute('tabindex', '-1');
+          });
+          track.appendChild(copy);
+        });
+        guard++;
+      }
+    }
+
+    function wrap() {
+      if (setWidth <= 0) return;
+
+      // Past the first copy: step back one set. Before the start: step forward.
+      if (track.scrollLeft >= setWidth * 2) {
+        track.scrollLeft -= setWidth;
+      } else if (track.scrollLeft < setWidth * 0.5) {
+        track.scrollLeft += setWidth;
+      }
+    }
+
+    function step(direction) {
+      var first = track.firstElementChild;
+      var gap = parseFloat(getComputedStyle(track).columnGap) || 16;
+      var by = first ? first.getBoundingClientRect().width + gap : track.clientWidth * 0.8;
+
+      track.scrollBy({ left: by * direction, behavior: 'smooth' });
+    }
+
+    function play() {
+      // Autoplay is motion nobody asked for; honour a stated preference.
+      if (calm.matches) return;
+      stop();
+      timer = window.setInterval(function () {
+        if (!dragging) step(1);
+      }, 3800);
+    }
+
+    function stop() {
+      if (timer) { window.clearInterval(timer); timer = null; }
+    }
+
+    /*
+     * Some loops only apply below a breakpoint — the collections row is a boxed
+     * grid on desktop and a slider on a phone. Cloning on the desktop side
+     * would fill the grid with duplicate tiles, so the whole thing is torn down
+     * and rebuilt when the breakpoint is crossed rather than set up once.
+     */
+    var only = root.getAttribute('data-loop') === 'mobile'
+      ? window.matchMedia('(max-width: ' + (root.getAttribute('data-loop-below') || '768') + 'px)')
+      : null;
+
+    if (only) {
+      var onChange = function () {
+        if (only.matches) {
+          start();
+        } else {
+          teardown();
+        }
+      };
+
+      // addEventListener on a MediaQueryList is not in older Safari; addListener
+      // is deprecated but still the only thing that works there.
+      only.addEventListener ? only.addEventListener('change', onChange) : only.addListener(onChange);
+      onChange();
+
+      return;
+    }
+
+    start();
+
+    function teardown() {
+      stop();
+
+      // Remove every clone, leaving exactly what the server rendered.
+      Array.prototype.slice.call(track.children).forEach(function (el) {
+        if (el.getAttribute('aria-hidden') === 'true') el.remove();
+      });
+
+      track.scrollLeft = 0;
+      root.classList.add('is-static');
+
+      if (prev) prev.hidden = true;
+      if (next) next.hidden = true;
+    }
+
+    function start() {
+      root.classList.remove('is-static');
+      setUp();
+    }
+
+    function setUp() {
+    // ---- set up ----
+    measure();
+
+    /*
+     * Only loop when there is actually something to loop.
+     *
+     * The cloning is what makes an infinite row possible, but with one or two
+     * items it fills the screen with copies of the same tile — which is what a
+     * shop with a single occasion actually saw: thirteen identical Diwali
+     * cards. A row that fits should simply BE a row.
+     *
+     * Measured against the container, not a count, because "enough" depends on
+     * the card width and the viewport, not on how many records exist.
+     */
+    /*
+     * A few pixels of tolerance. Three cards sized to exactly a third of the
+     * track still measure a fraction wider because of sub-pixel rounding, and
+     * without slack a row that visually fits would turn itself into a slider.
+     */
+    var overflows = track.scrollWidth > track.clientWidth + 24;
+
+    if (!overflows) {
+      root.classList.add('is-static');
+
+      // Nothing to scroll: no arrows, no autoplay, no drag.
+      if (prev) prev.hidden = true;
+      if (next) next.hidden = true;
+
+      return;
+    }
+
+    clone();
+    measure();
+
+    // Start one set in, so scrolling backwards has somewhere to go immediately.
+    track.scrollLeft = setWidth;
+
+    if (prev) { prev.hidden = false; prev.addEventListener('click', function () { step(-1); }); }
+    if (next) { next.hidden = false; next.addEventListener('click', function () { step(1); }); }
+
+    track.addEventListener('scroll', wrap, { passive: true });
+
+    root.addEventListener('mouseenter', stop);
+    root.addEventListener('mouseleave', play);
+    root.addEventListener('focusin', stop);
+    root.addEventListener('focusout', play);
+    document.addEventListener('visibilitychange', function () {
+      document.hidden ? stop() : play();
+    });
+
+    // Re-measure when the layout changes: the card width is driven by CSS that
+    // depends on the viewport, so a stale setWidth makes the loop jump visibly.
+    if ('ResizeObserver' in window) {
+      var pending = null;
+
+      new ResizeObserver(function () {
+        window.clearTimeout(pending);
+        pending = window.setTimeout(function () {
+          var ratio = setWidth > 0 ? track.scrollLeft / setWidth : 1;
+          measure();
+          track.scrollLeft = setWidth * ratio;
+        }, 150);
+      }).observe(track);
+    }
+
+    // ---- drag with a mouse ----
+    var startX = 0;
+    var startScroll = 0;
+
+    track.addEventListener('pointerdown', function (e) {
+      // Touch already scrolls natively; hijacking it would break momentum.
+      if (e.pointerType === 'touch') return;
+
+      dragging = true;
+      startX = e.clientX;
+      startScroll = track.scrollLeft;
+      track.classList.add('is-dragging');
+      track.setPointerCapture(e.pointerId);
+    });
+
+    track.addEventListener('pointermove', function (e) {
+      if (!dragging) return;
+      track.scrollLeft = startScroll - (e.clientX - startX);
+    });
+
+    ['pointerup', 'pointercancel'].forEach(function (type) {
+      track.addEventListener(type, function (e) {
+        if (!dragging) return;
+        dragging = false;
+        track.classList.remove('is-dragging');
+
+        // A drag that moved is not a click: swallow the link activation that
+        // would otherwise fire when the finger lifts over a tile.
+        if (Math.abs(e.clientX - startX) > 6) {
+          track.addEventListener('click', function guard(ev) {
+            ev.preventDefault();
+            ev.stopPropagation();
+            track.removeEventListener('click', guard, true);
+          }, true);
+        }
+      });
+    });
+
+    play();
+    }
+  });
+})();
+
+/**
+ * The sign-in / create-account switch.
+ *
+ * Both panes are in the markup and CSS decides which is visible, so this only
+ * flips an attribute. With no JavaScript the links still work — they carry a
+ * ?mode= that the server honours — which is why the anchors have real hrefs.
+ */
+(function () {
+  'use strict';
+
+  var auth = document.querySelector('[data-auth]');
+  if (!auth) return;
+
+  function show(mode) {
+    auth.setAttribute('data-mode', mode);
+
+    // Keep the URL honest, so a reload or a back button lands on the same pane.
+    var url = new URL(window.location.href);
+    url.searchParams.set('mode', mode);
+    url.hash = '';
+    window.history.replaceState({}, '', url);
+
+    // Move focus to the pane that just appeared, or a keyboard user is left
+    // tabbing through a hidden form.
+    var pane = auth.querySelector('[data-auth-pane="' + mode + '"]');
+    var first = pane && pane.querySelector('input, button, a');
+    if (first) first.focus({ preventScroll: true });
+  }
+
+  auth.querySelectorAll('[data-auth-switch]').forEach(function (el) {
+    el.addEventListener('click', function (e) {
+      e.preventDefault();
+      show(el.getAttribute('data-auth-switch'));
+    });
+  });
+
+  // The panel's button follows whichever pane is hidden.
+  var cta = auth.querySelector('[data-panel-cta]');
+
+  if (cta) {
+    new MutationObserver(function () {
+      var register = auth.getAttribute('data-mode') === 'register';
+      var next = register ? 'login' : 'register';
+
+      cta.setAttribute('data-auth-switch', next);
+      cta.textContent = register ? 'I already have an account' : 'Create an account';
+
+      // It is a real link now, so its href has to follow — otherwise a
+      // middle-click or "open in new tab" lands on the wrong pane.
+      if (cta.tagName === 'A') {
+        var href = new URL(cta.href, window.location.origin);
+        href.searchParams.set('mode', next);
+        cta.href = href.toString();
+      }
+    }).observe(auth, { attributes: true, attributeFilter: ['data-mode'] });
+  }
+})();
+
+/** The code field: digits only, and submit as soon as six are in. */
+(function () {
+  'use strict';
+
+  var otp = document.querySelector('[data-otp]');
+  if (!otp) return;
+
+  otp.addEventListener('input', function () {
+    var digits = otp.value.replace(/\D/g, '').slice(0, 6);
+
+    if (digits !== otp.value) otp.value = digits;
+
+    // Six digits is the whole code — asking someone to then find the button is
+    // a step for nothing. Only on a real six-digit entry, never on a paste of
+    // something longer that was trimmed.
+    if (digits.length === 6 && otp.form) otp.form.requestSubmit();
+  });
+})();
+
+/**
+ * The wishlist heart.
+ *
+ * Upgrades the form each heart already sits in: submit is intercepted, the
+ * request goes in the background, and the heart fills in place. With no
+ * JavaScript the form still posts and the page still works — which is why the
+ * markup is a form and not a bare button.
+ */
+(function () {
+  'use strict';
+
+  var modal = document.querySelector('[data-auth-modal]');
+  var lastFocus = null;
+
+  function openModal() {
+    if (!modal) return;
+    lastFocus = document.activeElement;
+    modal.hidden = false;
+    document.body.style.overflow = 'hidden';
+
+    var first = modal.querySelector('a, button');
+    if (first) first.focus();
+  }
+
+  function closeModal() {
+    if (!modal || modal.hidden) return;
+    modal.hidden = true;
+    document.body.style.overflow = '';
+    // Focus goes back where it was, or the reader is dropped at the top.
+    if (lastFocus) lastFocus.focus();
+  }
+
+  if (modal) {
+    modal.addEventListener('click', function (e) {
+      // The backdrop closes it; the card does not.
+      if (e.target === modal || e.target.closest('[data-modal-close]')) closeModal();
+    });
+
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') closeModal();
+    });
+  }
+
+  function setCount(n) {
+    document.querySelectorAll('[data-wish-count]').forEach(function (el) {
+      el.textContent = n;
+      el.hidden = n < 1;
+    });
+  }
+
+  document.addEventListener('submit', function (e) {
+    var form = e.target.closest('[data-wish]');
+    if (!form) return;
+
+    e.preventDefault();
+
+    var button = form.querySelector('button');
+    if (!button || button.disabled) return;
+
+    var data = new FormData(form);
+
+    // Answer the tap immediately. The request may take a moment and a control
+    // that does nothing for 300ms feels broken.
+    button.disabled = true;
+    button.classList.add('is-busy');
+
+    fetch(form.action.replace(/\/toggle$/, '/toggle.json'), {
+      method: 'POST',
+      body: data,
+      headers: { 'X-Requested-With': 'XMLHttpRequest' },
+      credentials: 'same-origin',
+    })
+      .then(function (r) { return r.ok ? r.json() : Promise.reject(r); })
+      .then(function (json) {
+        if (!json.ok) return Promise.reject(json);
+
+        button.setAttribute('aria-pressed', json.saved ? 'true' : 'false');
+        button.setAttribute('aria-label', (json.saved ? 'Remove ' : 'Save ') + json.name);
+        setCount(json.count);
+
+        /*
+         * Refresh EVERY token on the page, not just this form's.
+         *
+         * CI4 rotates the token on each POST, so after one background request
+         * every other form still holds a spent one. The second heart then fails
+         * CSRF, the error path submits the form for real, and the browser lands
+         * on /wishlist/toggle — which is exactly the bug that was reported.
+         */
+        if (json.csrf) {
+          document.querySelectorAll('input[name^="csrf"]').forEach(function (el) {
+            el.value = json.csrf;
+          });
+        }
+
+        if (json.prompt) openModal();
+
+        /*
+         * On the wishlist page itself, un-saving removes the card. Leaving an
+         * empty outline on a page whose whole purpose is "things you saved"
+         * reads as a bug, and the count in the heading would disagree with what
+         * is on screen.
+         */
+        var card = button.closest('[data-wish-card]');
+
+        if (card && !json.saved) {
+          card.remove();
+
+          if (document.querySelectorAll('[data-wish-card]').length === 0) {
+            window.location.reload();   // show the empty state properly
+          }
+        }
+      })
+      .catch(function () {
+        // Fall back to the real form rather than leaving the person stuck.
+        form.removeAttribute('data-wish');
+        form.submit();
+      })
+      .finally(function () {
+        button.disabled = false;
+        button.classList.remove('is-busy');
+      });
+  });
+})();
+
+/**
+ * Add to cart, in place, with a quantity stepper.
+ *
+ * The Add button and the stepper are the same form. Adding swaps one for the
+ * other; taking the quantity to zero swaps back. With no JavaScript the Add
+ * button posts normally and the stepper is never shown.
+ */
+(function () {
+  'use strict';
+
+  function setCartCount(n) {
+    document.querySelectorAll('[data-cart-count]').forEach(function (el) {
+      el.textContent = n;
+      el.hidden = n < 1;
+    });
+  }
+
+  function send(form, quantity) {
+    var add = form.querySelector('[data-cart-add]');
+    var step = form.querySelector('[data-cart-step]');
+    var value = form.querySelector('[data-qty-value]');
+
+    var data = new FormData(form);
+    data.set('quantity', quantity);
+
+    form.querySelectorAll('button').forEach(function (b) { b.disabled = true; });
+
+    return fetch(form.action.replace(/\/add$/, '/add.json'), {
+      method: 'POST',
+      body: data,
+      headers: { 'X-Requested-With': 'XMLHttpRequest' },
+      credentials: 'same-origin',
+    })
+      .then(function (r) { return r.json().then(function (j) { return r.ok ? j : Promise.reject(j); }); })
+      .then(function (json) {
+        // Rotated on every POST — refresh every form, or the next tap anywhere
+        // on the page is rejected as a forgery.
+        if (json.csrf) {
+          document.querySelectorAll('input[name^="csrf"]').forEach(function (el) { el.value = json.csrf; });
+        }
+
+        form.setAttribute('data-qty', json.quantity);
+        if (value) value.textContent = json.quantity;
+
+        // The service can cap a quantity (stock, basket limit), so the stepper
+        // shows what actually landed rather than what was asked for.
+        if (add) add.hidden = json.quantity > 0;
+        if (step) step.hidden = json.quantity < 1;
+
+        setCartCount(json.count);
+      })
+      .catch(function (json) {
+        if (json && json.csrf) {
+          document.querySelectorAll('input[name^="csrf"]').forEach(function (el) { el.value = json.csrf; });
+        }
+
+        // Say why rather than doing nothing — "out of stock" is information.
+        if (json && json.error) window.alert(json.error);
+      })
+      .finally(function () {
+        form.querySelectorAll('button').forEach(function (b) { b.disabled = false; });
+      });
+  }
+
+  document.addEventListener('submit', function (e) {
+    var form = e.target.closest('[data-cart]');
+    if (!form) return;
+
+    e.preventDefault();
+    send(form, 1);
+  });
+
+  document.addEventListener('click', function (e) {
+    var up = e.target.closest('[data-qty-up]');
+    var down = e.target.closest('[data-qty-down]');
+    if (!up && !down) return;
+
+    var form = (up || down).closest('[data-cart]');
+    if (!form) return;
+
+    e.preventDefault();
+
+    // Absolute, never a delta: two quick taps must not become two requests
+    // that each add one to a stale number.
+    var now = Number(form.getAttribute('data-qty') || 0);
+    send(form, up ? now + 1 : Math.max(0, now - 1));
+  });
+})();
+
+/**
+ * PIN code → city and state.
+ *
+ * Fills the two fields from one number, so nobody types "Rajasthan" into a form
+ * on a phone. They stay readonly because a mismatched state and PIN is a
+ * delivery failure, and the PIN is the field the courier actually uses.
+ *
+ * Scoped to the fieldset the PIN lives in, so the billing lookup cannot
+ * overwrite the shipping fields.
+ */
+(function () {
+  'use strict';
+
+  document.querySelectorAll('[data-pin]').forEach(function (input) {
+    // The nearest block holding this address, whichever markup wraps it.
+    var scope = input.closest('[data-bill-fields], fieldset, form') || document;
+    var city = scope.querySelector('[data-pin-city]');
+    var state = scope.querySelector('[data-pin-state]');
+    var note = scope.querySelector('[data-pin-note]');
+    var last = '';
+
+    function say(text, bad) {
+      if (!note) return;
+      note.textContent = text;
+      note.classList.toggle('text-bad', !!bad);
+    }
+
+    function fill() {
+      var pin = (input.value || '').replace(/\D/g, '').slice(0, 6);
+
+      if (pin !== input.value) input.value = pin;
+      if (pin.length !== 6 || pin === last) return;
+
+      last = pin;
+      say('Checking…', false);
+
+      fetch('/pincode/' + pin, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+        .then(function (r) { return r.json(); })
+        .then(function (json) {
+          if (!json.ok) {
+            // The fields open up so the customer can type it themselves — a
+            // lookup that cannot answer must never block an order.
+            if (city) { city.readOnly = false; city.value = ''; }
+            if (state) { state.readOnly = false; state.value = ''; }
+            say(json.error || 'Please type your city and state.', true);
+
+            return;
+          }
+
+          if (city) { city.value = json.city; city.readOnly = true; }
+          if (state) { state.value = json.state; state.readOnly = true; }
+          say(json.city ? json.city + ', ' + json.state : json.state, false);
+        })
+        .catch(function () {
+          if (city) city.readOnly = false;
+          if (state) state.readOnly = false;
+          say('Could not check that PIN. Type your city and state.', true);
+        });
+    }
+
+    input.addEventListener('input', fill);
+    input.addEventListener('blur', fill);
+
+    // A form redisplayed after a validation error already has a PIN in it.
+    if ((input.value || '').length === 6) fill();
+  });
+
+  /**
+   * Billing address, shown only when it differs.
+   *
+   * The box is ticked by default because for most orders the two ARE the same.
+   * The fields are `hidden` rather than removed, so a value typed and then
+   * re-ticked is still there if the customer changes their mind back.
+   */
+  var same = document.querySelector('[data-bill-same]');
+  var fields = document.querySelector('[data-bill-fields]');
+
+  if (same && fields) {
+    var sync = function () { fields.hidden = same.checked; };
+
+    same.addEventListener('change', sync);
+    sync();
+  }
+})();
+
+/**
+ * The cart page: change a quantity without reloading.
+ *
+ * The line total, the basket total and the header badge all move together, so
+ * the page never shows two numbers that disagree.
+ */
+(function () {
+  'use strict';
+
+  var table = document.querySelector('[data-cart-lines]');
+  if (!table) return;
+
+  function refresh() {
+    /*
+     * The totals are computed server-side — coupons, shipping bands and
+     * gift-box pricing all live there. Recomputing them in the browser would be
+     * a second implementation that eventually disagrees with the first.
+     */
+    fetch(window.location.pathname, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+      .then(function (r) { return r.text(); })
+      .then(function (html) {
+        var doc = new DOMParser().parseFromString(html, 'text/html');
+
+        ['[data-cart-lines]', '[data-cart-summary]'].forEach(function (sel) {
+          var next = doc.querySelector(sel);
+          var here = document.querySelector(sel);
+          if (next && here) here.innerHTML = next.innerHTML;
+        });
+
+        var badge = doc.querySelector('[data-cart-count]');
+        document.querySelectorAll('[data-cart-count]').forEach(function (el) {
+          if (!badge) return;
+          el.textContent = badge.textContent;
+          el.hidden = badge.hidden;
+        });
+      });
+  }
+
+  document.addEventListener('change', function (e) {
+    var input = e.target.closest('[data-line-qty]');
+    if (!input) return;
+
+    var form = input.closest('form');
+    if (!form) return;
+
+    var data = new FormData(form);
+    form.setAttribute('aria-busy', 'true');
+
+    fetch(form.action, {
+      method: 'POST',
+      body: data,
+      headers: { 'X-Requested-With': 'XMLHttpRequest' },
+      credentials: 'same-origin',
+    })
+      .then(function () { refresh(); })
+      .catch(function () { form.submit(); })
+      .finally(function () { form.removeAttribute('aria-busy'); });
+  });
+})();
+
+/**
+ * The search placeholder types itself.
+ *
+ * Writes a phrase, pauses, wipes it, writes the next. Purely decorative, so it
+ * stops entirely under `prefers-reduced-motion` and the moment the box is
+ * focused — nobody wants text moving underneath them while they type.
+ */
+(function () {
+  'use strict';
+
+  var calm = window.matchMedia('(prefers-reduced-motion: reduce)');
+
+  document.querySelectorAll('[data-typer]').forEach(function (input) {
+    var phrases;
+
+    try {
+      phrases = JSON.parse(input.getAttribute('data-phrases') || '[]');
+    } catch (e) {
+      return;
+    }
+
+    // One phrase is a placeholder, not an animation.
+    if (!Array.isArray(phrases) || phrases.length < 2) return;
+
+    var i = 0;
+    var pos = 0;
+    var wiping = false;
+    var timer = null;
+    var stopped = false;
+
+    function step() {
+      if (stopped) return;
+
+      var word = String(phrases[i] || '');
+
+      pos += wiping ? -1 : 1;
+      input.placeholder = word.slice(0, pos);
+
+      var wait = wiping ? 28 : 55;
+
+      if (!wiping && pos >= word.length) {
+        // Hold the finished phrase long enough to be read.
+        wiping = true;
+        wait = 1800;
+      } else if (wiping && pos <= 0) {
+        wiping = false;
+        i = (i + 1) % phrases.length;
+        wait = 320;
+      }
+
+      timer = window.setTimeout(step, wait);
+    }
+
+    function stop() {
+      stopped = true;
+      window.clearTimeout(timer);
+      // Leave a complete phrase behind, never half a word.
+      input.placeholder = String(phrases[i] || '');
+    }
+
+    // Typing under a moving placeholder is distracting, and on a real search
+    // the placeholder is irrelevant the moment there is a value.
+    input.addEventListener('focus', stop, { once: true });
+
+    if (calm.matches) return;
+
+    timer = window.setTimeout(step, 900);
+  });
+})();
+
+/**
+ * Variant selection.
+ *
+ * Picking a colour narrows what else is offered: options that no remaining
+ * variant carries are disabled rather than hidden, so the buyer can still SEE
+ * that a large antique version exists and is simply unavailable. Hiding them
+ * makes a shop look like it does not stock something it does.
+ *
+ * The URL updates as you choose, so a colour can be linked to and the back
+ * button walks the selections.
+ */
+(function () {
+  'use strict';
+
+  var root = document.querySelector('[data-variants]');
+  if (!root) return;
+
+  var data;
+
+  try {
+    data = JSON.parse(root.getAttribute('data-matrix') || '{}');
+  } catch (e) {
+    return;   // the server-rendered page still works
+  }
+
+  var variants = data.variants || [];
+  if (!variants.length) return;
+
+  var options = Array.prototype.slice.call(root.querySelectorAll('[data-variant-option]'));
+  var chosen = {};
+
+  // Open on whatever the server rendered, so the page and the URL agree.
+  var opening = variants.filter(function (v) { return v.key === data.chosen; })[0] || variants[0];
+
+  options.forEach(function (el) {
+    var id = Number(el.getAttribute('data-value'));
+    if (opening.values.indexOf(id) !== -1) chosen[el.getAttribute('data-code')] = id;
+  });
+
+  /*
+   * The axes in the order they are shown — colour, then size, then finish.
+   *
+   * Order matters. A shopper picks a colour and then asks what sizes it comes
+   * in, not the reverse, so an axis is narrowed by the ones ABOVE it and never
+   * by the ones below.
+   */
+  var axes = [];
+
+  options.forEach(function (el) {
+    var code = el.getAttribute('data-code');
+    if (axes.indexOf(code) === -1) axes.push(code);
+  });
+
+  /**
+   * Does this variant match what is chosen in the axes ABOVE `code`?
+   *
+   * Only the ones above. Testing against those below is what made Gold
+   * unreachable: with Silver and 8" chosen, Gold was measured against 8", there
+   * is no Gold 8", so Gold greyed out — and the buyer could never reach the
+   * Gold 12" that does exist. A dead end with no way back.
+   */
+  /**
+   * The variant that best honours a click on `valueId` in axis `code`.
+   *
+   * BIDIRECTIONAL, deliberately.
+   *
+   * An earlier version only let an axis be narrowed by the ones above it, so
+   * choosing a size could never move the colour. But the axes are genuinely
+   * interrelated: if 2 cm exists only in blue, choosing 2 cm MUST mean blue.
+   * Refusing to move the colour would either grey out a size the shop stocks or
+   * leave the page on a combination that cannot be bought.
+   *
+   * Among the variants carrying the clicked value, the winner is whichever
+   * keeps the most of the buyer's other choices — so nothing moves that does
+   * not have to. Ties break towards stock.
+   */
+  function bestFor(code, valueId) {
+    var pool = variants.filter(function (v) {
+      return v.values.indexOf(valueId) !== -1;
+    });
+
+    if (!pool.length) return null;
+
+    var best = null;
+    var bestScore = -1;
+
+    pool.forEach(function (v) {
+      var kept = 0;
+
+      for (var other in chosen) {
+        if (other === code) continue;
+        if (v.values.indexOf(chosen[other]) !== -1) kept++;
+      }
+
+      // Stock is worth less than a kept choice, so it only decides ties.
+      var score = (kept * 10) + (v.stock > 0 ? 1 : 0);
+
+      if (score > bestScore) {
+        bestScore = score;
+        best = v;
+      }
+    });
+
+    return best;
+  }
+
+  /** Adopt every value of a variant as the current selection. */
+  function adopt(variant) {
+    options.forEach(function (el) {
+      var id = Number(el.getAttribute('data-value'));
+
+      if (variant.values.indexOf(id) !== -1) chosen[el.getAttribute('data-code')] = id;
+    });
+  }
+
+  function currentVariant() {
+    var wanted = [];
+    for (var code in chosen) wanted.push(chosen[code]);
+
+    return variants.filter(function (v) {
+      return wanted.every(function (id) { return v.values.indexOf(id) !== -1; });
+    })[0] || null;
+  }
+
+  function paint() {
+    options.forEach(function (el) {
+      var code = el.getAttribute('data-code');
+      var id = Number(el.getAttribute('data-value'));
+      var input = el.querySelector('input');
+
+      /*
+       * Three states, and the distinction matters.
+       *
+       *  - impossible: no variant carries this value at all. Struck through.
+       *  - fits: works with everything currently chosen. Plain.
+       *  - would change something: exists, but choosing it moves another axis.
+       *    Shown dimmed rather than struck through, and still clickable —
+       *    greying it out would hide stock the shop actually has.
+       */
+      var possible = variants.some(function (v) { return v.values.indexOf(id) !== -1; });
+
+      var fits = variants.some(function (v) {
+        if (v.values.indexOf(id) === -1) return false;
+
+        for (var other in chosen) {
+          if (other === code) continue;
+          if (v.values.indexOf(chosen[other]) === -1) return false;
+        }
+
+        return true;
+      });
+
+      var stocked = variants.some(function (v) {
+        return v.values.indexOf(id) !== -1 && v.stock > 0;
+      });
+
+      el.classList.toggle('is-unavailable', !possible);
+      el.classList.toggle('is-adjusts', possible && !fits);
+      el.classList.toggle('is-soldout', possible && !stocked);
+
+      // Only a genuinely impossible value is disabled. One that merely moves
+      // another axis stays clickable — that IS the interrelation working.
+      if (input) input.disabled = !possible;
+
+      var on = chosen[code] === id;
+      el.classList.toggle('is-chosen', on);
+      if (input) input.checked = on;
+    });
+
+    // Name the chosen value beside its heading.
+    root.querySelectorAll('[data-variant-chosen]').forEach(function (el) {
+      var code = el.getAttribute('data-variant-chosen');
+      var pick = options.filter(function (o) {
+        return o.getAttribute('data-code') === code && Number(o.getAttribute('data-value')) === chosen[code];
+      })[0];
+      el.textContent = pick ? pick.textContent.trim() : '';
+    });
+
+    var variant = currentVariant();
+    if (!variant) return;
+
+    var field = document.querySelector('[data-variant-id]');
+    if (field) field.value = variant.id || '';
+
+    /*
+     * replaceState, not pushState, on every click — a buyer trying three
+     * colours should not have to press back three times to leave the page.
+     */
+    window.history.replaceState({}, '', data.base + '/' + variant.key);
+
+    // Price, SKU and picture follow the selection.
+    var priceEl = document.querySelector('[data-variant-price]');
+    if (priceEl && variant.price) priceEl.textContent = variant.price;
+
+    var skuEl = document.querySelector('[data-variant-sku]');
+    if (skuEl && variant.sku) skuEl.textContent = variant.sku;
+
+    if (variant.image) {
+      var main = document.querySelector('[data-gallery-main] img, .rs-gallery__main img');
+      if (main) {
+        main.src = variant.image;
+        // A <picture> source outranks img.src, so it has to be cleared too —
+        // otherwise the old photograph stays put on any browser that matched it.
+        var pic = main.closest('picture');
+        if (pic) pic.querySelectorAll('source').forEach(function (sc) { sc.removeAttribute('srcset'); });
+        main.removeAttribute('srcset');
+      }
+    }
+
+    root.dispatchEvent(new CustomEvent('variant:change', { detail: variant, bubbles: true }));
+  }
+
+  root.addEventListener('click', function (e) {
+    var el = e.target.closest('[data-variant-option]');
+    if (!el) return;
+
+    var input = el.querySelector('input');
+    if (input && input.disabled) {
+      e.preventDefault();
+      return;
+    }
+
+    var code = el.getAttribute('data-code');
+    var id = Number(el.getAttribute('data-value'));
+
+    // Take the best combination containing what was clicked, and adopt ALL of
+    // its values — choosing 2 cm can move the colour, and should.
+    var next = bestFor(code, id);
+
+    if (next) {
+      adopt(next);
+      chosen[code] = id;
+    } else {
+      chosen[code] = id;
+    }
+
+    paint();
+  });
+
+  paint();
 })();

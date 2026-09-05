@@ -43,7 +43,7 @@ foreach ($nav as $group) {
     <title><?= esc($pageTitle) ?> · Rasmein admin</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Eczar:wght@500;600&family=Karla:wght@400;500;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400;1,500;1,600&family=Karla:ital,wght@0,400;0,500;0,700;1,400&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
     <?php $rsIcon = $brand->identity['favicon'] ?? ''; ?>
     <?php if ($rsIcon !== ''): ?>
         <link rel="icon" href="<?= rs_url($rsIcon) ?>">

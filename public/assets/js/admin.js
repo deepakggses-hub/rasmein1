@@ -352,3 +352,98 @@
     });
   }
 })();
+
+/**
+ * The page template picker.
+ *
+ * Changing the template reloads the form so the right fields appear. A partial
+ * swap would be nicer, but the fields differ entirely between templates and a
+ * half-changed form is worse than a moment's wait.
+ */
+(function () {
+  'use strict';
+
+  var picker = document.querySelector('[data-template-picker]');
+  if (!picker) return;
+
+  var initial = picker.value;
+
+  picker.addEventListener('change', function () {
+    if (picker.value === initial) return;
+
+    var url = new URL(window.location.href);
+    url.searchParams.set('template', picker.value);
+    window.location.href = url.toString();
+  });
+})();
+
+/**
+ * The mail preview: HTML or plain text, and an iframe that fits its content.
+ */
+(function () {
+  'use strict';
+
+  var frame = document.querySelector('[data-mail-frame]');
+
+  if (frame) {
+    /*
+     * Size the iframe to the message.
+     *
+     * A fixed height either crops a long email or leaves a field of white under
+     * a short one. `sandbox` with no `allow-same-origin` means the document
+     * inside is opaque to us — so this is wrapped and simply left at its
+     * default height if the browser refuses.
+     */
+    var fit = function () {
+      try {
+        var doc = frame.contentDocument;
+        if (!doc || !doc.body) return;
+
+        /*
+         * Collapse first, THEN measure.
+         *
+         * scrollHeight on a short document returns at least the frame's own
+         * height, so measuring a 640px frame holding 470px of email reports
+         * 640 — and each pass makes it taller than the last. Shrinking to
+         * nothing first means the number that comes back is the content's.
+         */
+        frame.style.height = '0px';
+
+        var h = Math.max(doc.body.scrollHeight, doc.documentElement.scrollHeight);
+
+        // A floor, so a one-line message does not collapse into a sliver, and
+        // no ceiling — the point is to see the whole email without scrolling
+        // inside a box.
+        frame.style.height = Math.max(h + 40, 240) + 'px';
+      } catch (e) {
+        // Sandboxed away: the default height still shows the message.
+      }
+    };
+
+    /*
+     * srcdoc frames often finish before this script runs, so `load` alone can
+     * never fire. Measure now as well, and once more after a beat for
+     * webfonts and images, which change the height after the document is
+     * technically complete.
+     */
+    frame.addEventListener('load', fit);
+    fit();
+    window.setTimeout(fit, 400);
+  }
+
+  document.querySelectorAll('[data-mail-tab]').forEach(function (tab) {
+    tab.addEventListener('click', function () {
+      var want = tab.getAttribute('data-mail-tab');
+
+      document.querySelectorAll('[data-mail-tab]').forEach(function (t) {
+        var on = t === tab;
+        t.classList.toggle('is-current', on);
+        t.setAttribute('aria-selected', on ? 'true' : 'false');
+      });
+
+      document.querySelectorAll('[data-mail-pane]').forEach(function (pane) {
+        pane.hidden = pane.getAttribute('data-mail-pane') !== want;
+      });
+    });
+  });
+})();

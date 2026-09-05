@@ -30,6 +30,12 @@ class SettingHomes extends BaseConfig
      * @var array<string, array{label: string, url: string|null, permission: string|null, note: string|null}>
      */
     public array $byKey = [
+        'design_marquee_text' => [
+            'label'      => 'Homepage',
+            'url'        => 'admin/homepage',
+            'permission' => 'homepage.manage',
+            'note'       => 'The promise strip wording sits with the rest of the homepage copy.',
+        ],
         'journey_mode' => [
             'label'      => 'the Buy / Enquire panel at the top of this page',
             'url'        => 'admin/settings',
@@ -56,6 +62,11 @@ class SettingHomes extends BaseConfig
      * @var array<string, array{label: string, url: string, permission: string|null}>
      */
     public array $byGroup = [
+        'auth' => [
+            'label'      => 'Sign-in screen',
+            'url'        => 'admin/auth',
+            'permission' => 'settings.manage',
+        ],
         'mail'   => ['label' => 'Settings → Mail',          'url' => 'admin/mail',       'permission' => 'settings.manage'],
         'brand'  => ['label' => 'Settings → Shop identity', 'url' => 'admin/brand',      'permission' => 'settings.view'],
         'store'  => ['label' => 'Settings → Shop identity', 'url' => 'admin/brand',      'permission' => 'settings.view'],

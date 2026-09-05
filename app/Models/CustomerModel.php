@@ -19,7 +19,8 @@ class CustomerModel extends Model
     protected $useSoftDeletes = true;
 
     protected $allowedFields = [
-        'name', 'email', 'phone', 'password_hash', 'email_verified_at',
+        'name', 'email', 'phone', 'password_hash', 'email_verified_at', 'phone_verified_at', 'profile_completed_at',
+        'google_id', 'avatar_url',
         'marketing_opt_in', 'is_active', 'last_login_at', 'notes',
     ];
 

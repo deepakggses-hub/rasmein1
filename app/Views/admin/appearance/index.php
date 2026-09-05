@@ -148,12 +148,13 @@
                        <?= ($values['design_marquee'] ?? '1') === '1' ? 'checked' : '' ?> <?= $canManage ? '' : 'disabled' ?>>
                 <span>Show the promise strip under the hero</span>
             </label>
-            <label class="mt-4 block">
-                <span class="rs-label">Promise strip wording</span>
-                <input type="text" name="design_marquee_text" class="rs-input" maxlength="500"
-                       value="<?= $v('design_marquee_text') ?>" <?= $canManage ? '' : 'disabled' ?>>
-                <span class="rs-help">Separate each phrase with a middle dot.</span>
-            </label>
+            <?php /* The wording lives on the Homepage screen with the rest of the
+                     copy — this screen is for layout and palette. */ ?>
+                <p class="rs-help">
+                    The wording is edited on the
+                    <a href="<?= site_url('admin/homepage') ?>" class="rs-link text-mulberry">Homepage</a>
+                    screen, with the rest of the page copy.
+                </p>
         </section>
     </div>
 

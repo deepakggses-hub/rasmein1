@@ -160,14 +160,28 @@ $checked = static fn (string $field, bool $fallback): string => (old($field) !==
                 <h2 class="rs-eyebrow rs-eyebrow--plain">Images</h2>
 
                 <?php if ($images !== []): ?>
-                    <ul class="mt-4 grid grid-cols-3 gap-3 sm:grid-cols-5">
+                    <?php /* A list rather than a tight grid, because each image
+                             needs an alt field beside it — the column existed
+                             all along but there was never a field, so every
+                             product image shipped with an empty alt. */ ?>
+                    <ul class="mt-4 divide-y divide-shell-line border border-shell-line">
                         <?php foreach ($images as $image): ?>
-                            <li class="border <?= (int) $image['is_primary'] === 1 ? 'border-brass' : 'border-shell-line' ?>">
-                                <span class="block aspect-square overflow-hidden bg-shell-deep">
-                                    <img src="<?= esc(rs_image($image['path'], 'products'), 'attr') ?>" alt=""
-                                         loading="lazy" class="h-full w-full object-cover">
+                            <li class="flex flex-wrap items-center gap-3 p-3 <?= (int) $image['is_primary'] === 1 ? 'bg-brass-soft/20' : '' ?>">
+                                <span class="block h-16 w-16 shrink-0 overflow-hidden bg-shell-deep">
+                                    <img src="<?= rs_image($image['path'], 'products') ?>" alt=""
+                                         loading="lazy" decoding="async" class="h-full w-full object-cover">
                                 </span>
-                                <div class="flex items-center justify-between gap-1 p-1.5">
+
+                                <label class="min-w-56 flex-1">
+                                    <span class="sr-only">Describe this photograph</span>
+                                    <input type="text" name="image_alt[<?= (int) $image['id'] ?>]"
+                                           class="rs-input <?= trim((string) ($image['alt_text'] ?? '')) === '' ? 'border-brass' : '' ?>"
+                                           maxlength="191"
+                                           placeholder="Describe what the photograph shows"
+                                           value="<?= esc((string) ($image['alt_text'] ?? ''), 'attr') ?>">
+                                </label>
+
+                                <div class="flex shrink-0 items-center gap-2">
                                     <?php if ((int) $image['is_primary'] === 1): ?>
                                         <span class="rs-badge rs-badge--brass">Main</span>
                                     <?php else: ?>
@@ -186,6 +200,13 @@ $checked = static fn (string $field, bool $fallback): string => (old($field) !==
                     <span class="rs-label">Add images</span>
                     <input type="file" name="images[]" class="rs-input" multiple
                            accept="image/jpeg,image/png,image/webp">
+                        <span class="rs-help">
+                            <strong>Upload the largest version you have.</strong> Six sizes are
+                            generated automatically, plus a WebP of each, and the visitor's browser
+                            picks the smallest that still looks sharp on their screen &mdash; so a
+                            big original costs nothing extra to serve. Around 1600&ndash;2400px on
+                            the long edge is ideal.
+                        </span>
                     <span class="rs-help">
                         JPEG, PNG or WebP, up to <?= round($maxBytes / 1048576, 1) ?> MB each.
                         Wider than 2400px is scaled down. Files are re-encoded on upload, which
@@ -342,6 +363,67 @@ $checked = static fn (string $field, bool $fallback): string => (old($field) !==
             </button>
         </aside>
     </div>
+
+    <?php /* ============================ attributes ============================ */ ?>
+    <section class="mt-6 border border-shell-line bg-white p-5">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+            <h2 class="rs-eyebrow rs-eyebrow--plain">Attributes</h2>
+
+            <?php if (! $isNew): ?>
+                <?php /* Variants are built FROM these ticks, so the link lives
+                         here rather than in a menu somewhere else. */ ?>
+                <a href="<?= site_url('admin/products/' . $product->id . '/variants') ?>"
+                   class="rs-btn rs-btn--outline rs-btn--sm">
+                    Variants &amp; pricing
+                    <?php if (! empty($variantCount)): ?>
+                        <span class="num ml-1">(<?= (int) $variantCount ?>)</span>
+                    <?php endif; ?>
+                </a>
+            <?php endif; ?>
+        </div>
+        <p class="rs-help mt-2 max-w-2xl">
+            Tick everything this piece is available in. Values come from
+            <a href="<?= site_url('admin/attributes') ?>" class="rs-link text-mulberry">Attributes</a>,
+            so the same colour is never spelt two ways across the catalogue.
+        </p>
+
+        <?php if (($attributes ?? []) === []): ?>
+            <p class="rs-help mt-4">No attributes are set up yet.</p>
+        <?php else: ?>
+            <div class="mt-5 grid gap-5">
+                <?php foreach ($attributes as $attribute): ?>
+                    <?php if ($attribute['values'] === []) { continue; } ?>
+                    <div>
+                        <span class="rs-label">
+                            <?= esc($attribute['name']) ?>
+                            <?php if ((int) $attribute['is_selectable'] === 1): ?>
+                                <span class="rs-help">— the customer picks one</span>
+                            <?php endif; ?>
+                        </span>
+
+                        <ul class="mt-2 flex flex-wrap gap-2">
+                            <?php foreach ($attribute['values'] as $value): ?>
+                                <?php $on = in_array((int) $value['id'], $productValueIds ?? [], true); ?>
+                                <li>
+                                    <label class="flex cursor-pointer items-center gap-2 border px-2.5 py-1.5 text-sm
+                                                  <?= $on ? 'border-mulberry bg-brass-soft/30' : 'border-shell-line' ?>">
+                                        <input type="checkbox" name="attribute_values[]" class="accent-mulberry"
+                                               value="<?= (int) $value['id'] ?>" <?= $on ? 'checked' : '' ?>>
+                                        <?php if (! empty($value['swatch_hex'])): ?>
+                                            <span class="h-4 w-4 rounded-full border border-shell-line"
+                                                  style="background: <?= esc($value['swatch_hex'], 'attr') ?>"></span>
+                                        <?php endif; ?>
+                                        <span><?= esc($value['label']) ?></span>
+                                    </label>
+                                </li>
+                            <?php endforeach; ?>
+                        </ul>
+                    </div>
+                <?php endforeach; ?>
+            </div>
+        <?php endif; ?>
+    </section>
+
 </form>
 
 <?php /* Separate forms, because HTML cannot nest them inside the one above. */ ?>

@@ -193,7 +193,7 @@ class Shop extends StorefrontController
         // changes underfoot.
         $pager->only([
             'q', 'sort', 'category', 'min_price', 'max_price', 'in_stock', 'giftable',
-            'band', 'material', 'occasion', 'stock',
+            'band', 'material', 'occasion', 'stock', 'cat',
         ]);
 
         $productIds = array_map(static fn ($product): int => (int) $product->id, $rows);
@@ -209,6 +209,17 @@ class Shop extends StorefrontController
             'chips'       => $this->activeChips($filters),
             // One query for every card's photographs, rather than one per card.
             'imageMap'    => model(ProductModel::class)->imagesFor($productIds),
+            // One query for the whole page — see WishlistModel::savedAmong().
+            // What is already in the basket, so a card can open on its stepper
+            // rather than an Add button that would double the line.
+            // One query for the whole page, like imagesFor().
+            'attrMap'     => model(\App\Models\AttributeValueModel::class)->forProducts($productIds),
+            'basketQty'   => service('cart')->quantitiesFor($productIds),
+            'savedIds'    => model(\App\Models\WishlistModel::class)->savedAmong(
+                session('customer_id') !== null ? (int) session('customer_id') : null,
+                service('visitor')->peek(),
+                $productIds
+            ),
             'context'     => $context,
             'products'    => $rows,
             'pager'       => $pager,
@@ -238,6 +249,23 @@ class Shop extends StorefrontController
     private function readFilters(array $context): array
     {
         $get = $this->request->getGet();
+
+        /*
+         * Attribute filters arrive as a_colour[]=3&a_size[]=7. Read by PREFIX,
+         * because attributes are created in the admin — a hard-coded list would
+         * silently ignore every new one.
+         */
+        $attrFilters = [];
+
+        foreach ($get as $key => $value) {
+            if (str_starts_with((string) $key, 'a_')) {
+                $attrFilters[substr((string) $key, 2)] = array_slice(
+                    array_map('intval', (array) $value),
+                    0,
+                    20
+                );
+            }
+        }
 
         $category = $context['lockedCategory'] ?? null;
 
@@ -290,6 +318,10 @@ class Shop extends StorefrontController
             'category'   => $category,
             'collection' => $context['lockedCollection'] ?? null,
             'material'   => array_slice(array_map('strval', (array) ($get['material'] ?? [])), 0, 20),
+            // `cat` narrows WITHIN the current page (an occasion), as opposed to
+            // `category`, which navigates to a category's own listing.
+            'categories' => array_slice(array_map('intval', (array) ($get['cat'] ?? [])), 0, 20),
+            'attrs'      => $attrFilters,
             'occasion'   => array_slice(array_map('intval', (array) ($get['occasion'] ?? [])), 0, 20),
             'made_to_order' => in_array('order', $stock, true),
             'min_price'  => $min,
@@ -351,6 +383,14 @@ class Shop extends StorefrontController
 
             return current_url() . ($next === [] ? '' : '?' . http_build_query($next));
         };
+
+        foreach ((array) ($get['cat'] ?? []) as $categoryId) {
+            $row = model(\App\Models\CategoryModel::class)->find((int) $categoryId);
+
+            if ($row !== null) {
+                $chips[] = ['label' => (string) $row->name, 'url' => $drop('cat', (string) $categoryId)];
+            }
+        }
 
         foreach ((array) ($get['material'] ?? []) as $material) {
             $chips[] = ['label' => (string) $material, 'url' => $drop('material', (string) $material)];

@@ -107,15 +107,27 @@ class ImageUploadService
             return $fail('The upload directory is not writable.');
         }
 
-        // ---- Generated filename. Nothing from the client survives. ----
+        /*
+         * ---- Filename ----
+         *
+         * The uploaded name is KEPT, because a findable, readable filename is
+         * worth having — but only its slugified stem survives, and the
+         * EXTENSION always comes from the detected type. That last part is the
+         * whole security property: "cat.php.jpg" is stored as "cat-php.jpg"
+         * because the type was read from the file's own bytes, not its name.
+         */
         $extension = self::ACCEPTED[$type];
-        $name      = date('Y/m/') . bin2hex(random_bytes(16)) . '.' . $extension;
-        $fullPath  = $directory . '/' . $name;
-        $subfolder = dirname($fullPath);
+        $stem      = $this->safeStem($file->getClientName(), $config);
+
+        $subfolder = $directory . '/' . date('Y/m');
 
         if (! is_dir($subfolder) && ! @mkdir($subfolder, 0o755, true) && ! is_dir($subfolder)) {
             return $fail('The upload directory could not be created.');
         }
+
+        $stem     = $this->uniqueStem($subfolder, $stem, $extension, $config);
+        $name     = date('Y/m/') . $stem . '.' . $extension;
+        $fullPath = $directory . '/' . $name;
 
         try {
             $cap     = $maxWidth !== null ? max(16, min(4000, $maxWidth)) : $config->maxImageWidth;
@@ -136,13 +148,37 @@ class ImageUploadService
         // Report what actually landed, so a caller can show the true size
         // rather than the size that was chosen.
         $stored = @getimagesize($fullPath);
+        $path   = $config->uploadPaths[$destination] . '/' . $name;
+
+        /*
+         * Build the responsive ladder now, at upload time, rather than on first
+         * request. A visitor should never wait for a resize, and doing it here
+         * means a failure is visible to the person uploading instead of to a
+         * customer.
+         */
+        $variants = ['widths' => [], 'webp' => false];
+        $sharpness = null;
+
+        try {
+            $variants  = service('imageVariants')->build($path);
+            $sharpness = service('imageVariants')->estimateSharpness($fullPath);
+        } catch (\Throwable $e) {
+            // A missing variant degrades to the original being served, which is
+            // correct but heavier — worth logging, not worth failing the upload.
+            log_message('error', 'Image variants failed for {p}: {m}', ['p' => $path, 'm' => $e->getMessage()]);
+        }
 
         return [
-            'ok'     => true,
-            'path'   => $config->uploadPaths[$destination] . '/' . $name,
-            'error'  => null,
-            'width'  => $stored !== false ? (int) $stored[0] : 0,
-            'height' => $stored !== false ? (int) $stored[1] : 0,
+            'ok'        => true,
+            'path'      => $path,
+            'error'     => null,
+            'width'     => $stored !== false ? (int) $stored[0] : 0,
+            'height'    => $stored !== false ? (int) $stored[1] : 0,
+            'widths'    => $variants['widths'],
+            'webp'      => $variants['webp'],
+            // A heuristic, surfaced so the admin can warn. Never used to reject:
+            // a deliberately soft product shot scores low too.
+            'sharpness' => $sharpness,
         ];
     }
 
@@ -151,6 +187,113 @@ class ImageUploadService
      * a polyglot file that is both valid PHP and a valid image does not
      * survive being turned back into pixels and re-encoded.
      */
+    /**
+     * Turn a client filename into a safe stem.
+     *
+     * Everything dangerous about a filename lives here: path separators, "..",
+     * null bytes, a second extension, control characters, right-to-left
+     * override marks, Windows reserved names, and lengths that overflow a
+     * filesystem. Rather than try to spot each, the name is reduced to
+     * [a-z0-9-] and rebuilt — anything not on that list simply cannot survive.
+     */
+    private function safeStem(string $clientName, Rasmein $config): string
+    {
+        // basename() first: it discards any directory part, including "../".
+        $stem = basename(trim($clientName));
+
+        // Drop the client's extension entirely. The real one is added later
+        // from the detected type, so "cat.php.jpg" loses ".jpg" here and the
+        // remaining ".php" becomes an ordinary "-php" inside the stem.
+        $dot = strrpos($stem, '.');
+
+        if ($dot !== false && $dot > 0) {
+            $stem = substr($stem, 0, $dot);
+        }
+
+        // Transliterate accents so "Café Diya" becomes "cafe-diya" rather than
+        // losing both words.
+        if (function_exists('iconv')) {
+            $converted = @iconv('UTF-8', 'ASCII//TRANSLIT', $stem);
+
+            if ($converted !== false) {
+                $stem = $converted;
+            }
+        }
+
+        $stem = strtolower($stem);
+        $stem = (string) preg_replace('/[^a-z0-9]+/', '-', $stem);
+        $stem = trim($stem, '-');
+
+        // A filesystem-safe length that still leaves room for "-1920.webp".
+        $stem = substr($stem, 0, 80);
+        $stem = trim($stem, '-');
+
+        /*
+         * A stem ending in "-<width>" would collide with the responsive ladder:
+         * uploading "photo-320.jpg" and later "photo.jpg" would have the second
+         * one's 320px variant overwrite the first file. Rare, silent, and very
+         * confusing — so those names get a suffix.
+         */
+        if (preg_match('/-(\d{2,4})$/', $stem, $m) === 1
+            && in_array((int) $m[1], $config->imageWidths, true)) {
+            $stem .= '-img';
+        }
+
+        // Windows reserves these as device names, and a file called con.jpg
+        // cannot be created there. Costs three lines to sidestep.
+        if (in_array($stem, [
+            'con', 'prn', 'aux', 'nul',
+            'com1', 'com2', 'com3', 'com4', 'com5', 'com6', 'com7', 'com8', 'com9',
+            'lpt1', 'lpt2', 'lpt3', 'lpt4', 'lpt5', 'lpt6', 'lpt7', 'lpt8', 'lpt9',
+        ], true)) {
+            $stem .= '-image';
+        }
+
+        // Nothing usable survived (a name that was entirely punctuation, or
+        // entirely non-Latin script). Fall back rather than write ".jpg".
+        return $stem !== '' ? $stem : 'image-' . bin2hex(random_bytes(4));
+    }
+
+    /**
+     * The first free variation of a stem in this folder.
+     *
+     * Appends -2, -3 and so on, as a person would expect. The check covers the
+     * responsive variants too: reserving "photo.jpg" must also reserve
+     * "photo-320.jpg", or a later upload's ladder would overwrite an existing
+     * file.
+     */
+    private function uniqueStem(string $folder, string $stem, string $extension, Rasmein $config): string
+    {
+        $taken = function (string $candidate) use ($folder, $extension, $config): bool {
+            if (file_exists($folder . '/' . $candidate . '.' . $extension)
+                || file_exists($folder . '/' . $candidate . '.webp')) {
+                return true;
+            }
+
+            foreach ($config->imageWidths as $width) {
+                if (file_exists($folder . '/' . $candidate . '-' . $width . '.' . $extension)) {
+                    return true;
+                }
+            }
+
+            return false;
+        };
+
+        if (! $taken($stem)) {
+            return $stem;
+        }
+
+        // Bounded: a folder with a thousand same-named files is a problem of a
+        // different kind, and an unbounded loop here would hang the request.
+        for ($n = 2; $n <= 999; $n++) {
+            if (! $taken($stem . '-' . $n)) {
+                return $stem . '-' . $n;
+            }
+        }
+
+        return $stem . '-' . bin2hex(random_bytes(4));
+    }
+
     private function reencode(
         string $source,
         string $target,
@@ -215,6 +358,15 @@ class ImageUploadService
             if (str_starts_with($path, $base . '/')) {
                 $allowed = true;
                 break;
+            }
+        }
+
+        if ($allowed && ! str_contains($path, '..')) {
+            // Otherwise every replaced image leaves a litter of variants behind.
+            try {
+                service('imageVariants')->purge($path);
+            } catch (\Throwable $e) {
+                log_message('error', 'Variant purge failed for {p}: {m}', ['p' => $path, 'm' => $e->getMessage()]);
             }
         }
 
