@@ -37,6 +37,9 @@ class Banners extends AdminController
             'label'  => 'Corporate page banner',
             'note'   => 'The slider at the top of /corporate. It behaves exactly like the '
                 . 'homepage hero, because it is the same component.',
+            'multi'  => true,
+            // Same dimensions as the homepage hero: it IS that component.
+            'ratio'  => '1920 × 900',
         ],
 
         'home_hero' => [
@@ -105,6 +108,43 @@ class Banners extends AdminController
     ];
 
     /** A chooser: which slot do you want to work on? */
+    /**
+     * A slot's metadata, with every key the views read guaranteed present.
+     *
+     * A slot added without `ratio` took the whole Banners screen down with
+     * "Undefined array key" — an admin page that 500s because ONE entry is
+     * incomplete is a bad trade for a label nobody would have missed.
+     *
+     * @return array<string, mixed>
+     */
+    /**
+     * Every slot, each with its defaults filled in.
+     *
+     * @return array<string, array<string, mixed>>
+     */
+    private function allSlotMeta(): array
+    {
+        $out = [];
+
+        foreach (array_keys(self::SLOTS) as $position) {
+            $out[$position] = $this->slotMeta($position);
+        }
+
+        return $out;
+    }
+
+    private function slotMeta(string $position): array
+    {
+        return array_merge([
+            'key'    => $position,
+            'fields' => ['image', 'link', 'text', 'schedule'],
+            'label'  => ucfirst(str_replace('_', ' ', $position)),
+            'note'   => '',
+            'multi'  => false,
+            'ratio'  => '',
+        ], self::SLOTS[$position] ?? []);
+    }
+
     public function index()
     {
         if ($denied = $this->deny('content.manage')) {
@@ -120,7 +160,7 @@ class Banners extends AdminController
         }
 
         return $this->adminPage('admin/banners/index', [
-            'slots'  => self::SLOTS,
+            'slots'  => $this->allSlotMeta(),
             'counts' => $counts,
         ], 'Banners');
     }
@@ -149,18 +189,18 @@ class Banners extends AdminController
 
         return $this->adminPage('admin/banners/slot', [
             'slot'     => $position,
-            'meta'     => self::SLOTS[$position],
+            'meta'     => $this->slotMeta($position),
             'banners'  => model(BannerModel::class)
                 ->where('position', $position)
                 ->orderBy('sort_order', 'ASC')->orderBy('id', 'ASC')->findAll(),
-            'slots'    => self::SLOTS,
-        ], self::SLOTS[$position]['label']);
+            'slots'    => $this->allSlotMeta(),
+        ], $this->slotMeta($position)['label']);
     }
 
     /** The stored position for a URL key, or null. */
     private function positionFor(string $key): ?string
     {
-        foreach (self::SLOTS as $position => $meta) {
+        foreach ($this->allSlotMeta() as $position => $meta) {
             if ($meta['key'] === $key) {
                 return $position;
             }
@@ -291,7 +331,7 @@ class Banners extends AdminController
             . ($notes === [] ? '' : ' ' . implode(' ', $notes))
             . ' Add alt text so they are described to screen readers.';
 
-        return redirect()->to(site_url('admin/banners/' . self::SLOTS[$slot]['key']))
+        return redirect()->to(site_url('admin/banners/' . $this->slotMeta($slot)['key']))
             ->with($errors === [] ? 'success' : 'error', $message . ($errors === [] ? '' : ' ' . implode(' ', $errors)));
     }
 
@@ -315,7 +355,7 @@ class Banners extends AdminController
         $model->delete($id);
         service('audit')->log('deleted', 'content', 'banner', $id, (string) ($banner['title'] ?: $banner['position']));
 
-        return redirect()->to(site_url('admin/banners/' . self::SLOTS[$banner['position']]['key']))
+        return redirect()->to(site_url('admin/banners/' . $this->slotMeta((string) $banner['position'])['key']))
             ->with('success', 'Banner removed.');
     }
 
@@ -326,8 +366,8 @@ class Banners extends AdminController
         return $this->adminPage('admin/banners/form', [
             'banner' => $banner,
             'slot'   => $slot,
-            'meta'   => self::SLOTS[$slot],
-            'slots'  => self::SLOTS,
+            'meta'   => $this->slotMeta($slot),
+            'slots'  => $this->allSlotMeta(),
         ], $banner === null ? 'New banner' : 'Edit banner');
     }
 
@@ -357,7 +397,7 @@ class Banners extends AdminController
             }
         }
 
-        $fields = self::SLOTS[$slot]['fields'];
+        $fields = $this->slotMeta($slot)['fields'];
 
         /*
          * Only the fields this slot actually renders are written, and the rest
@@ -447,7 +487,7 @@ class Banners extends AdminController
             ($payload['title'] ?: 'Untitled') . ' — ' . $slot
         );
 
-        return redirect()->to(site_url('admin/banners/' . self::SLOTS[$slot]['key']))
+        return redirect()->to(site_url('admin/banners/' . $this->slotMeta($slot)['key']))
             ->with($uploadError !== null ? 'error' : 'success', $uploadError ?? 'Banner saved.');
     }
 }

@@ -2638,6 +2638,24 @@ staying put.
 widening the model's `in_list` let the application accept `corporate_hero` while
 MySQL rejected the insert outright. Both have to agree, which needs a migration.
 
+### A config entry copied by hand loses the keys nobody looks at
+
+Adding `corporate_hero` to `Banners::SLOTS` without `ratio` and `multi` took the
+WHOLE Banners screen down with "Undefined array key" — every slot renders on the
+index, so one incomplete entry breaks all eight.
+
+Two fixes, and the second matters more:
+
+- The entry now carries every key.
+- `slotMeta()` merges each slot over defaults, and every CONSUMING read goes
+  through it. `self::SLOTS[...]` survives only where the question is structural
+  — does this slot exist, what are the keys.
+
+**An admin page that 500s because one config entry is incomplete is a bad trade
+for a label nobody would have missed.** When adding to a config array, diff the
+new entry's keys against an existing one rather than writing the ones that
+seemed necessary.
+
 ### Outstanding security work (tracked, not yet done)
 
 - [ ] **CSP is written but not enabled.** `Config/ContentSecurityPolicy.php`
