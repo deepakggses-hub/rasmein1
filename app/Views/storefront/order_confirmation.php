@@ -65,6 +65,9 @@ $reference = $isEnquiry && $enquiry !== null ? $enquiry['enquiry_ref'] : $order[
                         <div class="num flex flex-wrap justify-between gap-x-4 gap-y-1">
                             <div class="min-w-0">
                                 <p class="font-semibold"><?= esc($item['name_snapshot']) ?></p>
+                                <?php if (! empty($item['variant_label'])): ?>
+                                    <p class="rs-help"><?= esc($item['variant_label']) ?></p>
+                                <?php endif; ?>
                                 <p class="mt-1 font-mono text-[0.625rem] tracking-[0.12em] text-ink-muted uppercase">
                                     <?php if ($item['sku_snapshot'] !== null): ?>
                                         <?= esc($item['sku_snapshot']) ?> &middot;

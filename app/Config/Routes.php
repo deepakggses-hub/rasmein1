@@ -53,6 +53,7 @@ $routes->group('', ['namespace' => 'App\Controllers\Storefront'], static functio
      * /collection is the designed landing page; /collections stays as the plain
      * index it always was, so nothing that already links there breaks.
      */
+    $routes->match(['GET', 'HEAD'], 'corporate', 'Pages::corporate');
     $routes->match(['GET', 'HEAD'], 'collection', 'Pages::collections');
     $routes->match(['GET', 'HEAD'], 'collections', 'Collections::index', ['as' => 'collections']);
     $routes->match(['GET', 'HEAD'], 'collections/(:segment)', 'Shop::collection/$1', ['as' => 'collection']);

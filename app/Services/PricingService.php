@@ -199,7 +199,15 @@ class PricingService
             'chosen_attributes' => $line['chosen_attributes'] ?? null,
             'gift_box_id'  => null,
             'name'         => $name,
-            'sku'          => (string) ($line['product_sku'] ?? ''),
+            /*
+             * The VARIANT's sku when there is one.
+             *
+             * A warehouse picks by sku. `PL-7002` and
+             * `PL-7002-GOLD-12-X-12-2` are different objects on a shelf, and
+             * printing the base one sends the wrong colour out of the door even
+             * though variant_label says Gold.
+             */
+            'sku'          => (string) ($line['variant_sku'] ?? $line['product_sku'] ?? ''),
             'slug'         => $line['product_slug'] ?? null,
             'unit_label'   => $line['unit_label'] ?? null,
             // Carried through so the cart, the drawer and the ORDER all name

@@ -51,6 +51,7 @@ class DatabaseSeeder extends Seeder
         $this->call(VariantSeeder::class);
         // The landing page at /collection.
         $this->call(CollectionsPageSeeder::class);
+        $this->call(CorporatePageSeeder::class);
         $this->call(AboutPageSeeder::class);
         $this->call(ContactPageSeeder::class);
         $this->call(ChromeSeeder::class);

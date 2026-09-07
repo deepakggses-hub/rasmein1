@@ -57,6 +57,29 @@ class OrderService
         $existing = $orders->findByIdempotencyKey($idempotencyKey);
 
         if ($existing !== null) {
+            /*
+             * The key now comes from the form, so it is client-supplied — and
+             * returning the order puts its uuid into `viewable_orders`, which
+             * grants read access to a name, address, phone and totals.
+             *
+             * 192 bits is not guessable, so this was never exploitable. But
+             * "not guessable" is a property of the generator, and the check
+             * below does not depend on one: the email on the request has to
+             * match the order the key names.
+             */
+            $claimed = strtolower(trim((string) ($input['customer_email'] ?? '')));
+            $onOrder = strtolower(trim((string) ($existing['customer_email'] ?? '')));
+
+            if ($claimed !== '' && $onOrder !== '' && ! hash_equals($onOrder, $claimed)) {
+                log_message('warning', 'Idempotency key reused with a different email.');
+
+                return [
+                    'ok'    => false,
+                    'order' => null,
+                    'error' => 'That looks like a repeat of another order. Please start again.',
+                ];
+            }
+
             return ['ok' => true, 'order' => $existing, 'error' => null, 'duplicate' => true];
         }
 

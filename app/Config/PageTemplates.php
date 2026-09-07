@@ -28,6 +28,86 @@ class PageTemplates extends BaseConfig
             'sections'    => [],
         ],
 
+        'corporate' => [
+            'route'       => 'corporate',
+            'label'       => 'Corporate page',
+            'description' => 'The landing page at /corporate — banner, marquee, work occasions, '
+                . 'product rows, a split feature and an enquiry form.',
+            'view'        => 'storefront/pages/corporate',
+            'sections'    => [
+                'marquee' => [
+                    'label'  => 'Message strip',
+                    'help'   => 'The band under the banner. One phrase per line.',
+                    'fields' => [
+                        'lines' => ['type' => 'lines', 'label' => 'Phrases'],
+                    ],
+                ],
+
+                'occasions' => [
+                    'label'  => 'Work occasions',
+                    'help'   => 'Shows every occasion tagged for the corporate page. '
+                        . 'Tag them under Catalogue -> Occasions.',
+                    'fields' => [
+                        'eyebrow' => ['type' => 'text', 'label' => 'Small heading', 'default' => 'By occasion'],
+                        'title'   => ['type' => 'text', 'label' => 'Heading',
+                            'default' => 'Corporate gifting for every occasion.'],
+                    ],
+                ],
+
+                'rows' => [
+                    'label'  => 'Product rows',
+                    'help'   => 'Each row is a heading and a set of pieces. Add as many as you need.',
+                    'fields' => [
+                        'blocks' => [
+                            'type'   => 'list',
+                            'label'  => 'Rows',
+                            'max'    => 6,
+                            'fields' => [
+                                'title'    => ['type' => 'text', 'label' => 'Heading'],
+                                'link'     => ['type' => 'text', 'label' => 'View-all links to'],
+                                'products' => ['type' => 'products', 'label' => 'Pieces'],
+                            ],
+                        ],
+                    ],
+                ],
+
+                'split' => [
+                    'label'  => 'Occasion panel',
+                    'help'   => 'The maroon panel with linked cards beside a photograph. '
+                        . 'Leave the heading blank to hide it.',
+                    'fields' => [
+                        'title' => ['type' => 'text', 'label' => 'Heading',
+                            'default' => 'Corporate Gifting For Every Occasion'],
+                        'image' => ['type' => 'image', 'label' => 'Photograph, right side'],
+                        'cards' => [
+                            'type'   => 'list',
+                            'label'  => 'Cards',
+                            'max'    => 8,
+                            'fields' => [
+                                'label' => ['type' => 'text', 'label' => 'Label'],
+                                'icon'  => ['type' => 'text', 'label' => 'Icon',
+                                    'help' => 'cake, calendar, badge, cheers, user-plus or namaste.'],
+                                'link'  => ['type' => 'text', 'label' => 'Links to'],
+                            ],
+                        ],
+                    ],
+                ],
+
+                'invite' => [
+                    'label'  => 'Enquiry form',
+                    'help'   => 'Leave the heading blank to hide this section.',
+                    'fields' => [
+                        'title'      => ['type' => 'text', 'label' => 'Heading',
+                            'default' => 'Tell us what you need.'],
+                        'body'       => ['type' => 'textarea', 'label' => 'Paragraph'],
+                        'form_title' => ['type' => 'text', 'label' => 'Form heading',
+                            'default' => 'Let us craft something special'],
+                        'whatsapp'   => ['type' => 'text', 'label' => 'WhatsApp number'],
+                    ],
+                ],
+            ],
+        ],
+
         'collections' => [
             /*
              * This template needs data the generic page route cannot supply —

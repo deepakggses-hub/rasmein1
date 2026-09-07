@@ -43,7 +43,9 @@ $lines = $snapshot['lines'] ?? [];
                                 <?= esc($line['name']) ?>
                             </p>
 
-                            <?php if (! empty($line['chosen_attributes'])): ?>
+                            <?php if (! empty($line['variant_label'])): ?>
+                                <p class="rs-help"><?= esc($line['variant_label']) ?></p>
+                            <?php elseif (! empty($line['chosen_attributes'])): ?>
                                 <p class="rs-help"><?= esc($line['chosen_attributes']) ?></p>
                             <?php endif; ?>
                         </div>

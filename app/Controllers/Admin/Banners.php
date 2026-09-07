@@ -31,6 +31,14 @@ class Banners extends AdminController
      * @var array<string, array<string, mixed>>
      */
     private const SLOTS = [
+        'corporate_hero' => [
+            'key'    => 'corporate',
+            'fields' => ['image', 'link', 'text', 'buttons', 'schedule'],
+            'label'  => 'Corporate page banner',
+            'note'   => 'The slider at the top of /corporate. It behaves exactly like the '
+                . 'homepage hero, because it is the same component.',
+        ],
+
         'home_hero' => [
             'key'    => 'hero',
             'fields' => ['image', 'link', 'text', 'buttons', 'schedule'],

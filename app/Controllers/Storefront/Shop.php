@@ -89,34 +89,6 @@ class Shop extends StorefrontController
         return redirect()->to(site_url((string) ($category->path ?: $category->slug)), 301);
     }
 
-    /**
-     * An occasion page: every product tagged to it.
-     *
-     * @param array<string, mixed> $occasion CollectionModel returns arrays,
-     *                                        unlike CategoryModel.
-     */
-    private function renderOccasion(array $occasion): string
-    {
-        $ends = $occasion['ends_at'] ?? null;
-
-        return $this->listing([
-            'heading'  => $occasion['name'],
-            'eyebrow'  => 'Occasion',
-            'intro'    => $occasion['description'],
-            'crumbs'   => [
-                ['label' => 'Shop', 'url' => site_url('shop')],
-                ['label' => $occasion['name'], 'url' => null],
-            ],
-            'seoTitle' => $occasion['meta_title'] ?: $occasion['name'],
-            'seoDesc'  => $occasion['meta_description'] ?: $occasion['description'],
-            'lockedCollection' => (int) $occasion['id'],
-            // On an occasion page the Occasion facet is dropped — it would
-            // only ever offer the page you are already on.
-            // Shown on the page so a seasonal occasion says how long is left,
-            // which is the whole reason someone is looking at it.
-            'endsAt'   => $ends,
-        ]);
-    }
 
     /** @param object $category */
     private function renderCategory($category): string
@@ -147,6 +119,14 @@ class Shop extends StorefrontController
         ]);
     }
 
+    /**
+     * A collection or occasion page.
+     *
+     * ONE method for both since the root URL started redirecting here.
+     * `renderOccasion()` used to serve occasions and was the only path that
+     * passed `endsAt` — losing it took the "how long is left" line off seasonal
+     * pages, which is the whole reason someone is on one.
+     */
     public function collection(string $slug): string
     {
         $collection = model(CollectionModel::class)->findActiveBySlug($slug);
@@ -155,10 +135,23 @@ class Shop extends StorefrontController
             throw PageNotFoundException::forPageNotFound();
         }
 
+        /*
+         * The dated window, enforced HERE.
+         *
+         * RootUrlService checked it, but only on the old root path — so an
+         * expired occasion 404'd at an address nothing links to any more and
+         * rendered happily at the one the shop now links to everywhere. A
+         * Diwali page in March is worse than nothing.
+         */
+        if (! $this->isRunning($collection)) {
+            throw PageNotFoundException::forPageNotFound();
+        }
+
+        $isOccasion = ($collection['type'] ?? '') === 'occasion';
 
         return $this->listing([
             'heading'  => $collection['name'],
-            'eyebrow'  => 'Collection',
+            'eyebrow'  => $isOccasion ? 'Occasion' : 'Collection',
             'intro'    => $collection['description'],
             'crumbs'   => [
                 ['label' => 'Collections', 'url' => site_url('collections')],
@@ -167,7 +160,38 @@ class Shop extends StorefrontController
             'seoTitle' => $collection['meta_title'] ?: $collection['name'],
             'seoDesc'  => $collection['meta_description'] ?: $collection['description'],
             'lockedCollection' => (int) $collection['id'],
+            // Only an occasion counts down; a standing collection has no end.
+            'endsAt'   => $isOccasion ? ($collection['ends_at'] ?? null) : null,
         ]);
+    }
+
+    /**
+     * Is this collection inside its dated window?
+     *
+     * A null start or end means "no bound at that side", which is what a
+     * standing collection has at both.
+     *
+     * @param array<string, mixed> $collection
+     */
+    private function isRunning(array $collection): bool
+    {
+        $now = time();
+
+        if (! empty($collection['starts_at']) && strtotime((string) $collection['starts_at']) > $now) {
+            return false;
+        }
+
+        if (! empty($collection['ends_at'])) {
+            // The end date is inclusive: a window ending "31 October" should
+            // still be open at half past eleven that night.
+            $end = strtotime((string) $collection['ends_at']);
+
+            if ($end !== false && $end + 86399 < $now) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     public function search(): string

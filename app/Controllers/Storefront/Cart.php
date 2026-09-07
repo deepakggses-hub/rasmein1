@@ -185,7 +185,7 @@ class Cart extends StorefrontController
 
                 // The service may cap it — stock, or the per-basket limit — so
                 // report what actually landed rather than what was asked for.
-                $quantity = service('cart')->quantityOf($productId);
+                $quantity = service('cart')->quantityOf($productId, $variantId ?: null);
             }
         } catch (\Throwable $e) {
             log_message('error', 'Cart JSON failed: {m}', ['m' => $e->getMessage()]);

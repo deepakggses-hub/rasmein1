@@ -3373,3 +3373,51 @@
   }
   .rs-tile__label { font-family: var(--font-display); font-size: 1.0625rem; }
 }
+
+/* ============================================================ corporate page */
+@layer components {
+  /* The split panel: maroon copy on the left, photograph on the right. Stacks
+     on a narrow screen, where a side-by-side would give each half too little. */
+  .rs-split {
+    display: grid;
+  }
+
+  @media (min-width: 1024px) {
+    .rs-split { grid-template-columns: 45fr 55fr; }
+  }
+
+  .rs-split__panel {
+    padding: clamp(2rem, 5vw, 4.5rem) clamp(1.25rem, 4vw, 4rem);
+    color: var(--color-shell);
+    background: var(--rs-deep, #4A0C18);
+  }
+
+  .rs-split__figure {
+    min-height: clamp(16rem, 40vw, 100%);
+  }
+
+  /* An occasion card on that panel. Cream on maroon, so it reads as a raised
+     surface rather than an outline on a dark ground. */
+  .rs-occard {
+    display: grid;
+    gap: 1.25rem;
+    height: 100%;
+    padding: 1.15rem 1.25rem;
+    background: var(--color-shell);
+    border-radius: var(--rs-radius, 2px);
+    transition: transform 0.18s ease, box-shadow 0.18s ease;
+  }
+
+  a.rs-occard:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 14px 28px -18px rgb(0 0 0 / 0.5);
+  }
+
+  .rs-occard__icon { color: var(--rs-accent, #C6A15B); }
+
+  .rs-occard__label {
+    font-family: var(--font-display);
+    font-size: 1rem;
+    color: var(--rs-primary, #5E1F3D);
+  }
+}

@@ -30,6 +30,12 @@
                         <div class="num flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 text-sm">
                             <span class="min-w-0">
                                 <span class="font-medium"><?= esc($item['name_snapshot']) ?></span>
+                                <?php if (! empty($item['variant_label'])): ?>
+                                    <?php /* Fulfilment picks by this. Without it
+                                             the packer cannot tell gold from
+                                             silver on the order screen. */ ?>
+                                    <span class="rs-help block"><?= esc($item['variant_label']) ?></span>
+                                <?php endif; ?>
                                 <?php if ($item['sku_snapshot'] !== null): ?>
                                     <span class="ml-1.5 font-mono text-[0.625rem] text-ink-muted"><?= esc($item['sku_snapshot']) ?></span>
                                 <?php endif; ?>

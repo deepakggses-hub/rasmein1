@@ -237,18 +237,50 @@ class Pages extends AdminController
                     continue;
                 }
 
+                if ($field['type'] === 'products') {
+                    $out[$sectionKey][$fieldKey] = $this->validProductIds((array) $value);
+
+                    continue;
+                }
+
+                if ($field['type'] === 'lines') {
+                    // Trimmed and de-blanked on the way in, so a stray return
+                    // never becomes an empty phrase on the page.
+                    $out[$sectionKey][$fieldKey] = implode("\n", array_values(array_filter(array_map(
+                        'trim',
+                        preg_split('/\R/u', (string) $value) ?: []
+                    ))));
+
+                    continue;
+                }
+
                 if ($field['type'] === 'list') {
                     $rows = [];
 
                     foreach ((array) $value as $row) {
                         $clean = [];
 
-                        foreach (array_keys($field['fields']) as $subKey) {
-                            $clean[$subKey] = trim((string) ($row[$subKey] ?? ''));
+                        foreach ($field['fields'] as $subKey => $subMeta) {
+                            // A picker inside a row stays an ARRAY; everything
+                            // else is a trimmed string.
+                            $clean[$subKey] = ($subMeta['type'] ?? '') === 'products'
+                                ? $this->validProductIds((array) ($row[$subKey] ?? []))
+                                : trim((string) ($row[$subKey] ?? ''));
                         }
 
-                        // A row where every box is empty is not a row.
-                        if (implode('', $clean) !== '') {
+                        /*
+                         * A row where every box is empty is not a row.
+                         *
+                         * implode() would fatal on the array a product picker
+                         * leaves behind, so each value is tested for its own
+                         * kind of emptiness.
+                         */
+                        $filled = array_filter(
+                            $clean,
+                            static fn ($v): bool => is_array($v) ? $v !== [] : $v !== ''
+                        );
+
+                        if ($filled !== []) {
                             $rows[] = $clean;
                         }
                     }
@@ -280,5 +312,29 @@ class Pages extends AdminController
         }
 
         return json_encode($out, JSON_UNESCAPED_UNICODE);
+    }
+
+    /**
+     * Posted product ids, filtered to ones that exist.
+     *
+     * A page holding an id that no longer names a product renders a gap with
+     * nothing explaining it, and the shop has no way to tell which row is at
+     * fault.
+     *
+     * @return list<int>
+     */
+    private function validProductIds(array $posted): array
+    {
+        $ids = array_values(array_unique(array_filter(array_map('intval', $posted))));
+
+        if ($ids === []) {
+            return [];
+        }
+
+        return array_map('intval', array_column(
+            db_connect()->table('products')->select('id')
+                ->whereIn('id', $ids)->where('deleted_at', null)->get()->getResultArray(),
+            'id'
+        ));
     }
 }

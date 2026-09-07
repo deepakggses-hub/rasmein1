@@ -68,7 +68,7 @@ class CartItemModel extends Model
              * rather than overwriting the product's, so PricingService can tell
              * "the variant sets this" from "it inherits".
              */
-            . ' pv.id AS variant_id_row, pv.label AS variant_label,'
+            . ' pv.id AS variant_id_row, pv.label AS variant_label, pv.sku AS variant_sku,'
             . ' pv.price AS variant_price, pv.compare_at_price AS variant_compare_at,'
             . ' pv.stock_qty AS variant_stock, pv.image AS variant_image,'
             . ' pv.is_active AS variant_active, pv.variant_key,'

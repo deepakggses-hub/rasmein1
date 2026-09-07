@@ -48,7 +48,36 @@ $term = $filters['q'] ?? null;
                      narrow screen. */ ?>
             <div class="flex flex-wrap items-end justify-between gap-x-8 gap-y-5 border-b border-shell-line pb-5">
                 <header>
-                    <h1 class="rs-display rs-display--lg"><?= esc($context['heading']) ?></h1>
+                    <?php if (! empty($context['eyebrow'])): ?>
+                        <?php /* "Occasion" or "Collection" — it tells the reader
+                                 what KIND of page they landed on, which the
+                                 heading alone does not. */ ?>
+                        <p class="rs-kicker"><?= esc($context['eyebrow']) ?></p>
+                    <?php endif; ?>
+
+                    <h1 class="rs-display rs-display--lg <?= empty($context['eyebrow']) ? '' : 'mt-4' ?>">
+                        <?= esc($context['heading']) ?>
+                    </h1>
+
+                    <?php
+                    /*
+                     * How long a seasonal page has left.
+                     *
+                     * The reason someone is on a Diwali page in October is that
+                     * it ends — saying when is the most useful thing on it. Past
+                     * dates never render: isRunning() has already 404'd those.
+                     */
+                    $rsEnds = ! empty($context['endsAt']) ? strtotime((string) $context['endsAt']) : false;
+                    $rsDays = $rsEnds === false ? null : (int) ceil(($rsEnds + 86399 - time()) / 86400);
+                    ?>
+                    <?php if ($rsDays !== null && $rsDays > 0): ?>
+                        <p class="mt-3 inline-flex items-center gap-2 border border-brass/40 bg-brass-soft/25 px-3 py-1.5">
+                            <span class="rs-kicker"><?= $rsDays === 1 ? 'Ends today' : 'Ends in' ?></span>
+                            <?php if ($rsDays > 1): ?>
+                                <span class="num text-sm"><?= $rsDays ?> days</span>
+                            <?php endif; ?>
+                        </p>
+                    <?php endif; ?>
                     <p class="mt-3 font-mono text-[0.625rem] tracking-[0.18em] text-ink-muted uppercase" data-result-count>
                         <span class="num"><?= (int) $total ?></span>
                         <?= $total === 1 ? 'piece' : 'pieces' ?>

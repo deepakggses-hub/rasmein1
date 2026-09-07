@@ -1,5 +1,50 @@
 <?php
 /**
+ * @var array $template
+ * @var array $data
+ */
+
+/*
+ * The product picker, as a closure so a list row can call it too.
+ *
+ * A grouped <select multiple> rather than a checkbox wall: 155 products in
+ * checkboxes is a page nobody can scan, and the browser gives search and
+ * keyboard selection for free.
+ */
+$rsProductPicker = static function (string $name, array $chosen): void {
+    static $grouped = null;
+
+    if ($grouped === null) {
+        $grouped = [];
+
+        foreach (model(\App\Models\ProductModel::class)
+            ->select('products.id, products.name, products.sku, categories.name AS cat')
+            ->join('categories', 'categories.id = products.category_id', 'left')
+            ->where('products.is_active', 1)->where('products.deleted_at', null)
+            ->orderBy('categories.sort_order', 'ASC')->orderBy('products.name', 'ASC')
+            ->asArray()->findAll() as $row) {
+            $grouped[(string) ($row['cat'] ?? 'Uncategorised')][] = $row;
+        }
+    }
+    ?>
+    <select name="<?= esc($name, 'attr') ?>[]" class="rs-select" multiple size="8">
+        <?php foreach ($grouped as $cat => $rows): ?>
+            <optgroup label="<?= esc($cat, 'attr') ?>">
+                <?php foreach ($rows as $row): ?>
+                    <option value="<?= (int) $row['id'] ?>"
+                            <?= in_array((int) $row['id'], $chosen, true) ? 'selected' : '' ?>>
+                        <?= esc($row['name']) ?> — <?= esc($row['sku']) ?>
+                    </option>
+                <?php endforeach; ?>
+            </optgroup>
+        <?php endforeach; ?>
+    </select>
+    <span class="rs-help">Ctrl or Cmd to pick several. None picked shows nothing.</span>
+    <?php
+};
+?>
+<?php
+/**
  * The fields a template needs, rendered from Config\PageTemplates.
  *
  * ONE definition drives the picker, this form and the storefront, so a field
@@ -48,11 +93,14 @@
                                 <?php $row = $rows[$i] ?? []; ?>
                                 <div class="grid gap-2 border border-shell-line bg-shell-deep/40 p-3 sm:grid-cols-2">
                                     <?php foreach ($field['fields'] as $subKey => $sub): ?>
-                                        <label class="<?= $sub['type'] === 'textarea' ? 'sm:col-span-2' : '' ?>">
+                                        <label class="<?= in_array($sub['type'], ['textarea', 'products'], true) ? 'sm:col-span-2' : '' ?>">
                                             <span class="rs-label"><?= esc($sub['label']) ?></span>
                                             <?php $subName = $name . '[' . $i . '][' . $subKey . ']'; ?>
 
-                                            <?php if ($sub['type'] === 'textarea'): ?>
+                                            <?php if ($sub['type'] === 'products'): ?>
+                                                <?php $rsProductPicker($subName, array_map('intval', (array) ($row[$subKey] ?? []))) ?>
+
+                                            <?php elseif ($sub['type'] === 'textarea'): ?>
                                                 <textarea name="<?= esc($subName, 'attr') ?>" class="rs-textarea"
                                                           rows="2" maxlength="1000"><?= esc((string) ($row[$subKey] ?? '')) ?></textarea>
                                             <?php else: ?>
@@ -69,6 +117,28 @@
                             <?php endfor; ?>
                         </div>
                     </div>
+
+                <?php elseif ($field['type'] === 'products'): ?>
+                    <span class="rs-label"><?= esc($field['label']) ?></span>
+                    <?php $rsProductPicker($name, array_map('intval', (array) $value)) ?>
+
+                <?php elseif ($field['type'] === 'lines'): ?>
+                    <?php
+                    // One phrase per line — the same shape the marquee and the
+                    // search placeholders already use.
+                    $items = array_values(array_filter(array_map(
+                        'trim',
+                        preg_split('/\R/u', (string) $value) ?: []
+                    )));
+                    ?>
+                    <label>
+                        <span class="rs-label"><?= esc($field['label']) ?></span>
+                        <textarea name="<?= esc($name, 'attr') ?>" class="rs-textarea font-mono text-xs"
+                                  rows="5" maxlength="2000"><?= esc(implode("\n", $items)) ?></textarea>
+                        <span class="rs-help">
+                            One per line &mdash; <span class="num"><?= count($items) ?></span> at the moment.
+                        </span>
+                    </label>
 
                 <?php elseif ($field['type'] === 'occasions'): ?>
                     <?php

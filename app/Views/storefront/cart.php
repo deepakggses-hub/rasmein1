@@ -87,6 +87,12 @@ $forcedByItem = $isEnquiry && ! rs_is_enquire_mode();
                                                 <a href="<?= site_url('product/' . $line['slug']) ?>" class="rs-link">
                                                     <?= esc($line['name']) ?>
                                                 </a>
+                                    <?php /* Which one they chose. The basket is
+                                             where a wrong colour is still cheap
+                                             to fix. */ ?>
+                                    <?php if (! empty($line['variant_label'])): ?>
+                                        <p class="rs-help"><?= esc($line['variant_label']) ?></p>
+                                    <?php endif; ?>
                                     <?php if (! empty($line['chosen_attributes'])): ?>
                                         <?php /* What they chose, on the line — so a
                                                  basket of three similar bowls is

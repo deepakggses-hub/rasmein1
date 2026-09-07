@@ -2562,6 +2562,82 @@ class turned the scroller on; the track is what made it a row.
 carries a name and a price under the photograph, so more of them have to be
 visible before the row reads as a row. 70vw → 38vw → 24vw → 19rem.
 
+### Variant scoping is not done until EVERY lookup has it
+
+`findProductLine()`, `setProductQuantity()` AND `quantityOf()` all take the
+variant. The last one was missed and fed the stepper: with Silver x2 and Gold x1
+in the basket it returned whichever row the database offered first, so the Gold
+card showed 2 and the next "+" sent an absolute quantity computed from Silver.
+
+**Fixing one caller of a shared shape is not fixing the shape.** Grep for every
+query on `cart_items` filtered by `product_id` and check each for the variant.
+
+### A warehouse picks by SKU
+
+`sku_snapshot` took `product_sku`, so an order for
+`TLG-11001-GOLD-6-X-6-E-5` was printed as `TLG-11001`. `variant_label` saying
+"Gold" does not help someone reading a pick list by code. `pv.sku` is aliased on
+the cart line and wins over the product's.
+
+### Stock ceilings belong where the quantity is SET
+
+`addProduct()` and `updateQuantity()` clamped against `products.stock_qty`, so a
+variant with 12 accepted 25 into the basket and PricingService refused it at
+checkout — the customer saw "only 12 left" AFTER the cart had taken 25. Both now
+read the variant's ceiling first.
+
+### The date window moved with the URL
+
+`RootUrlService::isRunning()` guarded the old root path only. Once occasions
+redirected to `/collection/{slug}`, an expired one rendered happily at the
+address the shop links to everywhere while the dead URL correctly 404'd. The
+check now lives in `Shop::collection()`, which is the one door left.
+
+The end date is INCLUSIVE — a window ending "31 October" is still open at half
+past eleven that night.
+
+`renderOccasion()` was the only caller passing `endsAt`, and deleting it silently
+took the countdown with it. `collection()` now serves both kinds and sets the
+eyebrow and countdown from `type`. **Deleting a method that "nothing calls"
+deletes whatever only it supplied.**
+
+### Idempotency: verify the claim, not just the key
+
+The key comes from a form now, and returning the matched order grants read
+access to a name, address, phone and totals. 192 bits is not guessable — but
+that is a property of the generator, not of the code. The duplicate branch checks
+the posted email against the order's before handing it back.
+
+### The corporate page
+
+`/corporate`, a `pages` row with the `corporate` template: banner, marquee, work
+occasions, product rows, the split panel and an enquiry form. Turning the
+corporate switch ON redirects here — switching mode is a statement about WHY
+someone is here, not a preference to apply to whatever page they were on. It
+only redirects if the page exists; landing on a redirect-to-shop is worse than
+staying put.
+
+- `collections.audience` — `both` / `retail` / `corporate`. Default `both`, so
+  nothing already in the table vanishes from a page it currently sits on, and
+  `forAudience()` always includes `both`: Diwali is gifted to a client as
+  readily as to a cousin.
+- Two new field types. `products` is a grouped `<select multiple>` — 155
+  products as checkboxes is a page nobody can scan, and the browser gives search
+  and keyboard selection for free. `lines` is the one-per-line list already used
+  by the marquee and search placeholders.
+- A picker inside a LIST row stays an array, so the "is this row empty" test
+  cannot be `implode()` — that fatals on an array. Each value is tested for its
+  own kind of emptiness.
+- Product rows resolve in ONE query for all rows, then reorder in PHP. Six rows
+  of eight would otherwise be six round trips for what a single `whereIn`
+  answers.
+- The hero is now `partials/hero_banners`, shared with the homepage, so a slide
+  that works on one works on the other.
+
+**A validation rule is not a column.** `banners.position` is a database ENUM;
+widening the model's `in_list` let the application accept `corporate_hero` while
+MySQL rejected the insert outright. Both have to agree, which needs a migration.
+
 ### Outstanding security work (tracked, not yet done)
 
 - [ ] **CSP is written but not enabled.** `Config/ContentSecurityPolicy.php`

@@ -15,7 +15,7 @@ class CollectionModel extends Model
     protected $useSoftDeletes = true;
 
     protected $allowedFields = [
-        'type', 'name', 'slug', 'description', 'image', 'hero_image', 'data', 'alt_text', 'is_featured',
+        'type', 'audience', 'name', 'slug', 'description', 'image', 'alt_text', 'is_featured',
         'sort_order', 'is_active', 'starts_at', 'ends_at', 'meta_title', 'meta_description',
     ];
 
@@ -214,5 +214,22 @@ class CollectionModel extends Model
         }
 
         return $out;
+    }
+
+    /**
+     * Occasions for one audience.
+     *
+     * `both` always appears — Diwali is gifted to a client as readily as to a
+     * cousin, and making the shop tag it twice would be a way to forget one.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function forAudience(string $audience): array
+    {
+        return $this->where('type', 'occasion')
+            ->where('is_active', 1)
+            ->whereIn('audience', ['both', $audience])
+            ->orderBy('sort_order', 'ASC')
+            ->findAll();
     }
 }

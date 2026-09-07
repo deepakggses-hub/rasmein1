@@ -266,7 +266,30 @@ class CartService
             return ['ok' => false, 'message' => 'That product is not available.'];
         }
 
-        if (! $product->inStock()) {
+        /*
+         * The variant's stock is the real limit.
+         *
+         * Clamping against the product let a variant with 12 in stock take 25
+         * into the basket; PricingService then refused at checkout and the
+         * customer was told "only 12 left" AFTER the cart had accepted 25. The
+         * ceiling belongs where the quantity is set, not where it is checked.
+         */
+        $variantStock = null;
+
+        if ($this->pendingVariant !== null) {
+            $row = db_connect()->table('product_variants')
+                ->select('stock_qty')->where('id', $this->pendingVariant)->get()->getRowArray();
+
+            if ($row !== null) {
+                $variantStock = (int) $row['stock_qty'];
+            }
+        }
+
+        if ($variantStock !== null && $variantStock < 1) {
+            return ['ok' => false, 'message' => $product->name . ' is sold out in that option.'];
+        }
+
+        if ($variantStock === null && ! $product->inStock()) {
             return ['ok' => false, 'message' => $product->name . ' is sold out.'];
         }
 
@@ -289,8 +312,11 @@ class CartService
             : $quantity;
 
         // Never let the cart hold more than exists.
-        if ($product->track_inventory && $wanted > $product->stock_qty) {
-            $wanted = $product->stock_qty;
+        // The variant's ceiling wins when there is one.
+        $ceiling = $variantStock ?? ($product->track_inventory ? (int) $product->stock_qty : null);
+
+        if ($ceiling !== null && $wanted > $ceiling) {
+            $wanted = $ceiling;
 
             if ($wanted <= (int) ($existing['quantity'] ?? 0)) {
                 return [
@@ -362,15 +388,32 @@ class CartService
         if ($line['item_type'] === 'product' && $line['product_id'] !== null) {
             $product = model(ProductModel::class)->find((int) $line['product_id']);
 
-            if ($product !== null && $product->track_inventory && $quantity > $product->stock_qty) {
-                $quantity = max(1, $product->stock_qty);
+            // The line's own variant sets the ceiling, exactly as it does when
+            // the line is first added.
+            $ceiling = null;
+
+            if (($line['variant_id'] ?? null) !== null) {
+                $row = db_connect()->table('product_variants')
+                    ->select('stock_qty')->where('id', (int) $line['variant_id'])->get()->getRowArray();
+
+                if ($row !== null) {
+                    $ceiling = (int) $row['stock_qty'];
+                }
+            }
+
+            if ($ceiling === null && $product !== null && $product->track_inventory) {
+                $ceiling = (int) $product->stock_qty;
+            }
+
+            if ($ceiling !== null && $quantity > $ceiling) {
+                $quantity = max(1, $ceiling);
 
                 $items->update($lineId, ['quantity' => $quantity]);
                 model(CartModel::class)->touch((int) $cart['id']);
 
                 return [
                     'ok'      => false,
-                    'message' => 'Only ' . $product->stock_qty . ' left — quantity adjusted.',
+                    'message' => 'Only ' . $ceiling . ' left — quantity adjusted.',
                 ];
             }
         }
@@ -533,7 +576,15 @@ class CartService
     }
 
     /** How many of a product are in the basket right now. */
-    public function quantityOf(int $productId): int
+    /**
+     * How many of a product — and VARIANT — are in the basket.
+     *
+     * Scoped like setProductQuantity(). Without it, Silver x2 and Gold x1 in the
+     * basket returned whichever row MySQL handed back first: the stepper on the
+     * Gold card showed 2, and the next "+" then sent an absolute quantity
+     * computed from the Silver line.
+     */
+    public function quantityOf(int $productId, ?int $variantId = null): int
     {
         $cart = $this->current();
 
@@ -541,12 +592,16 @@ class CartService
             return 0;
         }
 
-        $row = db_connect()->table('cart_items')
-            ->select('quantity')
+        $builder = db_connect()->table('cart_items')
             ->where('cart_id', $cart['id'])
             ->where('product_id', $productId)
-            ->where('gift_box_id', null)
-            ->get()->getRowArray();
+            ->where('gift_box_id', null);
+
+        $variantId === null
+            ? $builder->where('variant_id', null)
+            : $builder->where('variant_id', $variantId);
+
+        $row = $builder->orderBy('id', 'ASC')->get()->getRowArray();
 
         return $row === null ? 0 : (int) $row['quantity'];
     }

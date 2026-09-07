@@ -20,7 +20,7 @@ class BannerModel extends Model
     ];
 
     protected $validationRules = [
-        'position'  => 'required|in_list[home_hero,home_strip,home_feature,home_client,home_gallery,category_top,gift_builder]',
+        'position'  => 'required|in_list[home_hero,corporate_hero,home_strip,home_feature,home_client,home_gallery,category_top,gift_builder]',
         'title'     => 'permit_empty|max_length[191]',
         'subtitle'  => 'permit_empty|max_length[255]',
         'link_url'  => 'permit_empty|max_length[255]',

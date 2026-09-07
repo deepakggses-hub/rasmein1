@@ -40,7 +40,31 @@ class Mode extends Controller
 
         $_COOKIE[Rasmein::MODE_COOKIE] = $mode;
 
-        // Back where they were, so switching mid-browse does not lose the page.
+        /*
+         * Turning corporate ON goes to the corporate page.
+         *
+         * Switching mode is a statement about WHY someone is here, not a
+         * preference to apply to the page they happen to be on — and the
+         * corporate page is the answer to "show me what you do for businesses".
+         *
+         * Only if that page exists: sending them to a redirect-to-shop is worse
+         * than leaving them where they were.
+         */
+        if ($mode === Rasmein::MODE_ENQUIRE) {
+            $page = model(\App\Models\PageModel::class)
+                ->where('template', 'corporate')->where('is_active', 1)->first();
+
+            if ($page !== null) {
+                return redirect()->to(site_url('corporate'))->with(
+                    'success',
+                    (string) (service('settings')->get('corporate_on_message', '')
+                        ?: 'Corporate gifting. Add pieces to an enquiry and we will quote.')
+                );
+            }
+        }
+
+        // Otherwise back where they were, so switching mid-browse does not lose
+        // the page.
         $back = (string) ($this->request->getPost('return_to') ?? '');
         $safe = $back !== '' && ! preg_match('#^[a-z]+://#i', $back) && ! str_starts_with($back, '//')
             ? site_url(ltrim($back, '/'))

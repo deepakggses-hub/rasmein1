@@ -19,6 +19,24 @@ $oldPicks = old('products');
       action="<?= $isNew ? site_url('admin/occasions') : site_url('admin/occasions/' . $occasion['id']) ?>">
     <?= csrf_field() ?>
 
+    <?php /* Which shop this belongs on. "Both" is the default because most
+             occasions genuinely are — a festival is gifted at work too. */ ?>
+    <label class="mb-5 block max-w-xs">
+        <span class="rs-label">Shown on</span>
+        <select name="audience" class="rs-select">
+            <?php foreach ([
+                'both'      => 'Both shops',
+                'retail'    => 'The ordinary shop only',
+                'corporate' => 'The corporate page only',
+            ] as $key => $label): ?>
+                <option value="<?= esc($key, 'attr') ?>"
+                        <?= ($occasion['audience'] ?? 'both') === $key ? 'selected' : '' ?>>
+                    <?= esc($label) ?>
+                </option>
+            <?php endforeach; ?>
+        </select>
+    </label>
+
     <?php /* An occasion is dated (Diwali 2026); a collection is not (The Tea
              Drinker). Both live in the same table and use this screen, so the
              kind is chosen here rather than guessed. Locked once saved: changing

@@ -167,7 +167,10 @@ class Occasions extends AdminController
             $currentType = $row['type'] ?? null;
         }
 
+        $audience = (string) $this->request->getPost('audience');
+
         $payload = [
+            'audience' => in_array($audience, ['both', 'retail', 'corporate'], true) ? $audience : 'both',
             /*
              * Keep whatever kind this row already is. Forcing 'occasion' would
              * quietly reclassify a collection the first time someone edited its

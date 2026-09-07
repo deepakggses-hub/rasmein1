@@ -136,4 +136,85 @@ class Pages extends StorefrontController
             'description' => $page['meta_description'] ?: rs_excerpt((string) $page['excerpt'], 155),
         ]);
     }
+
+    /**
+     * The corporate landing page at /corporate.
+     */
+    public function corporate()
+    {
+        $page = model(\App\Models\PageModel::class)
+            ->where('template', 'corporate')
+            ->where('is_active', 1)
+            ->first();
+
+        if ($page === null) {
+            return redirect()->to(site_url('shop'));
+        }
+
+        $decoded = ! empty($page['data']) ? json_decode((string) $page['data'], true) : [];
+        $data    = is_array($decoded) ? $decoded : [];
+
+        /*
+         * Product rows, resolved in ONE query rather than one per row.
+         *
+         * Six rows of eight pieces would otherwise be six round trips for what
+         * a single whereIn answers.
+         */
+        $blocks = array_values(array_filter(
+            (array) ($data['rows']['blocks'] ?? []),
+            static fn ($b): bool => is_array($b) && ($b['products'] ?? []) !== []
+        ));
+
+        $wanted = [];
+
+        foreach ($blocks as $block) {
+            foreach ((array) $block['products'] as $id) {
+                $wanted[] = (int) $id;
+            }
+        }
+
+        $wanted = array_values(array_unique(array_filter($wanted)));
+        $byId   = [];
+
+        if ($wanted !== []) {
+            foreach (model(\App\Models\ProductModel::class)
+                ->whereIn('products.id', $wanted)
+                ->applyFilters([])->findAll() as $product) {
+                $byId[(int) $product->id] = $product;
+            }
+        }
+
+        $rows = [];
+
+        foreach ($blocks as $block) {
+            $picked = [];
+
+            foreach ((array) $block['products'] as $id) {
+                // Kept in the order the shop chose, and a product that has since
+                // been hidden simply drops out.
+                if (isset($byId[(int) $id])) {
+                    $picked[] = $byId[(int) $id];
+                }
+            }
+
+            $rows[] = [
+                'title'    => (string) ($block['title'] ?? ''),
+                'link'     => (string) ($block['link'] ?? ''),
+                'products' => $picked,
+            ];
+        }
+
+        return $this->page('storefront/pages/corporate', [
+            'page'      => $page,
+            'data'      => $data,
+            'banners'   => model(\App\Models\BannerModel::class)->liveFor('corporate_hero'),
+            // Occasions tagged for this audience, plus everything marked "both".
+            'occasions' => model(\App\Models\CollectionModel::class)->forAudience('corporate'),
+            'rows'      => $rows,
+            'imageMap'  => model(\App\Models\ProductModel::class)->imagesFor(array_keys($byId)),
+        ], [
+            'title'       => ($page['meta_title'] ?: $page['title']) . ' · ' . $this->brand->brandName,
+            'description' => $page['meta_description'] ?: rs_excerpt((string) $page['excerpt'], 155),
+        ]);
+    }
 }
