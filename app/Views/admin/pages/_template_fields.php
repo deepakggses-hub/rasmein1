@@ -193,7 +193,12 @@ $rsProductPicker = static function (string $name, array $chosen): void {
                                      class="w-full object-cover">
                             </span>
                         <?php endif; ?>
+                        <?php /* data-media-field names the hidden input the
+                                 picker writes into, so choosing from the library
+                                 and uploading a file both end up in the same
+                                 place the save already reads. */ ?>
                         <input type="file" name="data_image_<?= esc($sectionKey . '_' . $fieldKey, 'attr') ?>"
+                               data-media="content" data-media-field="<?= esc($name, 'attr') ?>"
                                class="rs-input" accept="image/jpeg,image/png,image/webp">
                         <?php /* The current path rides along, so saving without
                                  choosing a new file keeps the old one. */ ?>

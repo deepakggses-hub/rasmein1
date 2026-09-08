@@ -31,7 +31,7 @@ $now = time();
             <label class="min-w-56 flex-1">
                 <span class="rs-label">Add several at once</span>
                 <input type="file" name="images[]" class="rs-input" multiple
-                       accept="image/jpeg,image/png,image/webp">
+                       accept="image/jpeg,image/png,image/webp" data-media="content">
                 <span class="rs-help">
                     <?= esc($meta['ratio']) ?>. Each becomes its own banner, so they can be
                     reordered or removed individually.

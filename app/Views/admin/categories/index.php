@@ -173,7 +173,7 @@ if ($editing !== null) {
 
                 <label class="mt-4 block">
                     <span class="rs-label">Image</span>
-                    <input type="file" name="image" class="rs-input" accept="image/jpeg,image/png,image/webp">
+                    <input type="file" name="image" class="rs-input" accept="image/jpeg,image/png,image/webp" data-media="content">
                 </label>
 
                 <label class="mt-4 block">

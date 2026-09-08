@@ -199,7 +199,7 @@ $checked = static fn (string $field, bool $fallback): string => (old($field) !==
                 <label class="mt-4 block">
                     <span class="rs-label">Add images</span>
                     <input type="file" name="images[]" class="rs-input" multiple
-                           accept="image/jpeg,image/png,image/webp">
+                           accept="image/jpeg,image/png,image/webp" data-media="content">
                         <span class="rs-help">
                             <strong>Upload the largest version you have.</strong> Six sizes are
                             generated automatically, plus a WebP of each, and the visitor's browser

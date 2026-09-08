@@ -69,7 +69,7 @@ $ruleTypes = [
                     </div>
                     <label class="sm:col-span-2">
                         <span class="rs-label">Photograph</span>
-                        <input type="file" name="image" class="rs-input" accept="image/jpeg,image/png,image/webp">
+                        <input type="file" name="image" class="rs-input" accept="image/jpeg,image/png,image/webp" data-media="content">
                     </label>
                     <label>
                         <span class="rs-label">Meta title</span>

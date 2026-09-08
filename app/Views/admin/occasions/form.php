@@ -19,23 +19,39 @@ $oldPicks = old('products');
       action="<?= $isNew ? site_url('admin/occasions') : site_url('admin/occasions/' . $occasion['id']) ?>">
     <?= csrf_field() ?>
 
-    <?php /* Which shop this belongs on. "Both" is the default because most
-             occasions genuinely are — a festival is gifted at work too. */ ?>
-    <label class="mb-5 block max-w-xs">
-        <span class="rs-label">Shown on</span>
-        <select name="audience" class="rs-select">
-            <?php foreach ([
-                'both'      => 'Both shops',
-                'retail'    => 'The ordinary shop only',
-                'corporate' => 'The corporate page only',
-            ] as $key => $label): ?>
-                <option value="<?= esc($key, 'attr') ?>"
-                        <?= ($occasion['audience'] ?? 'both') === $key ? 'selected' : '' ?>>
-                    <?= esc($label) ?>
-                </option>
-            <?php endforeach; ?>
-        </select>
-    </label>
+    <?php
+    /*
+     * Two ticks rather than a three-way select.
+     *
+     * "Both" is not a third kind of occasion — it is both boxes ticked, and the
+     * control should say so. Ticking neither is meaningless, so it is treated as
+     * both: an occasion that appears nowhere is a row nobody can find again.
+     */
+    $rsAudience = $occasion['audience'] ?? 'both';
+    $rsRetail   = in_array($rsAudience, ['both', 'retail'], true);
+    $rsCorp     = in_array($rsAudience, ['both', 'corporate'], true);
+    ?>
+    <fieldset class="mb-5">
+        <legend class="rs-label">Show this occasion on</legend>
+
+        <div class="mt-2 flex flex-wrap gap-2">
+            <label class="flex cursor-pointer items-center gap-2 border px-3 py-2 text-sm
+                          <?= $rsRetail ? 'border-mulberry bg-brass-soft/30' : 'border-shell-line' ?>">
+                <input type="checkbox" name="audience_retail" value="1" class="accent-mulberry"
+                       <?= $rsRetail ? 'checked' : '' ?>>
+                <span>The ordinary shop</span>
+            </label>
+
+            <label class="flex cursor-pointer items-center gap-2 border px-3 py-2 text-sm
+                          <?= $rsCorp ? 'border-mulberry bg-brass-soft/30' : 'border-shell-line' ?>">
+                <input type="checkbox" name="audience_corporate" value="1" class="accent-mulberry"
+                       <?= $rsCorp ? 'checked' : '' ?>>
+                <span>The corporate page</span>
+            </label>
+        </div>
+
+        <span class="rs-help">Tick both and it appears on both.</span>
+    </fieldset>
 
     <?php /* An occasion is dated (Diwali 2026); a collection is not (The Tea
              Drinker). Both live in the same table and use this screen, so the
@@ -81,7 +97,7 @@ $oldPicks = old('products');
                     </label>
                     <label class="sm:col-span-2">
                         <span class="rs-label">Image</span>
-                        <input type="file" name="image" class="rs-input" accept="image/jpeg,image/png,image/webp">
+                        <input type="file" name="image" class="rs-input" accept="image/jpeg,image/png,image/webp" data-media="content">
                     </label>
                 </div>
             </section>

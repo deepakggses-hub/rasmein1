@@ -167,10 +167,24 @@ class Occasions extends AdminController
             $currentType = $row['type'] ?? null;
         }
 
-        $audience = (string) $this->request->getPost('audience');
+        /*
+         * Two ticks collapse into one stored value.
+         *
+         * Neither ticked means BOTH, not neither: an occasion visible nowhere is
+         * a row the shop cannot find again, and an empty form should not be able
+         * to hide something by accident.
+         */
+        $retail = $this->request->getPost('audience_retail') !== null;
+        $corp   = $this->request->getPost('audience_corporate') !== null;
+
+        $audience = match (true) {
+            $retail && ! $corp => 'retail',
+            $corp && ! $retail => 'corporate',
+            default            => 'both',
+        };
 
         $payload = [
-            'audience' => in_array($audience, ['both', 'retail', 'corporate'], true) ? $audience : 'both',
+            'audience' => $audience,
             /*
              * Keep whatever kind this row already is. Forcing 'occasion' would
              * quietly reclassify a collection the first time someone edited its

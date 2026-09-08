@@ -204,5 +204,7 @@ foreach ($nav as $group) {
     <script src="<?= rs_asset('assets/vendor/chartjs/chart.umd.js') ?>" defer></script>
     <script src="<?= rs_asset('assets/js/charts.js') ?>" defer></script>
 <?php endif; ?>
+<?= view('admin/partials/media_picker') ?>
+
 </body>
 </html>

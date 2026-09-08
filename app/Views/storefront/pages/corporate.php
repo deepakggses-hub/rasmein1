@@ -97,24 +97,20 @@ $marquee = array_values(array_filter(array_map(
             <?php endif; ?>
         </div>
 
-        <?php /* The same rail the homepage and collections page use. */ ?>
-        <div class="rs-loop rs-loop--tight mt-8" data-loop>
-            <ul class="rs-loop__track rs-loop__track--cards" data-loop-track>
-                <?php foreach ($row['products'] as $product): ?>
-                    <li class="rs-loop__item">
-                        <?= view('partials/product_card', [
-                            'product' => $product,
-                            'images'  => $imageMap[(int) $product->id] ?? [],
-                        ]) ?>
-                    </li>
-                <?php endforeach; ?>
-            </ul>
-
-            <button type="button" class="rs-loop__nav rs-loop__nav--prev" data-loop-prev
-                    aria-label="Previous" hidden><?= rs_icon('arrow-left', 'h-4 w-4') ?></button>
-            <button type="button" class="rs-loop__nav rs-loop__nav--next" data-loop-next
-                    aria-label="More" hidden><?= rs_icon('arrow-right', 'h-4 w-4') ?></button>
+        <?php /* A GRID, not a rail: on this page the pieces are the point, and
+                 a business scanning for what to order should see them all at
+                 once rather than swiping through four at a time. */ ?>
+        <div class="rs-grid mt-8">
+            <?php foreach ($row['products'] as $product): ?>
+                <div class="rs-reveal">
+                    <?= view('partials/product_card', [
+                        'product' => $product,
+                        'images'  => $imageMap[(int) $product->id] ?? [],
+                    ]) ?>
+                </div>
+            <?php endforeach; ?>
         </div>
+
     </section>
 <?php endforeach; ?>
 

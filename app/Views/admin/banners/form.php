@@ -47,7 +47,7 @@ $has    = static fn (string $f): bool => in_array($f, $fields, true);
 
                 <label class="mt-4 block">
                     <span class="rs-label">Image<?= $isNew ? ' <span class="text-bad">*</span>' : '' ?></span>
-                    <input type="file" name="image" class="rs-input" accept="image/jpeg,image/png,image/webp"
+                    <input type="file" name="image" class="rs-input" accept="image/jpeg,image/png,image/webp" data-media="content"
                            <?= $isNew && ! $has('name') ? 'required' : '' ?>>
                     <span class="rs-help">
                         <?= esc($meta['ratio']) ?>. Six sizes and a WebP of each are made

@@ -358,6 +358,11 @@ $routes->group('admin', [
     $routes->post('products/(:num)/variants/new', 'Variants::create/$1', ['filter' => 'adminAuth:catalogue.manage']);
     $routes->post('products/(:num)/variants/(:num)/delete', 'Variants::delete/$1/$2', ['filter' => 'adminAuth:catalogue.manage']);
 
+    // ---- The media library the picker talks to ----
+    $routes->match(['GET', 'HEAD'], 'media/browse', 'MediaLibrary::browse', ['filter' => 'adminAuth:content.manage']);
+    $routes->post('media/upload', 'MediaLibrary::upload', ['filter' => 'adminAuth:content.manage']);
+    $routes->post('media/(:num)/alt', 'MediaLibrary::alt/$1', ['filter' => 'adminAuth:content.manage']);
+
     // ---- Attributes: colour, size, shape, finish ----
     $routes->match(['GET', 'HEAD'], 'attributes', 'Attributes::index', ['filter' => 'adminAuth:catalogue.manage']);
     $routes->post('attributes/save', 'Attributes::save', ['filter' => 'adminAuth:catalogue.manage']);

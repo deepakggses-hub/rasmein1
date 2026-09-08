@@ -2617,10 +2617,18 @@ someone is here, not a preference to apply to whatever page they were on. It
 only redirects if the page exists; landing on a redirect-to-shop is worse than
 staying put.
 
-- `collections.audience` — `both` / `retail` / `corporate`. Default `both`, so
-  nothing already in the table vanishes from a page it currently sits on, and
-  `forAudience()` always includes `both`: Diwali is gifted to a client as
-  readily as to a cousin.
+- `collections.audience` — `both` / `retail` / `corporate`, edited as TWO
+  CHECKBOXES rather than a three-way select. "Both" is not a third kind of
+  occasion; it is both boxes ticked, and the control should say so. Ticking
+  NEITHER stores `both`, because an occasion visible nowhere is a row the shop
+  cannot find again — an empty form must not be able to hide something by
+  accident.
+- Default `both`, so nothing already in the table vanishes from a page it
+  currently sits on, and `forAudience()` always includes `both`: Diwali is
+  gifted to a client as readily as to a cousin.
+- The corporate product rows are a GRID, not a rail. On the collections page a
+  rail is right — it is a taste of a collection. Here the pieces are the point,
+  and a business scanning for what to order should see them all at once.
 - Two new field types. `products` is a grouped `<select multiple>` — 155
   products as checkboxes is a page nobody can scan, and the browser gives search
   and keyboard selection for free. `lines` is the one-per-line list already used
@@ -2655,6 +2663,30 @@ Two fixes, and the second matters more:
 for a label nobody would have missed.** When adding to a config array, diff the
 new entry's keys against an existing one rather than writing the ones that
 seemed necessary.
+
+### The media library
+
+`media` table + `admin/media/browse|upload` + one modal in the admin layout. Any
+file input marked `data-media` gets a "Choose from library" button; the input
+still works alone, so a screen keeps functioning if the script fails.
+
+- Search covers filename AND alt text: a filename says what the photographer
+  called it, alt text says what it shows, and someone hunting for "the gold
+  bowl" will match one or the other, rarely both.
+- Upload goes through `service('images')` — the same path every other screen
+  uses. A second uploader would be a second set of validation rules to keep in
+  step.
+- `remember()` returns the existing row when the path matches rather than
+  inserting a duplicate the shop would then have to choose between.
+- `countAllResults(false)` — the `false` keeps the conditions for the fetch that
+  follows. Without it the page returns the whole table.
+- Choosing from the library CLEARS the file input: a pending upload and a chosen
+  path in one field leaves the server to guess which was meant.
+- `rasmein:backfill-media` puts existing uploads in, copying alt text from
+  whichever record already uses the file. Without it the picker opens empty on
+  an existing shop — which is the problem it was built to solve. It skips the
+  generated size variants, or the same picture appears six times and someone
+  picks a 200px thumbnail for a hero band.
 
 ### Outstanding security work (tracked, not yet done)
 

@@ -447,3 +447,202 @@
     });
   });
 })();
+
+/**
+ * The media library picker.
+ *
+ * Any file input with `data-media` gets a "Choose from library" button and a
+ * hidden companion field holding the chosen path. The file input still works on
+ * its own, so a screen keeps functioning if this script fails.
+ */
+(function () {
+  'use strict';
+
+  var modal = document.querySelector('[data-media-modal]');
+  if (!modal) return;
+
+  var grid = modal.querySelector('[data-media-grid]');
+  var search = modal.querySelector('[data-media-search]');
+  var count = modal.querySelector('[data-media-count]');
+  var useBtn = modal.querySelector('[data-media-use]');
+  var chosenLine = modal.querySelector('[data-media-chosen]');
+  var uploadInput = modal.querySelector('[data-media-upload]');
+
+  var target = null;      // the field being filled
+  var chosen = null;      // the picked item
+  var timer = null;
+
+  function csrf() {
+    var el = document.querySelector('input[name^="csrf"]');
+    return el ? { name: el.name, value: el.value } : null;
+  }
+
+  function refreshTokens(json) {
+    if (!json || !json.csrf) return;
+
+    /*
+     * CI4 rotates the token on every POST. Refresh EVERY field, not just the
+     * one used — the same mistake as the wishlist heart, where a second action
+     * on the page failed because its form still held a spent token.
+     */
+    document.querySelectorAll('input[name^="csrf"]').forEach(function (el) {
+      el.value = json.csrf;
+    });
+  }
+
+  function render(items, total) {
+    count.textContent = total + (total === 1 ? ' picture' : ' pictures');
+
+    if (!items.length) {
+      grid.innerHTML = '<p class="rs-help p-5">Nothing matches that. '
+        + 'Try a different word, or upload a new picture.</p>';
+      return;
+    }
+
+    grid.innerHTML = items.map(function (it) {
+      // The name is the fallback caption: alt text is often blank on older
+      // uploads, and a tile with no words under it is unidentifiable.
+      var caption = it.alt || it.name;
+      return '<button type="button" class="rs-media__item" data-media-item'
+        + ' data-path="' + it.path + '" data-alt="' + (it.alt || '').replace(/"/g, '&quot;') + '">'
+        + '<img src="' + it.thumb + '" alt="" loading="lazy">'
+        + '<span class="rs-media__caption">' + caption + '</span>'
+        + (it.size ? '<span class="rs-media__dims">' + it.size + '</span>' : '')
+        + '</button>';
+    }).join('');
+  }
+
+  function load() {
+    var q = encodeURIComponent(search.value || '');
+    var col = target && target.getAttribute('data-media') !== 'true'
+      ? '&collection=' + encodeURIComponent(target.getAttribute('data-media'))
+      : '';
+
+    grid.innerHTML = '<p class="rs-help p-5">Loading…</p>';
+
+    fetch('/admin/media/browse?q=' + q + col, {
+      headers: { 'X-Requested-With': 'XMLHttpRequest' },
+      credentials: 'same-origin',
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (j) { render(j.items || [], j.total || 0); })
+      .catch(function () {
+        grid.innerHTML = '<p class="rs-help p-5">The library could not be read just now.</p>';
+      });
+  }
+
+  function open(field) {
+    target = field;
+    chosen = null;
+    useBtn.disabled = true;
+    chosenLine.textContent = 'Nothing selected.';
+    search.value = '';
+    modal.hidden = false;
+    document.body.style.overflow = 'hidden';
+    load();
+    search.focus();
+  }
+
+  function close() {
+    modal.hidden = true;
+    document.body.style.overflow = '';
+    target = null;
+  }
+
+  search.addEventListener('input', function () {
+    // Debounced: a keystroke per request would be a query per letter.
+    clearTimeout(timer);
+    timer = setTimeout(load, 250);
+  });
+
+  grid.addEventListener('click', function (e) {
+    var item = e.target.closest('[data-media-item]');
+    if (!item) return;
+
+    grid.querySelectorAll('[data-media-item]').forEach(function (el) {
+      el.classList.remove('is-chosen');
+    });
+
+    item.classList.add('is-chosen');
+    chosen = { path: item.getAttribute('data-path'), alt: item.getAttribute('data-alt') };
+    useBtn.disabled = false;
+    chosenLine.textContent = chosen.alt || chosen.path.split('/').pop();
+  });
+
+  useBtn.addEventListener('click', function () {
+    if (!chosen || !target) return;
+
+    var hidden = document.querySelector('[name="' + target.getAttribute('data-media-field') + '"]');
+    if (hidden) hidden.value = chosen.path;
+
+    var preview = target.closest('label, .rs-field, div').querySelector('[data-media-preview]');
+    if (preview) {
+      preview.src = chosen.path.indexOf('http') === 0 ? chosen.path : '/' + chosen.path;
+      preview.hidden = false;
+    }
+
+    // Clear the file input: a chosen library picture and a pending upload in
+    // the same field would leave the server to guess which one was meant.
+    target.value = '';
+    close();
+  });
+
+  uploadInput.addEventListener('change', function () {
+    if (!uploadInput.files.length) return;
+
+    var body = new FormData();
+    body.append('file', uploadInput.files[0]);
+    body.append('collection', (target && target.getAttribute('data-media')) || 'content');
+
+    var t = csrf();
+    if (t) body.append(t.name, t.value);
+
+    grid.innerHTML = '<p class="rs-help p-5">Uploading…</p>';
+
+    fetch('/admin/media/upload', {
+      method: 'POST',
+      body: body,
+      headers: { 'X-Requested-With': 'XMLHttpRequest' },
+      credentials: 'same-origin',
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (j) {
+        refreshTokens(j);
+        uploadInput.value = '';
+
+        if (!j.ok) {
+          grid.innerHTML = '<p class="rs-help p-5">' + (j.error || 'That could not be uploaded.') + '</p>';
+          return;
+        }
+
+        // Straight back to the grid with the new picture first and already
+        // selected — uploading it WAS the choice.
+        search.value = '';
+        load();
+        chosen = { path: j.item.path, alt: j.item.alt };
+        useBtn.disabled = false;
+        chosenLine.textContent = j.item.name;
+      })
+      .catch(function () {
+        grid.innerHTML = '<p class="rs-help p-5">That could not be uploaded.</p>';
+      });
+  });
+
+  modal.addEventListener('click', function (e) {
+    if (e.target.closest('[data-media-close]')) close();
+  });
+
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && !modal.hidden) close();
+  });
+
+  // Give every opted-in file input its button.
+  document.querySelectorAll('input[type="file"][data-media]').forEach(function (field) {
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'rs-btn rs-btn--outline rs-btn--sm mt-2';
+    btn.textContent = 'Choose from library';
+    btn.addEventListener('click', function () { open(field); });
+    field.insertAdjacentElement('afterend', btn);
+  });
+})();
