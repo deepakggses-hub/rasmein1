@@ -108,8 +108,21 @@ class SettingsService
      * It is deliberately NOT httpOnly, so the header can reflect the current
      * mode without waiting for a round trip.
      */
+    /**
+     * Set by setJourneyMode() during this request.
+     *
+     * IncomingRequest reads its cookies once, at construction, so writing to
+     * $_COOKIE afterwards changes nothing it can see — the header would render
+     * the old mode and only agree on the NEXT page.
+     */
+    private ?string $modeOverride = null;
+
     public function journeyMode(): string
     {
+        if ($this->modeOverride !== null) {
+            return $this->modeOverride;
+        }
+
         $chosen = (string) (service('request')->getCookie(Rasmein::MODE_COOKIE) ?? '');
 
         if (in_array($chosen, [Rasmein::MODE_BUY, Rasmein::MODE_ENQUIRE], true)) {
@@ -121,6 +134,52 @@ class SettingsService
         return in_array($mode, [Rasmein::MODE_BUY, Rasmein::MODE_ENQUIRE], true)
             ? $mode
             : Rasmein::MODE_BUY;
+    }
+
+    /**
+     * Set the mode from the page being viewed.
+     *
+     * Landing on /corporate is a statement about why someone is here, and
+     * leaving the switch reading "personalised" while showing corporate gifting
+     * is a contradiction the visitor has to resolve by hand.
+     *
+     * Writes the cookie AND the request, so the header on THIS response already
+     * reflects it — setting only the cookie would leave the switch a page
+     * behind.
+     */
+    public function setJourneyMode(string $mode): void
+    {
+        if (! in_array($mode, [Rasmein::MODE_BUY, Rasmein::MODE_ENQUIRE], true)) {
+            return;
+        }
+
+        if ($this->journeyMode() === $mode) {
+            return;
+        }
+
+        // Read back within THIS request, before the cookie exists.
+        $this->modeOverride = $mode;
+
+        /*
+         * PHP's setcookie(), not CI's helper.
+         *
+         * The helper queues onto the Response, which a view rendered mid-request
+         * has already passed — the cookie simply never went out. The Mode
+         * controller has always used the native call for the same reason.
+         *
+         * Not httpOnly, and a year: the header reads it client-side and it
+         * carries no personal data.
+         */
+        setcookie(Rasmein::MODE_COOKIE, $mode, [
+            'expires'  => time() + 60 * 60 * 24 * 365,
+            'path'     => '/',
+            'secure'   => service('request')->isSecure(),
+            'httponly' => false,
+            'samesite' => 'Lax',
+        ]);
+
+        // And for anything reading $_COOKIE directly.
+        $_COOKIE[Rasmein::MODE_COOKIE] = $mode;
     }
 
     public function isEnquireMode(): bool

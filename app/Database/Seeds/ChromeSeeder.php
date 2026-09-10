@@ -22,9 +22,14 @@ class ChromeSeeder extends Seeder
         $now = date('Y-m-d H:i:s');
 
         $rows = [
-            ['store', 'store_support_email', 'hello@rasmein.com', 'Support email', 1],
-            ['store', 'store_support_phone', '+91 98765 43210', 'Support phone', 2],
-            ['store', 'store_whatsapp', '+919876543210', 'WhatsApp number', 3],
+            /*
+             * Contact details are NOT seeded here.
+             *
+             * Shop identity already owns `support_email`, `support_phone` and
+             * `whatsapp_number`, and those are what BrandService reads. Seeding
+             * a `store_`-prefixed twin recreated the duplication that migration
+             * 000033 exists to remove — on every fresh install.
+             */
 
             ['design', 'header_notice', '', 'Announcement bar', 10],
             ['design', 'header_notice_link', '', 'Announcement link', 11],

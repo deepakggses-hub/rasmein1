@@ -8,10 +8,16 @@
  * @var string $title
  * @var string $body
  * @var string $formTitle
- * @var string $whatsapp
  * @var string $source
  */
-$wa = preg_replace('/\D/', '', (string) ($whatsapp ?? '')) ?? '';
+/*
+ * The WhatsApp number comes from Shop identity, not from each page.
+ *
+ * Three templates used to ask for it separately, so changing the shop's number
+ * meant remembering three screens — and forgetting one left a live button
+ * pointing at a dead line.
+ */
+$wa = preg_replace('/\D/', '', (string) service('brand')->whatsapp) ?? '';
 ?>
     <section class="rs-shell rs-section">
         <div class="grid items-center gap-x-[clamp(2rem,6vw,5rem)] gap-y-10 lg:grid-cols-2">

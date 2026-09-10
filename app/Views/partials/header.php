@@ -172,22 +172,32 @@ $rsNoticeTo = trim((string) service('settings')->get('header_notice_link', ''));
                  */
                 $isEnquire = rs_is_enquire_mode();
                 ?>
-                <form method="post" action="<?= site_url('mode') ?>" class="rs-modeswitch">
+                <?php
+                /*
+                 * Two named options, not a toggle.
+                 *
+                 * A switch labelled only "Corporate" leaves the other state
+                 * unnamed, so nobody can tell what turning it off gives them.
+                 * Naming both sides makes the choice legible at a glance, and
+                 * the active one is filled rather than merely darker.
+                 */
+                ?>
+                <form method="post" action="<?= site_url('mode') ?>" class="rs-modeswitch"
+                      role="group" aria-label="Which kind of gifting">
                     <?= csrf_field() ?>
                     <input type="hidden" name="return_to" value="<?= esc(uri_string(), 'attr') ?>">
-                    <input type="hidden" name="mode"
-                           value="<?= $isEnquire ? \Config\Rasmein::MODE_BUY : \Config\Rasmein::MODE_ENQUIRE ?>">
 
-                    <button type="submit" class="rs-modeswitch__btn" aria-pressed="<?= $isEnquire ? 'true' : 'false' ?>"
-                            title="<?= $isEnquire ? 'Back to ordinary shopping' : 'Switch to corporate gifting' ?>">
-                        <span class="rs-modeswitch__track" aria-hidden="true">
-                            <span class="rs-modeswitch__knob"></span>
-                        </span>
-                        <span class="rs-modeswitch__label">
-                            <?= esc(service('settings')->get($isEnquire ? 'corporate_label_on' : 'corporate_label_off', '')
-                                ?: ($isEnquire ? 'Corporate' : 'Corporate')) ?>
-                        </span>
-                    </button>
+                    <?php foreach ([
+                        [\Config\Rasmein::MODE_BUY, 'heart', 'corporate_label_off', 'Personalized Gifts', ! $isEnquire],
+                        [\Config\Rasmein::MODE_ENQUIRE, 'briefcase', 'corporate_label_on', 'Corporate Gifts', $isEnquire],
+                    ] as [$mode, $icon, $key, $fallback, $active]): ?>
+                        <button type="submit" name="mode" value="<?= esc($mode, 'attr') ?>"
+                                class="rs-modeswitch__opt<?= $active ? ' is-on' : '' ?>"
+                                aria-pressed="<?= $active ? 'true' : 'false' ?>">
+                            <?= rs_icon($icon, 'h-4 w-4') ?>
+                            <span><?= esc(service('settings')->get($key, '') ?: $fallback) ?></span>
+                        </button>
+                    <?php endforeach; ?>
                 </form>
 
                 <a href="<?= site_url('wishlist') ?>" class="rs-iconbtn relative"

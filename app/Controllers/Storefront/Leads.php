@@ -59,6 +59,17 @@ class Leads extends Controller
 
         cache()->save($key, (int) (cache($key) ?? 0) + 1, 3600);
 
+        // Named from the id, so a renamed product does not make the lead
+        // unreadable later.
+        $productName = '';
+        $productId   = (int) ($post['product_id'] ?? 0);
+
+        if ($productId > 0) {
+            $row = db_connect()->table('products')->select('name')
+                ->where('id', $productId)->get()->getRowArray();
+            $productName = (string) ($row['name'] ?? '');
+        }
+
         try {
             db_connect()->table('leads')->insert([
                 'ref'        => 'ENQ-' . date('Y') . '-' . strtoupper(bin2hex(random_bytes(3))),
@@ -70,7 +81,17 @@ class Leads extends Controller
                 'occasion'   => mb_substr(trim((string) ($post['occasion'] ?? '')), 0, 120) ?: null,
                 'quantity'   => (int) ($post['quantity'] ?? 0) ?: null,
                 'budget'     => mb_substr(trim((string) ($post['budget'] ?? '')), 0, 60) ?: null,
-                'message'    => mb_substr(trim((string) ($post['message'] ?? '')), 0, 4000) ?: null,
+                /*
+                 * The piece they were looking at, prefixed onto the note.
+                 *
+                 * A bulk enquiry with no product named is a lead someone has to
+                 * ring back to understand, and the id alone means opening the
+                 * catalogue to read it.
+                 */
+                'message'    => mb_substr(trim(
+                    ($productName !== '' ? 'About: ' . $productName . "\n" : '')
+                    . (string) ($post['message'] ?? '')
+                ), 0, 4000) ?: null,
                 'ip_address' => $ip,
                 'created_at' => date('Y-m-d H:i:s'),
                 'updated_at' => date('Y-m-d H:i:s'),

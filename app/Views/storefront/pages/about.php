@@ -199,7 +199,6 @@ $roman = static function (int $n): string {
         'title'     => $g('invite', 'title'),
         'body'      => $g('invite', 'body'),
         'formTitle' => $g('invite', 'form_title', 'Let us craft something special'),
-        'whatsapp'  => $g('invite', 'whatsapp'),
         'source'    => 'about',
     ]) ?>
 <?php endif; ?>

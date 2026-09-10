@@ -50,6 +50,9 @@ class DatabaseSeeder extends Seeder
          */
         $this->call(VariantSeeder::class);
         // The landing page at /collection.
+        // Occasions first: the collections and corporate pages both list them,
+        // so they have to exist before those pages are set up.
+        $this->call(OccasionSeeder::class);
         $this->call(CollectionsPageSeeder::class);
         $this->call(CorporatePageSeeder::class);
         $this->call(AboutPageSeeder::class);

@@ -2688,6 +2688,102 @@ still works alone, so a screen keeps functioning if the script fails.
   generated size variants, or the same picture appears six times and someone
   picks a 200px thumbnail for a hero band.
 
+### Occasions: nine retail, eight corporate
+
+`OccasionSeeder`. Same kind of row — `type = 'occasion'` — separated by
+`audience`, so each page asks one question ("what belongs here") rather than
+knowing about two lists.
+
+Idempotent by slug, and it does NOT reset the audience of an occasion that
+already exists: someone who deliberately moved Festivals onto the corporate page
+should not find it moved back by a deploy.
+
+No dates. These are standing occasions — Birthdays do not expire, and an
+`ends_at` would 404 the page the day it passed.
+
+**The homepage strip was excluding corporate occasions BY ACCIDENT.**
+`liveOccasions(10)` filtered on nothing but type; the limit of ten happened to
+cut off before the corporate ones in sort order. Reorder the list or add a tenth
+retail occasion and "Employee Milestones" would have appeared beside "Baby
+Shower". It now filters on audience — verified by raising the limit to 20 and
+confirming the strip still shows ten.
+
+A filter that works because of a LIMIT is not a filter.
+
+### Shop identity owns contact details and social links
+
+`support_email`, `support_phone`, `whatsapp_number` and the `social_*` keys live
+in Shop identity, and BrandService is what every template reads.
+
+Two duplications had crept in, and both were invisible failures:
+
+- **Header & footer** grew `store_support_email`, `store_support_phone` and
+  `store_whatsapp` beside identity's own. The footer reads the IDENTITY ones, so
+  editing that pair on the other screen changed nothing on the site. Migration
+  000033 carries any typed value across — only into a blank, since the working
+  screen's value must win — and deletes the twins. `ChromeSeeder` no longer
+  recreates them, or a fresh install would rebuild the duplication the migration
+  exists to remove.
+- **Three page templates** each asked for a WhatsApp number. Changing the shop's
+  number meant remembering three screens, and forgetting one left a live button
+  pointing at a dead line. `partials/lead_form` now reads
+  `service('brand')->whatsapp`.
+
+`$brand->whatsapp` is a first-class property, not a key inside `$identity`. The
+footer, homepage and every lead form need it, and reaching into an array for
+something that widely used is how one caller ends up reading a key nobody set.
+
+**A second field for the same fact is worse than no field.** It looks editable,
+saves without complaint, and does nothing.
+
+### The corporate journey
+
+**The page sets the mode.** Landing on `/corporate` turns the switch on; the
+homepage turns it off. Arriving somewhere IS a statement about why you are
+there, and leaving the switch reading "personalised" over corporate gifting is a
+contradiction the visitor has to resolve by hand. `/shop` and the rest stay
+neutral, so a deliberate choice survives browsing.
+
+`setJourneyMode()` keeps a `$modeOverride` property. `IncomingRequest` reads its
+cookies ONCE at construction, so writing `$_COOKIE` mid-request changes nothing
+it can see — the header would render the old mode and only agree on the next
+page. It also uses PHP's native `setcookie()`, not CI's helper: the helper
+queues onto the Response, which a view rendered mid-request has already passed.
+
+**`products.audience`** — same three values as a collection's, applied inside
+`applyFilters()` so EVERY listing gets it. Always on, never an optional filter:
+an opt-in one is the one someone forgets to pass, and a corporate-only bulk set
+in the ordinary shop is exactly the bug this prevents. Verified 135 pieces
+retail vs 150 corporate from the same catalogue, on the shop AND on category
+pages.
+
+**Corporate mode replaces the basket with a quote.** A business ordering two
+hundred is not adding to a cart and paying, so cards and the product page show
+"Bulk enquiry" instead — one modal, posting to the same `enquiry/submit` the page
+forms use, with the product's NAME prefixed onto the note so nobody has to open
+the catalogue to read the lead.
+
+### The switcher names both sides
+
+A toggle labelled only "Corporate" leaves the other state unnamed, so nobody can
+tell what turning it off gives them. Two options, both named, the active one
+FILLED rather than merely tinted — the header carries several muted tones
+already, and a colour change alone does not read as "you are here".
+
+### A full-bleed band still needs the container
+
+`.rs-split__panel` runs the maroon to the edge and pads to meet the container, so
+the words begin exactly where every other section's do — 48px, measured. A band
+whose text starts at the viewport edge agrees with nothing else on the page.
+
+### The footer had an orphaned block
+
+Replacing the hardcoded Shop column left its loop body and closing `</ul></nav>`
+behind — five columns rendered but the markup was unbalanced, and the browser
+recovered by nesting the rest inside a list. **Deleting a block means deleting
+its opening AND closing tags**; check tag balance after, not just that the page
+still looks right.
+
 ### Outstanding security work (tracked, not yet done)
 
 - [ ] **CSP is written but not enabled.** `Config/ContentSecurityPolicy.php`

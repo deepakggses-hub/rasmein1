@@ -124,6 +124,9 @@ $cards = array_values(array_filter(
 <?php if ($g('split', 'title') !== ''): ?>
     <section class="rs-split">
         <div class="rs-split__panel">
+            <?php /* The inner box is what lines the words up with the container;
+                     the panel itself keeps the colour full width. */ ?>
+            <div class="rs-split__inner">
             <h2 class="rs-display rs-display--lg text-shell"><?= esc($g('split', 'title')) ?></h2>
 
             <?php if ($cards !== []): ?>
@@ -143,6 +146,7 @@ $cards = array_values(array_filter(
                     <?php endforeach; ?>
                 </ul>
             <?php endif; ?>
+            </div>
         </div>
 
         <?php if ($g('split', 'image') !== ''): ?>
@@ -163,7 +167,6 @@ $cards = array_values(array_filter(
         'title'     => $g('invite', 'title'),
         'body'      => $g('invite', 'body'),
         'formTitle' => $g('invite', 'form_title', 'Let us craft something special'),
-        'whatsapp'  => $g('invite', 'whatsapp'),
         'source'    => 'corporate',
     ]) ?>
 <?php endif; ?>

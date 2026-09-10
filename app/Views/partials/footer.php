@@ -89,17 +89,6 @@ $socialIcons = [
                 <?php endif; ?>
             </div>
 
-            <?php foreach ($shopLinks as $category): ?>
-                        <li>
-                            <a href="<?= rs_url((string) ($category->path ?? $category->slug)) ?>">
-                                <?= esc($category->name) ?>
-                            </a>
-                        </li>
-                    <?php endforeach; ?>
-                    <li><a href="<?= site_url('build') ?>">Build a gift box</a></li>
-                    <li><a href="<?= site_url('shop') ?>">Everything</a></li>
-                </ul>
-            </nav>
 
             <?php
             /*

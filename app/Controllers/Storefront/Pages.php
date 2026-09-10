@@ -85,7 +85,13 @@ class Pages extends StorefrontController
         $wanted      = array_map('intval', (array) ($data['tiles']['occasions'] ?? []));
 
         $tiles = $wanted === []
-            ? $collections->occasions(true, true)
+            /*
+             * The ordinary shop's own: retail-tagged plus everything marked
+             * `both`. Corporate-only occasions have their own page, and listing
+             * "Employee Milestones" beside "Baby Shower" is not what a shopper
+             * came for.
+             */
+            ? $collections->forAudience('retail', false)
             : $collections->whereIn('id', $wanted)->where('is_active', 1)
                 ->orderBy('sort_order', 'ASC')->findAll();
 
@@ -150,6 +156,9 @@ class Pages extends StorefrontController
         if ($page === null) {
             return redirect()->to(site_url('shop'));
         }
+
+        // Arriving here IS choosing corporate — see the note in Home.
+        service('settings')->setJourneyMode(\Config\Rasmein::MODE_ENQUIRE);
 
         $decoded = ! empty($page['data']) ? json_decode((string) $page['data'], true) : [];
         $data    = is_array($decoded) ? $decoded : [];

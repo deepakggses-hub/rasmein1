@@ -103,6 +103,8 @@
     </aside>
 </div>
 
+<?= $this->include('partials/bulk_enquiry') ?>
+
 <?= $this->include('partials/auth_modal') ?>
 
 <?php /* Before app.js, and BOTH deferred — deferred scripts run in document

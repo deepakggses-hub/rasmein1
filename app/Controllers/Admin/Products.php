@@ -181,7 +181,17 @@ class Products extends AdminController
         $model = model(ProductModel::class);
         $id    = $isNew ? null : (int) $product->id;
 
+        // Neither ticked means BOTH: a product visible nowhere is stock the
+        // shop cannot sell and would struggle to find again.
+        $retail = $this->request->getPost('audience_retail') !== null;
+        $corp   = $this->request->getPost('audience_corporate') !== null;
+
         $payload = [
+            'audience' => match (true) {
+                $retail && ! $corp => 'retail',
+                $corp && ! $retail => 'corporate',
+                default            => 'both',
+            },
             'sku'                 => trim((string) $this->request->getPost('sku')),
             'name'                => trim((string) $this->request->getPost('name')),
             'slug'                => $this->slug((string) $this->request->getPost('slug'), (string) $this->request->getPost('name')),

@@ -20,7 +20,7 @@ class ProductModel extends Model
         'price', 'compare_at_price', 'stock_qty', 'low_stock_threshold',
         'track_inventory', 'weight_grams', 'unit_label', 'material',
         'eyebrow_label', 'composition', 'packaging_note', 'care_note',
-        'personalisation_note', 'rating_average', 'review_count', 'sale_mode',
+        'personalisation_note', 'rating_average', 'review_count', 'sale_mode', 'audience',
         'is_giftbox_eligible', 'giftbox_slots', 'is_featured', 'is_active',
         'sort_order', 'meta_title', 'meta_description',
     ];
@@ -226,6 +226,22 @@ class ProductModel extends Model
                 false
             );
         }
+
+        /*
+         * Only what belongs on the shop the visitor is looking at.
+         *
+         * Applied ALWAYS, not as an optional filter: a corporate-only bulk set
+         * appearing in the ordinary shop is the bug this exists to prevent, and
+         * an opt-in filter is one someone forgets to pass.
+         *
+         * `both` always shows, so an untagged catalogue behaves exactly as it
+         * did before the column existed.
+         */
+        $audience = service('settings')->journeyMode() === \Config\Rasmein::MODE_ENQUIRE
+            ? 'corporate'
+            : 'retail';
+
+        $this->whereIn('products.audience', ['both', $audience]);
 
         if (! empty($filters['attrs'])) {
             /*

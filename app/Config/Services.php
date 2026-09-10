@@ -340,6 +340,10 @@ class Services extends BaseService
             'whatsapp'     => $stored['whatsapp_number'] ?? '',
         ];
 
+        // Also as a first-class property, so a template does not have to know
+        // it lives inside the identity array.
+        $config->whatsapp = (string) ($stored['whatsapp_number'] ?? '');
+
         $config->social = array_filter([
             'instagram' => $stored['social_instagram'] ?? '',
             'facebook'  => $stored['social_facebook'] ?? '',

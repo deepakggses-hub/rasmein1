@@ -70,15 +70,17 @@ class Chrome extends AdminController
             ],
         ],
 
-        'Contact and social' => [
-            'store_support_email' => ['label' => 'Support email', 'type' => 'text'],
-            'store_support_phone' => ['label' => 'Support phone', 'type' => 'text'],
-            'store_whatsapp'      => ['label' => 'WhatsApp number', 'type' => 'text'],
-            'social_instagram'    => ['label' => 'Instagram', 'type' => 'text'],
-            'social_facebook'     => ['label' => 'Facebook', 'type' => 'text'],
-            'social_pinterest'    => ['label' => 'Pinterest', 'type' => 'text'],
-            'social_linkedin'     => ['label' => 'LinkedIn', 'type' => 'text'],
-        ],
+        /*
+         * Contact details and social links are NOT here.
+         *
+         * They live in Shop identity, which is what BrandService reads and what
+         * the footer, the header and every template actually render. This screen
+         * used to offer its own `store_support_email` and `store_whatsapp`
+         * beside identity's `support_email` and `whatsapp_number` — two keys for
+         * one fact, and editing the pair here changed nothing on the site.
+         *
+         * One field, one place. The link below goes there.
+         */
     ];
 
     public function index()

@@ -364,6 +364,39 @@ $checked = static fn (string $field, bool $fallback): string => (old($field) !==
         </aside>
     </div>
 
+    <?php
+    /*
+     * Which shop this piece belongs on. Two ticks, like an occasion's — "both"
+     * is not a third kind of product, it is both boxes ticked.
+     */
+    $rsAud    = $product->audience ?? 'both';
+    $rsRetail = in_array($rsAud, ['both', 'retail'], true);
+    $rsCorp   = in_array($rsAud, ['both', 'corporate'], true);
+    ?>
+    <section class="mt-6 border border-shell-line bg-white p-5">
+        <h2 class="rs-eyebrow rs-eyebrow--plain">Show this piece on</h2>
+
+        <div class="mt-4 flex flex-wrap gap-2">
+            <label class="flex cursor-pointer items-center gap-2 border px-3 py-2 text-sm
+                          <?= $rsRetail ? 'border-mulberry bg-brass-soft/30' : 'border-shell-line' ?>">
+                <input type="checkbox" name="audience_retail" value="1" class="accent-mulberry"
+                       <?= $rsRetail ? 'checked' : '' ?>>
+                <span>The ordinary shop</span>
+            </label>
+
+            <label class="flex cursor-pointer items-center gap-2 border px-3 py-2 text-sm
+                          <?= $rsCorp ? 'border-mulberry bg-brass-soft/30' : 'border-shell-line' ?>">
+                <input type="checkbox" name="audience_corporate" value="1" class="accent-mulberry"
+                       <?= $rsCorp ? 'checked' : '' ?>>
+                <span>The corporate page</span>
+            </label>
+        </div>
+
+        <p class="rs-help mt-3">
+            Tick both, or neither, and it appears on both. Untick one to keep it off that shop.
+        </p>
+    </section>
+
     <?php /* ============================ attributes ============================ */ ?>
     <section class="mt-6 border border-shell-line bg-white p-5">
         <div class="flex flex-wrap items-center justify-between gap-3">

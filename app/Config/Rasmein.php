@@ -71,6 +71,16 @@ class Rasmein extends BaseConfig
     public string $supportEmail = 'hello@rasmein.com';
     public string $supportPhone = '+91 98765 43210';
 
+    /*
+     * Digits only, with the country code — wa.me takes nothing else.
+     *
+     * A first-class property rather than a key inside $identity: the footer,
+     * the homepage and every lead form need it, and reaching into an array for
+     * something that important is how one of them ends up reading a key that
+     * was never set.
+     */
+    public string $whatsapp = '';
+
     // ------------------------------------------------------------- currency
     public string $currency       = 'INR';
     public string $currencySymbol = '₹';

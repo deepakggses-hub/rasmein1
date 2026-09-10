@@ -94,6 +94,16 @@ class CollectionModel extends Model
 
         return $this->where('type', 'occasion')
             ->where('is_active', 1)
+            /*
+             * The ordinary shop's own.
+             *
+             * Corporate occasions have their own page, and the homepage strip
+             * was only excluding them by ACCIDENT — the limit of ten happened to
+             * cut off before them. Reorder the sort or add a tenth retail
+             * occasion and "Employee Milestones" would appear beside "Baby
+             * Shower".
+             */
+            ->whereIn('audience', ['both', 'retail'])
             ->groupStart()->where('starts_at', null)->orWhere('starts_at <=', $now)->groupEnd()
             ->groupStart()->where('ends_at', null)->orWhere('ends_at >=', $now)->groupEnd()
             ->orderBy('sort_order', 'ASC')
@@ -224,12 +234,23 @@ class CollectionModel extends Model
      *
      * @return array<int, array<string, mixed>>
      */
-    public function forAudience(string $audience): array
+    public function forAudience(string $audience, bool $occasionsOnly = true): array
     {
-        return $this->where('type', 'occasion')
-            ->where('is_active', 1)
+        $builder = $this->where('is_active', 1)
             ->whereIn('audience', ['both', $audience])
-            ->orderBy('sort_order', 'ASC')
-            ->findAll();
+            ->orderBy('sort_order', 'ASC');
+
+        /*
+         * The corporate page wants occasions only. The collections page wants
+         * standing collections too — "The Tea Drinker" belongs there and is not
+         * an occasion.
+         */
+        if ($occasionsOnly) {
+            $builder->where('type', 'occasion');
+        } else {
+            $builder->whereIn('type', ['occasion', 'collection']);
+        }
+
+        return $builder->findAll();
     }
 }

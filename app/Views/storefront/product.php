@@ -263,6 +263,16 @@ $gallery = $images !== [] ? $images : [['path' => null, 'alt_text' => $product->
 
                     <?php /* data-cart makes this an in-place add, like the cards. Without
                              JavaScript it still posts normally. */ ?>
+                    <?php if (rs_is_enquire_mode($product->sale_mode ?? 'inherit')): ?>
+                        <?php /* Corporate mode: quote, not checkout. */ ?>
+                        <button type="button" class="rs-btn rs-btn--primary w-full"
+                                data-bulk-enquiry
+                                data-product-id="<?= (int) $product->id ?>"
+                                data-product-name="<?= esc($product->name, 'attr') ?>">
+                            <?= rs_icon('briefcase', 'h-4 w-4') ?>
+                            Request a bulk quote
+                        </button>
+                    <?php else: ?>
                     <form id="rs-add" method="post" action="<?= site_url('cart/add') ?>" class="space-y-4" data-cart>
                         <?= csrf_field() ?>
                         <input type="hidden" name="product_id" value="<?= (int) $product->id ?>">
@@ -293,6 +303,7 @@ $gallery = $images !== [] ? $images : [['path' => null, 'alt_text' => $product->
                             </button>
                         </div>
                     </form>
+                    <?php endif; ?>
                 <?php endif; ?>
 
                 <a href="<?= site_url('build') ?>" class="rs-btn rs-btn--outline w-full">

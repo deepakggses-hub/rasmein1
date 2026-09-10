@@ -14,6 +14,15 @@ class Home extends StorefrontController
 {
     public function index(): string
     {
+        /*
+         * The homepage is the ordinary shop.
+         *
+         * Someone who navigates back here from /corporate has left the
+         * corporate journey; keeping the switch on would show them enquiry
+         * buttons on a page selling personalised gifts.
+         */
+        service('settings')->setJourneyMode(\Config\Rasmein::MODE_BUY);
+
         $products = model(ProductModel::class);
         $boxes    = model(GiftBoxModel::class);
         $banners  = model(BannerModel::class);

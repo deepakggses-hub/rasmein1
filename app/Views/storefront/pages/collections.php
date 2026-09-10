@@ -236,7 +236,6 @@ $safe = static fn (string $p): ?string => str_starts_with($p, '/') ? site_url(lt
         'title'      => $g('invite', 'title'),
         'body'       => $g('invite', 'body'),
         'formTitle'  => $g('invite', 'form_title', 'Let us craft something special'),
-        'whatsapp'   => $g('invite', 'whatsapp'),
         'source'     => 'collections',
     ]) ?>
 <?php endif; ?>

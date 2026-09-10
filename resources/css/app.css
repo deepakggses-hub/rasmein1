@@ -3023,57 +3023,59 @@
 
 /* ================================================ corporate / retail switch */
 @layer components {
+  /* A pill of two named options. Hidden on narrow screens, where the drawer
+     carries the same control with room for both labels. */
   .rs-modeswitch { display: none; }
 
-  /* Hidden on the narrowest screens, where the icon row is already tight —
-     it lives in the mobile drawer there instead. */
-  @media (min-width: 900px) { .rs-modeswitch { display: block; } }
+  @media (min-width: 900px) {
+    .rs-modeswitch {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.25rem;
+      padding: 0.2rem;
+      background: color-mix(in srgb, var(--rs-accent, #C6A15B) 16%, transparent);
+      border-radius: 999px;
+    }
+  }
 
-  .rs-modeswitch__btn {
-    display: flex;
+  .rs-modeswitch__opt {
+    display: inline-flex;
     align-items: center;
     gap: 0.5rem;
-    padding: 0.3rem 0.6rem 0.3rem 0.35rem;
-    font-family: var(--font-mono);
-    font-size: 0.5625rem;
-    letter-spacing: 0.16em;
-    text-transform: uppercase;
-    color: rgb(246 239 230 / 0.75);
-    border: 1px solid rgb(246 239 230 / 0.2);
-    border-radius: var(--rs-pill, 999px);
+    padding: 0.5rem 1rem;
+    font-family: var(--font-display);
+    font-size: 0.9375rem;
+    line-height: 1;
+    color: var(--color-shell);
+    background: none;
+    border: 0;
+    border-radius: 999px;
     cursor: pointer;
-    transition: color 0.15s, border-color 0.15s;
+    white-space: nowrap;
+    transition: color 0.18s ease, background-color 0.18s ease;
   }
-  .rs-modeswitch__btn:hover { color: var(--color-shell); border-color: rgb(246 239 230 / 0.45); }
 
-  .rs-modeswitch__track {
-    position: relative;
-    display: block;
-    width: 1.9rem;
-    height: 1rem;
-    background: rgb(246 239 230 / 0.18);
-    border-radius: 999px;
-    transition: background-color 0.2s;
+  .rs-modeswitch__opt:hover { color: #fff; }
+
+  /* The active side is FILLED, not merely tinted: the header already carries
+     several muted tones, and a colour change alone does not read as "you are
+     here". */
+  .rs-modeswitch__opt.is-on {
+    color: #fff;
+    background: var(--rs-accent, #C6A15B);
+    box-shadow: 0 1px 3px rgb(0 0 0 / 0.14);
   }
-  .rs-modeswitch__knob {
-    position: absolute;
-    top: 0.15rem;
-    left: 0.15rem;
-    width: 0.7rem;
-    height: 0.7rem;
-    background: var(--color-shell);
-    border-radius: 999px;
-    transition: translate 0.2s ease, background-color 0.2s;
+
+  .rs-modeswitch__opt.is-on:hover { color: #fff; }
+  .rs-modeswitch__opt svg { flex: none; pointer-events: none; }
+
+  .rs-modeswitch__opt:focus-visible {
+    outline: 2px solid var(--rs-accent, #C6A15B);
+    outline-offset: 2px;
   }
 
   /* On: the knob travels and the track takes the brass, so the state is
      legible without reading the word beside it. */
-  .rs-modeswitch__btn[aria-pressed="true"] { color: var(--rs-accent, #C6A15B); border-color: var(--rs-accent, #C6A15B); }
-  .rs-modeswitch__btn[aria-pressed="true"] .rs-modeswitch__track { background: var(--rs-accent, #C6A15B); }
-  .rs-modeswitch__btn[aria-pressed="true"] .rs-modeswitch__knob {
-    translate: 0.9rem 0;
-    background: var(--rs-deep, #4A0C18);
-  }
 
   /* The corporate banner, so the mode is never a mystery. */
   .rs-modebar {
@@ -3386,10 +3388,34 @@
     .rs-split { grid-template-columns: 45fr 55fr; }
   }
 
+  /*
+   * The maroon runs to the edge; the words line up with the rest of the page.
+   *
+   * A full-bleed band whose text starts at the viewport edge does not agree with
+   * any other section, so the panel is padded to meet the container instead —
+   * the colour is full width, the reading measure is not.
+   */
   .rs-split__panel {
-    padding: clamp(2rem, 5vw, 4.5rem) clamp(1.25rem, 4vw, 4rem);
+    display: flex;
+    justify-content: flex-end;
+    padding-block: clamp(2rem, 5vw, 4.5rem);
+    padding-inline: var(--rs-gutter, clamp(1rem, 3.5vw, 3rem));
     color: var(--color-shell);
     background: var(--rs-deep, #4A0C18);
+  }
+
+  .rs-split__inner {
+    width: 100%;
+    /* Half the container, less its gutter — so the words begin exactly where
+       every other section's do. --rs-container is what .rs-shell uses. */
+    max-width: calc(var(--rs-container, 78rem) / 2 - var(--rs-gutter, 3rem));
+  }
+
+  @media (max-width: 1023px) {
+    /* Stacked: there is no right-hand half to align to, so it centres in the
+       container like every other section. */
+    .rs-split__panel { justify-content: center; }
+    .rs-split__inner { max-width: var(--rs-container, 78rem); }
   }
 
   .rs-split__figure {
@@ -3499,5 +3525,29 @@
     font-family: var(--font-mono);
     font-size: 0.625rem;
     color: var(--color-ink-muted);
+  }
+}
+
+@layer components {
+  .rs-bulk {
+    position: fixed;
+    inset: 0;
+    z-index: 95;
+    display: grid;
+    place-items: center;
+    padding: clamp(0.5rem, 3vw, 2rem);
+  }
+  .rs-bulk[hidden] { display: none; }
+
+  .rs-bulk__scrim { position: absolute; inset: 0; background: rgb(44 35 51 / 0.5); }
+
+  .rs-bulk__panel {
+    position: relative;
+    width: min(38rem, 100%);
+    max-height: 90vh;
+    overflow-y: auto;
+    background: #fff;
+    border: 1px solid var(--color-shell-line);
+    box-shadow: 0 30px 70px -30px rgb(44 35 51 / 0.55);
   }
 }

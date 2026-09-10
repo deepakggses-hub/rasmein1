@@ -70,8 +70,9 @@ $lines = static function (string $raw): array {
         <div class="flex flex-wrap items-center gap-3">
             <button type="submit" class="rs-btn rs-btn--primary">Save</button>
             <span class="rs-help">
-                The logo and palette live under
-                <a href="<?= site_url('admin/brand') ?>" class="rs-link text-mulberry">Shop identity</a>.
+                The logo, palette, contact details and social links all live under
+                <a href="<?= site_url('admin/brand') ?>" class="rs-link text-mulberry">Shop identity</a>,
+                so they are written once and used everywhere.
             </span>
         </div>
     </div>

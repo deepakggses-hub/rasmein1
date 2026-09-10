@@ -471,8 +471,8 @@ $rsMarquee = service('design');
 
                 <div class="mt-6 flex flex-wrap gap-3">
                     <button type="submit" class="rs-btn rs-btn--primary flex-1">Submit project details</button>
-                    <?php if (! empty($brand->identity['whatsapp'])): ?>
-                        <a href="https://wa.me/<?= esc(preg_replace('/[^0-9]/', '', (string) $brand->identity['whatsapp']), 'attr') ?>"
+                    <?php if ($brand->whatsapp !== ''): ?>
+                        <a href="https://wa.me/<?= esc(preg_replace('/[^0-9]/', '', (string) $brand->whatsapp), 'attr') ?>"
                            class="rs-btn rs-btn--outline" target="_blank" rel="noopener noreferrer">
                             <?= rs_icon('whatsapp', 'h-4 w-4') ?> Direct message
                         </a>

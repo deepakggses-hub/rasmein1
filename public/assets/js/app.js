@@ -2079,3 +2079,51 @@
   // Opened by the add-to-cart handler.
   window.rsOpenCart = open;
 })();
+
+/**
+ * The bulk enquiry dialogue.
+ *
+ * Opened from any [data-bulk-enquiry] button, which carries the product it is
+ * asking about. Delegated, so buttons swapped in by a filter work too.
+ */
+(function () {
+  'use strict';
+
+  var modal = document.querySelector('[data-bulk-modal]');
+  if (!modal) return;
+
+  var nameLine = modal.querySelector('[data-bulk-product]');
+  var idField = modal.querySelector('[data-bulk-product-id]');
+  var lastFocus = null;
+
+  document.addEventListener('click', function (e) {
+    var btn = e.target.closest('[data-bulk-enquiry]');
+    if (!btn) return;
+
+    e.preventDefault();
+    lastFocus = btn;
+
+    nameLine.textContent = btn.getAttribute('data-product-name') || '';
+    idField.value = btn.getAttribute('data-product-id') || '';
+
+    modal.hidden = false;
+    document.body.style.overflow = 'hidden';
+
+    var first = modal.querySelector('input[name="name"]');
+    if (first) first.focus();
+  });
+
+  function close() {
+    modal.hidden = true;
+    document.body.style.overflow = '';
+    if (lastFocus) lastFocus.focus();
+  }
+
+  modal.addEventListener('click', function (e) {
+    if (e.target.closest('[data-bulk-close]')) close();
+  });
+
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && !modal.hidden) close();
+  });
+})();

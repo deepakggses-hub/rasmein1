@@ -93,6 +93,25 @@ if (! $inStock) {
                          something in the basket, then a stepper. The script
                          swaps between them; with no JavaScript the Add button
                          posts normally and the stepper never appears. */ ?>
+                <?php if ($isEnquire): ?>
+                    <?php
+                    /*
+                     * In corporate mode there is no basket for this piece.
+                     *
+                     * A business ordering two hundred is not adding to a cart
+                     * and paying — they are asking for a quote. Showing "Add to
+                     * cart" beside a bulk enquiry is offering a route that ends
+                     * in the wrong place.
+                     */
+                    ?>
+                    <button type="button" class="rs-btn rs-btn--primary rs-btn--sm w-full flex-1"
+                            data-bulk-enquiry
+                            data-product-id="<?= (int) $product->id ?>"
+                            data-product-name="<?= esc($product->name, 'attr') ?>">
+                        <?= rs_icon('briefcase', 'h-4 w-4') ?>
+                        Bulk enquiry
+                    </button>
+                <?php else: ?>
                 <form method="post" action="<?= site_url('cart/add') ?>" class="flex-1"
                       data-cart data-qty="<?= (int) ($inBasket ?? 0) ?>">
                     <?= csrf_field() ?>
@@ -113,6 +132,7 @@ if (! $inStock) {
                                 aria-label="One more <?= esc($product->name, 'attr') ?>">+</button>
                     </div>
                 </form>
+                <?php endif; ?>
 
                 <?php /* A real form, so it works with no JavaScript. The
                          script upgrades it to a background request and fills
