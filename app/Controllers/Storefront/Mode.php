@@ -41,40 +41,39 @@ class Mode extends Controller
         $_COOKIE[Rasmein::MODE_COOKIE] = $mode;
 
         /*
-         * Turning corporate ON goes to the corporate page.
+         * The switch chooses a JOURNEY, so it goes to that journey's home.
          *
-         * Switching mode is a statement about WHY someone is here, not a
-         * preference to apply to the page they happen to be on — and the
-         * corporate page is the answer to "show me what you do for businesses".
+         * Returning to the page they were on cannot work here: a corporate page
+         * sets the mode back on when it loads, so switching to personalised on
+         * /corporate turned the cookie off and then straight back on — the
+         * switch looked broken because the destination undid it.
          *
-         * Only if that page exists: sending them to a redirect-to-shop is worse
-         * than leaving them where they were.
+         * Corporate on -> the corporate page. Corporate off -> the homepage,
+         * which is the ordinary shop's front door and sets the mode to match.
          */
         if ($mode === Rasmein::MODE_ENQUIRE) {
             $page = model(\App\Models\PageModel::class)
                 ->where('template', 'corporate')->where('is_active', 1)->first();
 
             if ($page !== null) {
-                return redirect()->to(site_url('corporate'))->with(
-                    'success',
-                    (string) (service('settings')->get('corporate_on_message', '')
-                        ?: 'Corporate gifting. Add pieces to an enquiry and we will quote.')
-                );
+                return redirect()->to(site_url('corporate'));
             }
+        } else {
+            return redirect()->to(site_url());
         }
 
-        // Otherwise back where they were, so switching mid-browse does not lose
-        // the page.
-        $back = (string) ($this->request->getPost('return_to') ?? '');
-        $safe = $back !== '' && ! preg_match('#^[a-z]+://#i', $back) && ! str_starts_with($back, '//')
-            ? site_url(ltrim($back, '/'))
-            : site_url();
-
-        return redirect()->to($safe)->with(
-            'success',
-            $mode === Rasmein::MODE_ENQUIRE
-                ? (string) (service('settings')->get('corporate_on_message', '') ?: 'Corporate gifting. Add pieces to an enquiry and we will quote.')
-                : (string) (service('settings')->get('corporate_off_message', '') ?: 'Back to ordinary shopping.')
-        );
+        /*
+         * No message.
+         *
+         * The switch itself already shows which journey is on, and the
+         * destination page is unmistakably one or the other. A toast saying so
+         * is a second announcement of something the reader can see.
+         */
+        /*
+         * Unreachable in practice — both branches above return — but a bare
+         * fall-through onto an undefined variable would be a 500 the day
+         * someone edits one of them.
+         */
+        return redirect()->to(site_url());
     }
 }

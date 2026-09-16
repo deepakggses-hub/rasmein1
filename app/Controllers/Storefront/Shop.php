@@ -147,6 +147,22 @@ class Shop extends StorefrontController
             throw PageNotFoundException::forPageNotFound();
         }
 
+        /*
+         * A corporate occasion puts the visitor in the corporate journey.
+         *
+         * Opening "Employee Appreciation" while the switch reads "personalised"
+         * shows Add to Cart on a page of gifts nobody buys one at a time. An
+         * occasion tagged `both` changes nothing — it belongs to whichever
+         * journey the visitor is already in.
+         */
+        $audience = (string) ($collection['audience'] ?? 'both');
+
+        if ($audience === 'corporate') {
+            service('settings')->setJourneyMode(\Config\Rasmein::MODE_ENQUIRE);
+        } elseif ($audience === 'retail') {
+            service('settings')->setJourneyMode(\Config\Rasmein::MODE_BUY);
+        }
+
         $isOccasion = ($collection['type'] ?? '') === 'occasion';
 
         return $this->listing([

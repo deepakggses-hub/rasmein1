@@ -135,7 +135,7 @@ $gallery = $images !== [] ? $images : [['path' => null, 'alt_text' => $product->
                 <p class="mt-3 flex items-center gap-2.5 text-sm">
                     <span class="flex gap-0.5 text-brass" aria-hidden="true">
                         <?php for ($i = 1; $i <= 5; $i++): ?>
-                            <span class="<?= $i <= $stars ? '' : 'opacity-30' ?>"><?= rs_icon('star', 'h-3.5 w-3.5') ?></span>
+                            <span class="<?= $i <= $stars ? '' : 'opacity-30' ?>"><?= rs_icon('star', 'rs-star') ?></span>
                         <?php endfor; ?>
                     </span>
                     <span class="num text-ink-muted">

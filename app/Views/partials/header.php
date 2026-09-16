@@ -229,15 +229,18 @@ $rsNoticeTo = trim((string) service('settings')->get('header_notice_link', ''));
     </div>
 </header>
 
-<?php if (rs_is_enquire_mode()): ?>
-    <?php /* Never leave someone in a changed mode without saying so — a shop
-             that suddenly has no Add to Cart looks broken otherwise. */ ?>
-    <div class="rs-modebar">
-        <?= esc(service('settings')->get('corporate_banner', '')
-            ?: 'Corporate gifting — add pieces to an enquiry and we will quote.') ?>
-        <a href="<?= site_url('cart') ?>" class="ml-2"><?= esc(rs_cta_label(null, 'cart')) ?></a>
-    </div>
-<?php endif; ?>
+<?php
+/*
+ * No corporate banner strip.
+ *
+ * It existed to explain why Add to Cart had gone. The switcher now names both
+ * journeys and fills the active one, and the buttons themselves say "Bulk
+ * enquiry" — so the strip repeated, in a band across the page, something
+ * already visible in two places.
+ *
+ * The wording is still editable under Sign-in screen if it is ever wanted back.
+ */
+?>
 
 <!-- Drawer, rendered once and moved by CSS rather than injected by script. -->
 <div id="rs-drawer" class="rs-drawer" data-drawer hidden>

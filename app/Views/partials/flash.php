@@ -35,9 +35,23 @@ $payload = [
 ?>
 
 <?php /* The no-JavaScript fallback, and what a screen reader announces. */ ?>
-<div class="rs-shell pt-6" role="status" aria-live="polite" data-flash
+<?php
+/*
+ * No layout of its own.
+ *
+ * The visible message is a toast; this element exists for the screen reader and
+ * for the no-JavaScript fallback. `rs-shell pt-6` gave it a container's padding,
+ * so every page carrying a flash gained a band of empty space above the content
+ * with nothing drawn in it.
+ *
+ * The noscript block below brings its own spacing, which is the only case where
+ * anything here is actually seen.
+ */
+?>
+<div role="status" aria-live="polite" data-flash
      data-payload="<?= esc(json_encode($payload), 'attr') ?>">
     <noscript>
+        <div class="rs-shell pt-6">
         <?php if ($success !== null): ?>
             <p class="flex items-start gap-3 border-l-2 border-pista-deep bg-pista/10 px-4 py-3 text-sm">
                 <span class="rs-badge rs-badge--enquire shrink-0">Done</span>
@@ -51,6 +65,7 @@ $payload = [
                 <span class="text-ink-soft"><?= esc($payload['error']) ?></span>
             </p>
         <?php endif; ?>
+        </div>
     </noscript>
 
     <?php /* Read out, but not drawn — the toast is the visible version. */ ?>

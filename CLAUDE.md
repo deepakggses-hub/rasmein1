@@ -2739,7 +2739,10 @@ saves without complaint, and does nothing.
 ### The corporate journey
 
 **The page sets the mode.** Landing on `/corporate` turns the switch on; the
-homepage turns it off. Arriving somewhere IS a statement about why you are
+homepage turns it off; and an OCCASION sets it from its own `audience` — opening
+"Employee Appreciation" while the switch reads "personalised" shows Add to Cart
+on a page of gifts nobody buys one at a time. An occasion tagged `both` changes
+nothing, because it belongs to whichever journey the visitor is already in. Arriving somewhere IS a statement about why you are
 there, and leaving the switch reading "personalised" over corporate gifting is a
 contradiction the visitor has to resolve by hand. `/shop` and the rest stay
 neutral, so a deliberate choice survives browsing.
@@ -2763,6 +2766,29 @@ hundred is not adding to a cart and paying, so cards and the product page show
 forms use, with the product's NAME prefixed onto the note so nobody has to open
 the catalogue to read the lead.
 
+### The switch goes to the journey's HOME, not back
+
+Returning to the page someone was on cannot work once pages set the mode:
+switching to personalised on `/corporate` turned the cookie off and the
+destination turned it straight back on, so the switch looked broken. Corporate
+on goes to `/corporate`; corporate off goes to the homepage.
+
+**A destination that undoes the action is worse than no redirect.**
+
+The switch shows no flash either. The control names the active journey and the
+destination is unmistakably one or the other — a toast saying so announces
+something already visible in two places. Same reasoning removed the corporate
+banner strip: it existed to explain why Add to Cart had gone, which the filled
+switcher and the "Bulk enquiry" buttons now do.
+
+### The flash partial had a container's padding
+
+`rs-shell pt-6` on the wrapper meant every page carrying a flash gained a band of
+empty space with nothing drawn in it — the visible message is a TOAST, and the
+element only exists for screen readers and the no-JavaScript fallback. The
+padding moved inside `<noscript>`, which is the only case where anything there is
+seen.
+
 ### The switcher names both sides
 
 A toggle labelled only "Corporate" leaves the other state unnamed, so nobody can
@@ -2783,6 +2809,36 @@ behind — five columns rendered but the markup was unbalanced, and the browser
 recovered by nesting the rest inside a list. **Deleting a block means deleting
 its opening AND closing tags**; check tag balance after, not just that the page
 still looks right.
+
+### The decimal-class trap, again
+
+`rs_icon('star', 'h-3.5 w-3.5')` renders `class="h-35 w-35"` — `esc()` strips the
+dot, Tailwind never generated that class, and the SVG falls back to its intrinsic
+size and fills the card. This is written down twice already and I did it twice
+more.
+
+Sizing an icon now goes in a NAMED class (`.rs-star`) whose dimensions live in
+the stylesheet, where nothing escapes them. Grep before shipping:
+`rs_icon([^)]*[0-9]\.[0-9]` should return nothing.
+
+### The gift box builder filters in the browser
+
+Every piece the box allows is already rendered, so search and the category and
+occasion filters HIDE rather than fetch — instant, and it does not lose the
+reader's place in a half-filled box.
+
+- A group with nothing left showing hides its heading too, or the page fills
+  with empty section titles.
+- Occasion matching wraps both sides in commas, so occasion 3 never matches 13
+  or 30.
+- The occasion list is built from what this box actually offers, so it never
+  names one with nothing behind it.
+- One query for the whole catalogue's occasions, not one per product: a box
+  offering eighty pieces would otherwise be eighty round trips before the page
+  could render.
+
+`availableProducts()` returns `groups` / `occasions` / `byProduct` now rather
+than a bare list — `DiagBuilder` counted the old shape and had to move with it.
 
 ### Outstanding security work (tracked, not yet done)
 

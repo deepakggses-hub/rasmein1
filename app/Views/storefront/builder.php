@@ -77,12 +77,62 @@ foreach ($state['components'] as $component) {
                 <?php endif; ?>
             </p>
 
-            <?php if ($state['catalogue'] === []): ?>
+            <?php
+            $rsGroups    = $state['catalogue']['groups'] ?? [];
+            $rsOccasions = $state['catalogue']['occasions'] ?? [];
+            $rsByProduct = $state['catalogue']['byProduct'] ?? [];
+            ?>
+
+            <?php if ($rsGroups !== []): ?>
+                <?php
+                /*
+                 * Filtering happens in the browser.
+                 *
+                 * Every piece the box allows is already on this page, so a
+                 * round trip would fetch what is in front of the reader — and
+                 * lose the half-filled box's scroll position doing it.
+                 */
+                ?>
+                <div class="rs-buildfilter" data-build-filter>
+                    <label class="flex-1">
+                        <span class="sr-only">Search these pieces</span>
+                        <input type="search" class="rs-input" data-build-search
+                               placeholder="Search by name or code&hellip;">
+                    </label>
+
+                    <div class="rs-buildfilter__chips">
+                        <button type="button" class="rs-chip is-on" data-build-cat="">All</button>
+
+                        <?php foreach ($rsGroups as $group): ?>
+                            <button type="button" class="rs-chip"
+                                    data-build-cat="<?= esc($group['category'], 'attr') ?>">
+                                <?= esc($group['category']) ?>
+                            </button>
+                        <?php endforeach; ?>
+                    </div>
+
+                    <?php if ($rsOccasions !== []): ?>
+                        <label class="shrink-0">
+                            <span class="sr-only">Filter by occasion</span>
+                            <select class="rs-select" data-build-occasion>
+                                <option value="">Any occasion</option>
+                                <?php foreach ($rsOccasions as $id => $name): ?>
+                                    <option value="<?= (int) $id ?>"><?= esc($name) ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </label>
+                    <?php endif; ?>
+                </div>
+
+                <p class="rs-help mt-3" data-build-count hidden></p>
+            <?php endif; ?>
+
+            <?php if ($rsGroups === []): ?>
                 <p class="mt-8 text-ink-muted">Nothing is available for this box at the moment.</p>
             <?php endif; ?>
 
-            <?php foreach ($state['catalogue'] as $group): ?>
-                <div class="mt-10">
+            <?php foreach ($rsGroups as $group): ?>
+                <div class="mt-10" data-build-group="<?= esc($group['category'], 'attr') ?>">
                     <h2 class="rs-eyebrow"><?= esc($group['category']) ?></h2>
 
                     <ul class="mt-5 rs-grid">
@@ -92,7 +142,12 @@ foreach ($state['components'] as $component) {
                             $slotCost = max(1, (int) $product->giftbox_slots);
                             $fits     = $slotCost <= $free;
                             ?>
-                            <li class="rs-card flex gap-4 bg-white p-3 <?= $inBox > 0 ? 'border-brass' : '' ?>">
+                            <?php /* The filter reads these: the name and code it
+                                     searches, and the occasions it narrows by. */ ?>
+                            <li class="rs-card flex gap-4 bg-white p-3 <?= $inBox > 0 ? 'border-brass' : '' ?>"
+                                data-build-item
+                                data-name="<?= esc(mb_strtolower($product->name . ' ' . $product->sku), 'attr') ?>"
+                                data-occasions="<?= esc(implode(',', $rsByProduct[(int) $product->id] ?? []), 'attr') ?>">
                                 <div class="h-20 w-16 shrink-0 overflow-hidden bg-shell-deep">
                                     <img src="<?= esc($product->imageUrl(), 'attr') ?>" alt=""
                                          loading="lazy" class="h-full w-full object-cover">

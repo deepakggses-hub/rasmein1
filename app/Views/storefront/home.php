@@ -317,7 +317,7 @@ $rsMarquee = service('design');
                 <li class="rs-quote">
                     <p class="rs-quote__stars" aria-label="<?= (int) $quote['rating'] ?> out of 5">
                         <?php for ($star = 0; $star < (int) $quote['rating']; $star++): ?>
-                            <span aria-hidden="true"><?= rs_icon('star', 'h-3.5 w-3.5') ?></span>
+                            <span aria-hidden="true"><?= rs_icon('star', 'rs-star') ?></span>
                         <?php endfor; ?>
                     </p>
                     <blockquote class="rs-quote__text">&ldquo;<?= esc($quote['quote']) ?>&rdquo;</blockquote>

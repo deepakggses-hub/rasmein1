@@ -1794,6 +1794,20 @@
   }
   .rs-quote__stars { display: flex; gap: 0.15rem; color: var(--rs-accent, #C6A15B); }
   .rs-quote__stars svg { fill: currentColor; stroke-width: 0; }
+
+  /*
+   * Star sizing lives HERE, not in a utility class passed through rs_icon().
+   *
+   * esc() strips the dot from `h-3.5`, so it arrived as `h-35` — not a class
+   * Tailwind generates — and the SVG fell back to its intrinsic size, filling
+   * the card. A named class cannot be mangled on the way in.
+   */
+  .rs-star {
+    width: 0.875rem;
+    height: 0.875rem;
+    fill: currentColor;
+    stroke-width: 0;
+  }
   .rs-quote__text {
     margin-top: 1.1rem;
     flex: 1;
@@ -3549,5 +3563,44 @@
     background: #fff;
     border: 1px solid var(--color-shell-line);
     box-shadow: 0 30px 70px -30px rgb(44 35 51 / 0.55);
+  }
+}
+
+@layer components {
+  .rs-buildfilter {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 1rem;
+    margin-top: 1.5rem;
+    background: var(--color-shell-deep);
+    border: 1px solid var(--color-shell-line);
+  }
+
+  .rs-buildfilter__chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+  }
+
+  /* A category chip. Small, because there can be eight of them and they sit
+     beside a search field that matters more. */
+  .rs-chip {
+    padding: 0.35rem 0.75rem;
+    font-size: 0.75rem;
+    color: var(--color-ink-soft);
+    background: #fff;
+    border: 1px solid var(--color-shell-line);
+    border-radius: 999px;
+    cursor: pointer;
+    transition: border-color 0.15s, color 0.15s, background-color 0.15s;
+  }
+  .rs-chip:hover { border-color: var(--color-ink-muted); }
+
+  .rs-chip.is-on {
+    color: #fff;
+    background: var(--rs-primary, #5E1F3D);
+    border-color: var(--rs-primary, #5E1F3D);
   }
 }

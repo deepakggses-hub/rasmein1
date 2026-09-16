@@ -2127,3 +2127,76 @@
     if (e.key === 'Escape' && !modal.hidden) close();
   });
 })();
+
+/**
+ * Filtering the gift box builder.
+ *
+ * Everything the box allows is already on the page, so this hides rather than
+ * fetches: instant, and it does not lose the reader's place in a half-filled
+ * box. A category with nothing left showing hides its heading too, or the page
+ * fills with empty section titles.
+ */
+(function () {
+  'use strict';
+
+  var bar = document.querySelector('[data-build-filter]');
+  if (!bar) return;
+
+  var search = bar.querySelector('[data-build-search]');
+  var occasion = bar.querySelector('[data-build-occasion]');
+  var chips = Array.prototype.slice.call(bar.querySelectorAll('[data-build-cat]'));
+  var count = document.querySelector('[data-build-count]');
+  var groups = Array.prototype.slice.call(document.querySelectorAll('[data-build-group]'));
+  var cat = '';
+
+  function apply() {
+    var term = (search.value || '').trim().toLowerCase();
+    var occ = occasion ? occasion.value : '';
+    var shown = 0;
+
+    groups.forEach(function (group) {
+      var visible = 0;
+
+      Array.prototype.slice.call(group.querySelectorAll('[data-build-item]')).forEach(function (item) {
+        var okCat = cat === '' || group.getAttribute('data-build-group') === cat;
+        var okTerm = term === '' || (item.getAttribute('data-name') || '').indexOf(term) !== -1;
+
+        // A comma-wrapped compare, so occasion 3 never matches 13 or 30.
+        var list = ',' + (item.getAttribute('data-occasions') || '') + ',';
+        var okOcc = occ === '' || list.indexOf(',' + occ + ',') !== -1;
+
+        var show = okCat && okTerm && okOcc;
+        item.hidden = !show;
+
+        if (show) visible++;
+      });
+
+      group.hidden = visible === 0;
+      shown += visible;
+    });
+
+    if (count) {
+      count.hidden = term === '' && occ === '' && cat === '';
+      count.textContent = shown === 0
+        ? 'Nothing matches that. Clear the search or pick another category.'
+        : shown + (shown === 1 ? ' piece' : ' pieces');
+    }
+  }
+
+  var timer = null;
+
+  search.addEventListener('input', function () {
+    clearTimeout(timer);
+    timer = setTimeout(apply, 150);
+  });
+
+  if (occasion) occasion.addEventListener('change', apply);
+
+  chips.forEach(function (chip) {
+    chip.addEventListener('click', function () {
+      cat = chip.getAttribute('data-build-cat');
+      chips.forEach(function (c) { c.classList.toggle('is-on', c === chip); });
+      apply();
+    });
+  });
+})();

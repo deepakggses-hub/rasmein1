@@ -80,7 +80,14 @@ class DiagBuilder extends BaseCommand
         $this->check('capacity read from the box', $state['capacity'] === 6, 'capacity ' . $state['capacity']);
         $this->check('starts empty', $state['slots_used'] === 0, '');
         $this->check('starts incomplete', ! $state['is_complete'], 'min ' . $state['min_slots']);
-        $this->check('catalogue offered', $state['catalogue'] !== [], count($state['catalogue']) . ' group(s)');
+        $groups = $state['catalogue']['groups'] ?? [];
+
+        $this->check('catalogue offered', $groups !== [], count($groups) . ' group(s)');
+        $this->check(
+            'catalogue carries occasions',
+            array_key_exists('occasions', $state['catalogue']),
+            count($state['catalogue']['occasions'] ?? []) . ' occasion(s) to filter by'
+        );
 
         CLI::write('  Eligibility', 'white');
         CLI::write('  ' . str_repeat('-', 58), 'dark_gray');

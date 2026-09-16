@@ -198,6 +198,29 @@ class GiftBoxBuilderService
             $categoryNames[(int) $category->id] = $category->name;
         }
 
+        /*
+         * Which occasions each piece belongs to, so the builder can be filtered
+         * by them.
+         *
+         * One query for the whole catalogue rather than one per product — a box
+         * offering eighty pieces would otherwise be eighty round trips before
+         * the page could render.
+         */
+        $occasionsByProduct = [];
+        $occasionNames      = [];
+
+        foreach (db_connect()->table('collection_products cp')
+            ->select('cp.product_id, c.id, c.name', false)
+            ->join('collections c', 'c.id = cp.collection_id')
+            ->where('c.type', 'occasion')
+            ->where('c.is_active', 1)
+            ->whereIn('cp.product_id', $allowed)
+            ->orderBy('c.sort_order', 'ASC')
+            ->get()->getResultArray() as $row) {
+            $occasionsByProduct[(int) $row['product_id']][] = (int) $row['id'];
+            $occasionNames[(int) $row['id']] = (string) $row['name'];
+        }
+
         $grouped = [];
 
         foreach ($products as $product) {
@@ -206,7 +229,13 @@ class GiftBoxBuilderService
             $grouped[$key]['products'][] = $product;
         }
 
-        return array_values($grouped);
+        return [
+            'groups'    => array_values($grouped),
+            // The filter bar builds itself from what is actually offered, so it
+            // never lists an occasion with nothing behind it.
+            'occasions' => $occasionNames,
+            'byProduct' => $occasionsByProduct,
+        ];
     }
 
     // =================================================================
