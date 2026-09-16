@@ -2840,6 +2840,28 @@ reader's place in a half-filled box.
 `availableProducts()` returns `groups` / `occasions` / `byProduct` now rather
 than a bare list — `DiagBuilder` counted the old shape and had to move with it.
 
+### PNG transparency went black on upload
+
+`imagecreatefrompng()` does NOT enable save-alpha. A PNG that needed no resizing
+went straight from load to `imagepng()` with the channel discarded, and every
+transparent pixel was written as opaque black. Measured: `alpha=0 rgb=0,0,0`
+where the source had `alpha=127`.
+
+It only looked right when the picture happened to be wider than the size cap,
+because the resize branch set the flags on its own canvas — so the bug appeared
+to depend on image size, which is what made it confusing.
+
+Both services now set `imagealphablending(false)` + `imagesavealpha(true)` on the
+LOADED image, before any branch. `ImageVariantService::open()` does it at the
+single point of opening, so no future path can forget it.
+
+Both also clear their canvas to transparent first: `imagecreatetruecolor()`
+starts opaque BLACK, and a one-pixel rounding difference at an edge would leave a
+black hairline on an otherwise transparent image.
+
+**Set format flags where the image is OPENED, not where it happens to be
+transformed** — the untransformed path is the one nobody tests.
+
 ### Outstanding security work (tracked, not yet done)
 
 - [ ] **CSP is written but not enabled.** `Config/ContentSecurityPolicy.php`

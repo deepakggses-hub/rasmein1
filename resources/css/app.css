@@ -901,9 +901,11 @@
 
   /* Storefront header. Narrow enough to leave room for the nav on a small
      laptop, taller on wider screens where there is space. */
-  .rs-logo--header { max-height: 2rem; max-width: 9rem; }
-  @media (min-width: 640px) { .rs-logo--header { max-height: 2.25rem; max-width: 11rem; } }
-  @media (min-width: 1024px) { .rs-logo--header { max-height: 2.5rem; max-width: 13rem; } }
+  /* Roughly a third taller at every step. max-width rises with it so a wide
+     wordmark is not cropped by the very cap meant to let it breathe. */
+  .rs-logo--header { max-height: 2.65rem; max-width: 12rem; }
+  @media (min-width: 640px) { .rs-logo--header { max-height: 3rem; max-width: 14rem; } }
+  @media (min-width: 1024px) { .rs-logo--header { max-height: 3.35rem; max-width: 17rem; } }
 
   /* Footer sits on a dark ground with plenty of room. */
   .rs-logo--footer { max-height: 2.25rem; max-width: 11rem; }

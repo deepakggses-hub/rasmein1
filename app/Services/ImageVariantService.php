@@ -221,7 +221,24 @@ class ImageVariantService
             default        => false,
         };
 
-        return $image === false ? null : $image;
+        if ($image === false) {
+            return null;
+        }
+
+        /*
+         * Alpha on, at the point of opening.
+         *
+         * Every caller either writes this image straight out — the full-size
+         * WebP does — or copies it onto a canvas. Setting the flags in ONE place
+         * means no future path can forget them, which is exactly how the
+         * uploader turned transparent PNGs black.
+         */
+        if ($type === IMAGETYPE_PNG || $type === IMAGETYPE_WEBP) {
+            imagealphablending($image, false);
+            imagesavealpha($image, true);
+        }
+
+        return $image;
     }
 
     private function resample(GdImage $source, int $sw, int $sh, int $dw, int $dh, int $type): ?GdImage
@@ -235,6 +252,15 @@ class ImageVariantService
         if ($type === IMAGETYPE_PNG || $type === IMAGETYPE_WEBP) {
             imagealphablending($canvas, false);
             imagesavealpha($canvas, true);
+
+            // A truecolor canvas starts opaque BLACK. The copy below covers all
+            // of it, but a rounding difference of one pixel at an edge would
+            // leave a black hairline on an otherwise transparent image.
+            $clear = imagecolorallocatealpha($canvas, 0, 0, 0, 127);
+
+            if ($clear !== false) {
+                imagefilledrectangle($canvas, 0, 0, $dw, $dh, $clear);
+            }
         }
 
         // Resampled, not resized: imagecopyresized drops pixels and produces the

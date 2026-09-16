@@ -313,6 +313,22 @@ class ImageUploadService
             return false;
         }
 
+        /*
+         * Keep the alpha channel on the LOADED image, before anything else.
+         *
+         * imagecreatefrompng() does not turn save-alpha on, so a PNG that needed
+         * no resizing went straight to imagepng() with the channel discarded —
+         * and every transparent pixel was written as opaque BLACK. It only
+         * looked right when the picture happened to be wider than the cap,
+         * because the resize branch set the flags on its own canvas.
+         *
+         * Set here, it covers both paths.
+         */
+        if ($type === IMAGETYPE_PNG || $type === IMAGETYPE_WEBP) {
+            imagealphablending($image, false);
+            imagesavealpha($image, true);
+        }
+
         try {
             if ($width > $maxWidth) {
                 $newHeight = (int) round($height * ($maxWidth / $width));
@@ -322,6 +338,14 @@ class ImageUploadService
                 if ($type === IMAGETYPE_PNG || $type === IMAGETYPE_WEBP) {
                     imagealphablending($resized, false);
                     imagesavealpha($resized, true);
+
+                    // Truecolor canvases start opaque black; clear it first so a
+                    // one-pixel rounding gap at an edge cannot show through.
+                    $clear = imagecolorallocatealpha($resized, 0, 0, 0, 127);
+
+                    if ($clear !== false) {
+                        imagefilledrectangle($resized, 0, 0, $maxWidth, $newHeight, $clear);
+                    }
                 }
 
                 imagecopyresampled($resized, $image, 0, 0, 0, 0, $maxWidth, $newHeight, $width, $height);
