@@ -230,6 +230,26 @@ if (! function_exists('rs_icon')) {
     {
         static $paths = null;
 
+        /*
+         * Icons drawn as SOLID SHAPES rather than as strokes.
+         *
+         * The outline set below is a consistent 1.5px-stroke family, which is
+         * right for interface glyphs. A brand mark is not an interface glyph:
+         * WhatsApp's and Pinterest's real logos are single filled paths, and
+         * approximating them with a few strokes produces something recognisable
+         * to nobody — which is what the first pass at these did.
+         *
+         * These carry the genuine path data, so they need fill and no stroke.
+         */
+        static $filled = [
+            'whatsapp-mark' => true,
+            'pinterest-mark' => true,
+            'facebook-mark' => true,
+            'x-mark'        => true,
+            'share-ios'     => true,
+            'share-nodes'   => true,
+        ];
+
         if ($paths === null) {
             $paths = [
             // Single-colour Google mark, so it takes the button's ink rather
@@ -267,6 +287,37 @@ if (! function_exists('rs_icon')) {
             'badge'        => '<path d="m12 3 2.2 1.6 2.7-.2.8 2.6 2.2 1.6-1 2.5 1 2.5-2.2 1.6-.8 2.6-2.7-.2L12 21l-2.2-1.6-2.7.2-.8-2.6L4.1 15.4l1-2.5-1-2.5 2.2-1.6.8-2.6 2.7.2Z"/><path d="m9.5 12 1.8 1.8 3.2-3.6"/>',
             'cheers'       => '<path d="M6 3h5l-1 8a2.5 2.5 0 0 1-5 0L6 3ZM13 3h5l1 8a2.5 2.5 0 0 1-5 0l-1-8Z"/><path d="M8 13v7M16 13v7M5 21h6M13 21h6"/>',
             'user-plus'    => '<circle cx="9" cy="8" r="3.5"/><path d="M3 20a6 6 0 0 1 12 0"/><path d="M18 8v6M15 11h6"/>',
+            // The OS share glyph: a box with an arrow leaving the top. Chosen
+            // over the three-linked-dots mark because that one reads as
+            // "social network" and this button opens the SYSTEM share sheet.
+            'share'        => '<path d="M12 3v13"/><path d="m8 7 4-4 4 4"/><path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/>',
+            'link'         => '<path d="M10 13a5 5 0 0 0 7.5.5l2-2a5 5 0 0 0-7-7l-1 1"/><path d="M14 11a5 5 0 0 0-7.5-.5l-2 2a5 5 0 0 0 7 7l1-1"/>',
+
+            /*
+             * --- Real brand marks, as single filled paths -------------------
+             *
+             * Named "-mark" so they are never confused with the stroked
+             * interface icons above: these must be rendered filled, which the
+             * $filled list opposite arranges. Drawn on the same 24x24 grid.
+             */
+            'whatsapp-mark' => '<path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413Z"/>',
+            'pinterest-mark' => '<path d="M12.017 0C5.396 0 .029 5.367.029 11.987c0 5.079 3.158 9.417 7.618 11.162-.105-.949-.199-2.403.041-3.439.219-.937 1.406-5.957 1.406-5.957s-.359-.719-.359-1.782c0-1.668.967-2.914 2.171-2.914 1.023 0 1.518.769 1.518 1.69 0 1.029-.655 2.568-.994 3.995-.283 1.194.599 2.169 1.777 2.169 2.133 0 3.772-2.249 3.772-5.495 0-2.873-2.064-4.882-5.012-4.882-3.414 0-5.418 2.561-5.418 5.207 0 1.031.397 2.138.893 2.738a.36.36 0 0 1 .083.345l-.333 1.36c-.053.22-.174.267-.402.161-1.499-.698-2.436-2.889-2.436-4.649 0-3.785 2.75-7.262 7.929-7.262 4.163 0 7.398 2.967 7.398 6.931 0 4.136-2.607 7.464-6.227 7.464-1.216 0-2.359-.631-2.75-1.378l-.748 2.853c-.271 1.043-1.002 2.35-1.492 3.146C9.57 23.812 10.763 24 12.017 24c6.624 0 11.99-5.367 11.99-11.988C24.007 5.367 18.641 0 12.017 0Z"/>',
+            'facebook-mark' => '<path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073Z"/>',
+            'x-mark'        => '<path d="M18.901 1.153h3.68l-8.04 9.19L24 22.846h-7.406l-5.8-7.584-6.638 7.584H.474l8.6-9.83L0 1.154h7.594l5.243 6.932ZM17.61 20.644h2.039L6.486 3.24H4.298Z"/>',
+            // The iOS/macOS/Windows share glyph, filled: a rounded tray with an
+            // arrow rising out of it.
+            'share-ios'     => '<path d="M12.75 2.47a1.06 1.06 0 0 0-1.5 0L7.72 6a1.06 1.06 0 1 0 1.5 1.5l1.72-1.72v8.53a1.06 1.06 0 0 0 2.12 0V5.78l1.72 1.72a1.06 1.06 0 1 0 1.5-1.5Z"/><path d="M4.5 11.25a1.06 1.06 0 0 0-1.06 1.06v7.13A2.56 2.56 0 0 0 6 22h12a2.56 2.56 0 0 0 2.56-2.56v-7.13a1.06 1.06 0 1 0-2.12 0v7.13c0 .24-.2.44-.44.44H6a.44.44 0 0 1-.44-.44v-7.13A1.06 1.06 0 0 0 4.5 11.25Z"/>',
+
+            /*
+             * THE share icon — three nodes joined by two lines.
+             *
+             * The canonical Material/Android glyph, and the one most people
+             * read as "share" wherever they are: the tray-and-arrow is the iOS
+             * convention and means nothing on Android or Windows. It is also
+             * far clearer at the ~18px this is drawn at over a photograph,
+             * because it is three distinct shapes rather than one outline.
+             */
+            'share-nodes'   => '<path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92s2.92-1.31 2.92-2.92-1.31-2.92-2.92-2.92Z"/>',
             'namaste'      => '<path d="M12 3v9"/><path d="M12 12 8.5 8.5A2 2 0 0 0 5 10v4a7 7 0 0 0 7 7 7 7 0 0 0 7-7v-4a2 2 0 0 0-3.5-1.5L12 12Z"/>',
             'gift'         => '<rect x="3" y="9" width="18" height="12" rx="1"/><path d="M3 13h18M12 9v12"/><path d="M12 9S9.5 3 7.5 4.5 10 9 12 9Zm0 0s2.5-6 4.5-4.5S14 9 12 9Z"/>',
             'tag'          => '<path d="M3 3h8l10 10-8 8L3 11V3Z"/><circle cx="7.5" cy="7.5" r="1.5"/>',
@@ -291,9 +342,15 @@ if (! function_exists('rs_icon')) {
         // to the characters a class can legitimately contain.
         $class = (string) preg_replace('/[^a-zA-Z0-9 _\/:\[\]\-]/', '', $class);
 
-        return '<svg class="' . $class . '" viewBox="0 0 24 24" fill="none"'
-            . ' stroke="currentColor" stroke-width="1.5" stroke-linecap="round"'
-            . ' stroke-linejoin="round" aria-hidden="true">'
+        // A filled mark must not also be stroked: the stroke rides outside the
+        // shape and thickens every counter until the glyph closes up.
+        $paint = isset($filled[$name])
+            ? 'fill="currentColor" stroke="none"'
+            : 'fill="none" stroke="currentColor" stroke-width="1.5"'
+                . ' stroke-linecap="round" stroke-linejoin="round"';
+
+        return '<svg class="' . $class . '" viewBox="0 0 24 24" ' . $paint
+            . ' aria-hidden="true">'
             . ($paths[$name] ?? $paths['dashboard'])
             . '</svg>';
     }

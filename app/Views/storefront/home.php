@@ -392,17 +392,63 @@ $rsMarquee = service('design');
         $shots  = $gallery;
         $half   = (int) ceil(count($shots) / 2);
         $rows   = [array_slice($shots, 0, $half), array_slice($shots, $half)];
+
+        /*
+         * ONE PASS MUST BE WIDER THAN THE WIDEST SCREEN.
+         *
+         * The loop works by translating the track -50%, which is exactly one
+         * pass. That is only seamless if a pass already fills the viewport —
+         * otherwise the row runs out mid-screen, sits empty, and jumps. With a
+         * handful of gallery banners that is the normal case, not the edge
+         * case: three photographs split across two rows is two per row, about
+         * 380px of content on a 1920px screen.
+         *
+         * A tile is clamp(7rem, 16vw, 11rem) plus a gap, so at most ~190px.
+         * Sixteen of them covers ~3000px, past any ordinary display. The row is
+         * repeated up to that count, and THAT is what gets duplicated.
+         *
+         * This is the same failure the .rs-loop slider had — see CLAUDE.md,
+         * "Clone to at least THREE copies, whatever the widths" — arrived at
+         * from the other direction, because here the repetition is in PHP and
+         * there is no script to measure anything.
+         */
+        $minPerPass = 16;
         ?>
         <div class="mt-8 space-y-3">
             <?php foreach ($rows as $index => $row): ?>
                 <?php if ($row === []) { continue; } ?>
+                <?php
+                // Repeat the row until a single pass is wide enough, keeping
+                // the original order so the sequence still reads deliberately.
+                $pass = [];
+
+                while (count($pass) < $minPerPass) {
+                    foreach ($row as $shot) {
+                        $pass[] = $shot;
+                    }
+                }
+                ?>
                 <div class="rs-drift <?= $index === 1 ? 'rs-drift--back' : '' ?>">
                     <ul class="rs-drift__track">
-                        <?php for ($pass = 0; $pass < 2; $pass++): ?>
-                            <?php foreach ($row as $shot): ?>
-                                <li <?= $pass === 1 ? 'aria-hidden="true"' : '' ?>>
-                                    <img src="<?= rs_url(rs_image($shot['image'] ?? null, 'banners')) ?>"
-                                         alt="<?= $pass === 1 ? '' : esc((string) ($shot['alt_text'] ?? ''), 'attr') ?>"
+                        <?php /* Twice: the keyframe's -50% lands exactly on the
+                                 start of the second copy. */ ?>
+                        <?php for ($copy = 0; $copy < 2; $copy++): ?>
+                            <?php foreach ($pass as $position => $shot): ?>
+                                <?php
+                                /*
+                                 * Only the first appearance of each photograph
+                                 * is announced. Everything after it is the same
+                                 * picture again, and a screen reader listing a
+                                 * gallery thirty-two times is unusable.
+                                 */
+                                $isOriginal = $copy === 0 && $position < count($row);
+                                ?>
+                                <li <?= $isOriginal ? '' : 'aria-hidden="true"' ?>>
+                                    <?php /* rs_image() already returns a finished URL — do not
+                                             wrap it in rs_url(), which is for stored paths
+                                             (CLAUDE.md, "do not nest them"). */ ?>
+                                    <img src="<?= rs_image($shot['image'] ?? null, 'banners') ?>"
+                                         alt="<?= $isOriginal ? esc((string) ($shot['alt_text'] ?? ''), 'attr') : '' ?>"
                                          loading="lazy" decoding="async" width="400" height="400">
                                 </li>
                             <?php endforeach; ?>

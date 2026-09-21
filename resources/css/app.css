@@ -185,14 +185,24 @@
     cursor: not-allowed;
   }
 
+  /* --rs-primary is emitted into the page head by DesignService at RUNTIME, so
+     it follows Admin → Appearance. --color-mulberry is a Tailwind theme token
+     compiled at BUILD time and can never follow a setting — using it here is
+     why Add to cart and Buy now stayed #5E1F3D whatever the palette said.
+     The token remains as the fallback, so a page rendered without the design
+     block still looks right. */
   .rs-btn--primary {
-    background: var(--color-mulberry);
+    background: var(--rs-primary, var(--color-mulberry));
     color: var(--color-shell);
-    border-color: var(--color-mulberry);
+    border-color: var(--rs-primary, var(--color-mulberry));
   }
+  /* Hover uses --rs-deep, the "deep" colour Appearance already exposes, rather
+     than a colour-mix of the primary: it is a real choice the shop makes, it
+     needs no @supports guard, and a second fixed token here would jump back to
+     the old palette on the way down. */
   .rs-btn--primary:hover:not(:disabled) {
-    background: var(--color-mulberry-deep);
-    border-color: var(--color-mulberry-deep);
+    background: var(--rs-deep, var(--color-mulberry-deep));
+    border-color: var(--rs-deep, var(--color-mulberry-deep));
   }
 
   .rs-btn--brass {
@@ -208,8 +218,8 @@
     border-color: color-mix(in srgb, var(--color-ink) 25%, transparent);
   }
   .rs-btn--outline:hover:not(:disabled) {
-    border-color: var(--color-mulberry);
-    color: var(--color-mulberry);
+    border-color: var(--rs-primary, var(--color-mulberry));
+    color: var(--rs-primary, var(--color-mulberry));
   }
 
   .rs-btn--on-dark {
@@ -273,7 +283,7 @@
     text-transform: uppercase;
     white-space: nowrap;
   }
-  .rs-badge--buy     { background: var(--color-mulberry); color: var(--color-shell); }
+  .rs-badge--buy     { background: var(--rs-primary, var(--color-mulberry)); color: var(--color-shell); }
   .rs-badge--enquire { background: var(--color-pista-deep); color: var(--color-shell); }
   .rs-badge--brass   { background: var(--color-brass-soft); color: var(--color-mulberry-deep); }
   .rs-badge--soft    { background: var(--color-shell-deep); color: var(--color-ink-muted); }
@@ -299,7 +309,7 @@
     transition: border-color 0.18s var(--ease-tray);
   }
   .rs-input:focus, .rs-select:focus, .rs-textarea:focus {
-    border-color: var(--color-mulberry);
+    border-color: var(--rs-primary, var(--color-mulberry));
     outline-offset: 1px;
   }
   .rs-input[aria-invalid="true"] { border-color: var(--color-bad); }
@@ -388,7 +398,7 @@
   .rs-prose > * + * { margin-top: 1em; }
   .rs-prose h2 { margin-top: 2em; font-size: 1.5rem; }
   .rs-prose h3 { margin-top: 1.75em; font-size: 1.1875rem; }
-  .rs-prose a  { color: var(--color-mulberry); text-decoration: underline; text-underline-offset: 2px; }
+  .rs-prose a  { color: var(--rs-primary, var(--color-mulberry)); text-decoration: underline; text-underline-offset: 2px; }
   .rs-prose ul, .rs-prose ol { padding-left: 1.25rem; }
   .rs-prose ul { list-style: disc; }
   .rs-prose ol { list-style: decimal; }
@@ -1912,7 +1922,7 @@
     cursor: pointer;
   }
   .rs-facet__row:hover { color: var(--color-ink); }
-  .rs-facet__row input { accent-color: var(--color-mulberry); }
+  .rs-facet__row input { accent-color: var(--rs-primary, var(--color-mulberry)); }
   .rs-facet__name { flex: 1; min-width: 0; }
   .rs-facet__count {
     font-family: var(--font-mono);
@@ -2007,6 +2017,36 @@
     .rs-gallery-wrap > .rs-thumbs { grid-area: thumbs; }
   }
 
+  /*
+   * The photograph stays put while the details scroll past it.
+   *
+   * Two things this needs that are easy to miss:
+   *
+   *  - `align-self: start`. A grid item stretches to the row height by default,
+   *    so it is already as tall as the column beside it and has nothing to
+   *    stick WITHIN — position: sticky then does visibly nothing, which is the
+   *    usual reason "sticky doesn't work" in a grid.
+   *  - `top` clear of the header, which is sticky itself on most shops.
+   *
+   * Desktop only. On a phone the two columns are stacked, so pinning the image
+   * would mean scrolling the description through a window a third of the screen
+   * tall — the sticky CTA bar is what serves that case instead.
+   */
+  @media (min-width: 1024px) {
+    .rs-gallery-wrap {
+      position: sticky;
+      top: 6.5rem;
+      align-self: start;
+    }
+  }
+
+  /* A reader who has asked for less motion still gets the sticky column —
+     it does not animate. But a very short viewport cannot afford it: the
+     image would be taller than the space and simply never move. */
+  @media (min-width: 1024px) and (max-height: 640px) {
+    .rs-gallery-wrap { position: static; }
+  }
+
   .rs-thumbs {
     display: grid;
     grid-auto-flow: column;
@@ -2020,10 +2060,48 @@
       grid-auto-flow: row;
       grid-auto-columns: auto;
       overflow-x: visible;
-      /* A tall product with many photographs should not push the page down;
-         the rail scrolls instead. */
-      max-height: 34rem;
+
+      /*
+       * grid-auto-rows must be a FIXED size, not the default `auto`.
+       *
+       * With `auto` rows inside a height-capped scroller, the grid divides the
+       * available height between them — so every extra photograph made all of
+       * them shorter, and past about six they collapsed into slivers. It read
+       * as "the thumbnails shrink when there are more of them", which is
+       * exactly what it was.
+       *
+       * Sized rows mean each thumbnail keeps its dimensions whatever the count
+       * and the column simply overflows, which is what the scrollbar is for.
+       */
+      grid-auto-rows: 4.5rem;
+
+      /*
+       * As tall as the photograph beside it, and no taller.
+       *
+       * align-self: stretch fills the grid row, whose height comes from the
+       * main image; min-height: 0 is what actually permits a grid item to be
+       * smaller than its content and therefore to scroll at all. Without it
+       * the rail grows to fit every thumbnail and overflow-y never engages.
+       */
+      align-self: stretch;
+      min-height: 0;
       overflow-y: auto;
+      /* Room for the ring on the current thumbnail, which a flush edge clips. */
+      padding: 2px;
+      scroll-snap-type: y proximity;
+      overscroll-behavior: contain;
+    }
+
+    .rs-thumbs > li { scroll-snap-align: start; }
+
+    /* A thin rail in the shop's own colour, matching .rs-rail. A hidden
+       scrollbar on a column that scrolls is a scroller nobody discovers. */
+    .rs-thumbs { scrollbar-width: thin; scrollbar-color: var(--rs-primary, #5E1F3D) transparent; }
+    .rs-thumbs::-webkit-scrollbar { width: 4px; }
+    .rs-thumbs::-webkit-scrollbar-track { background: transparent; }
+    .rs-thumbs::-webkit-scrollbar-thumb {
+      background: var(--rs-primary, #5E1F3D);
+      border-radius: 999px;
     }
   }
 
@@ -2038,6 +2116,17 @@
     transition: border-color 0.15s, opacity 0.15s;
     opacity: 0.72;
   }
+  /* In the vertical rail the row height is what governs, so the thumbnail
+     fills it rather than deriving its own height from its width — a square
+     derived from a 5.5rem column would overflow a 4.5rem row and the
+     thumbnails would overlap their neighbours. */
+  @media (min-width: 640px) {
+    .rs-thumb {
+      height: 100%;
+      aspect-ratio: auto;
+    }
+  }
+
   .rs-thumb:hover { opacity: 1; border-color: var(--rs-accent, #C6A15B); }
   .rs-thumb.is-current {
     opacity: 1;
@@ -2054,6 +2143,290 @@
     transition: color 0.15s, border-color 0.15s;
   }
   .rs-sharelink:hover { color: var(--rs-primary, #5E1F3D); border-color: currentColor; }
+
+  /* --- Share: ONE icon button ------------------------------------------- */
+  .rs-share { position: relative; }
+
+  /* The frame around the photograph. It is NOT overflow-hidden — the picture
+     inside it is — so the share menu can open past the image edge. */
+  .rs-gallery-main { position: relative; }
+
+  /* Top right of the photograph. */
+  .rs-share--onimage {
+    position: absolute;
+    top: 0.75rem;
+    right: 0.75rem;
+    z-index: 3;
+  }
+
+  /* Over a photograph the button needs its own ground: a transparent circle
+     disappears against a pale product shot and shouts against a dark one. */
+  .rs-share--onimage .rs-sharebtn {
+    width: 2.5rem;
+    height: 2.5rem;
+    background: rgb(255 255 255 / 0.92);
+    border-color: transparent;
+    backdrop-filter: blur(6px);
+    box-shadow: 0 2px 10px -4px rgb(42 18 8 / 0.4);
+  }
+  .rs-share--onimage .rs-sharebtn:hover {
+    background: #fff;
+    color: var(--rs-primary, #5E1F3D);
+    border-color: transparent;
+  }
+
+  /* Anchored to the RIGHT here, or a menu opening from the left edge of a
+     button already at the right of the image runs off the page. */
+  .rs-share--onimage .rs-sharepop__menu {
+    inset-inline-start: auto;
+    inset-inline-end: 0;
+  }
+
+  /* The button, in both its forms — the native-sheet <button> and the
+     <details> summary that stands in for it. They must be identical, because
+     only one is ever on screen and the page should not change shape depending
+     on which. */
+  .rs-sharebtn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 3rem;
+    height: 3rem;
+    border: 1px solid color-mix(in srgb, var(--color-ink) 20%, transparent);
+    border-radius: var(--rs-pill, 999px);
+    background: transparent;
+    color: var(--color-ink);
+    cursor: pointer;
+    transition: color 0.15s, border-color 0.15s, background-color 0.15s;
+  }
+  .rs-sharebtn:hover {
+    color: var(--rs-primary, #5E1F3D);
+    border-color: currentColor;
+  }
+  .rs-sharebtn[hidden] { display: none; }
+
+  /* The summary's own marker, in both spellings — Safari still needs the
+     -webkit- one, and without it the triangle sits beside the glyph. */
+  .rs-sharepop > summary { list-style: none; }
+  .rs-sharepop > summary::-webkit-details-marker { display: none; }
+  .rs-sharepop > summary::marker { content: ""; }
+
+  /* Sized HERE, not from a utility passed to rs_icon(): Tailwind's utilities
+     layer is emitted after components, so h-4 would beat any rule of ours
+     whatever its specificity. */
+  .rs-sharebtn__icon {
+    width: 1.375rem;
+    height: 1.375rem;
+    pointer-events: none;
+  }
+
+  .rs-sharepop[hidden] { display: none; }
+
+  /* The menu. Absolute, so opening it does not shove the page down — a details
+     that reflows the layout under the reader's cursor is disorienting. */
+  .rs-sharepop__menu {
+    position: absolute;
+    z-index: 5;
+    inset-inline-start: 0;
+    margin-top: 0.5rem;
+    display: flex;
+    gap: 0.4rem;
+    padding: 0.5rem;
+    border: 1px solid var(--color-shell-line);
+    border-radius: var(--rs-pill, 999px);
+    background: #fff;
+    box-shadow: 0 10px 30px -12px rgb(42 18 8 / 0.28);
+  }
+
+  /* Each destination is a circle holding its mark and nothing else. The label
+     lives in aria-label, so it is announced but never drawn. */
+  .rs-sharelink {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.25rem;
+    height: 2.25rem;
+    /* The shared .rs-sharelink above is an underlined text link; none of that
+       applies once the label is gone. */
+    border: 0;
+    border-radius: 50%;
+    padding: 0;
+    color: var(--color-ink-soft);
+    background: var(--color-shell-deep);
+    transition: color 0.15s, background-color 0.15s;
+  }
+  .rs-sharelink:hover {
+    color: #fff;
+    background: var(--rs-primary, #5E1F3D);
+    border-color: transparent;
+  }
+  /* Each brand in its own colour on hover: at this size the shape alone is the
+     only thing identifying it, and the colour confirms it. */
+  .rs-sharelink--wa:hover { background: #25D366; }
+
+  .rs-sharelink__icon {
+    width: 1.0625rem;
+    height: 1.0625rem;
+    pointer-events: none;
+  }
+
+  /* --- The sticky CTA bar ----------------------------------------------- */
+  .rs-stickycta {
+    position: fixed;
+    z-index: 40;
+    inset-inline: 0;
+    bottom: 0;
+    background: #fff;
+    border-top: 1px solid var(--color-shell-line);
+    box-shadow: 0 -12px 32px -18px rgb(42 18 8 / 0.35);
+    /* Slid out of the way rather than merely transparent, so nothing of it can
+       intercept a tap along the bottom edge while it is away. */
+    transform: translateY(100%);
+    transition: transform 0.28s var(--ease-tray, ease);
+    /* Above the home indicator on iOS, and clear of an Android gesture bar. */
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  .rs-stickycta.is-up { transform: translateY(0); }
+  .rs-stickycta[hidden] { display: none; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .rs-stickycta { transition: none; }
+  }
+
+  .rs-stickycta__inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    max-width: var(--rs-container, none);
+    margin-inline: auto;
+    padding: 0.7rem clamp(1rem, 3.5vw, 3rem);
+  }
+
+  .rs-stickycta__what {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    min-width: 0;
+  }
+
+  .rs-stickycta__img {
+    width: 3rem;
+    height: 3.5rem;
+    object-fit: cover;
+    border-radius: var(--rs-radius, 2px);
+    flex: none;
+  }
+
+  .rs-stickycta__text { min-width: 0; }
+
+  .rs-stickycta__name {
+    font-family: var(--font-display);
+    font-size: 0.9375rem;
+    font-weight: 600;
+    line-height: 1.25;
+    color: var(--color-ink);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .rs-stickycta__price {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--rs-primary, #5E1F3D);
+  }
+
+  .rs-stickycta__actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex: none;
+  }
+  .rs-stickycta__actions .rs-btn {
+    padding-block: 0.7rem;
+    white-space: nowrap;
+  }
+
+  /* On a phone the thumbnail and name go — the reader has just scrolled past
+     both — and BOTH buttons share the full width. Dropping Buy now here was
+     wrong: it is the whole point of the bar for someone who has already
+     decided, and a bar offering fewer actions than the page it replaces is a
+     worse bar. They shrink together instead, which two short labels allow. */
+  @media (max-width: 639px) {
+    .rs-stickycta__what { display: none; }
+    .rs-stickycta__inner { padding-inline: 0.75rem; gap: 0.5rem; }
+    .rs-stickycta__actions { flex: 1; gap: 0.5rem; }
+    .rs-stickycta__actions .rs-btn {
+      flex: 1 1 0;
+      min-width: 0;
+      padding-inline: 0.5rem;
+      /* The labels are short, but a long ctaLabel() from the settings must
+         not force a horizontal scrollbar across the whole page. */
+      font-size: 0.75rem;
+      letter-spacing: 0.02em;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+  }
+
+  /* Only "copy link" has anything to say, and only after it is pressed. */
+  .rs-sharelink__said {
+    position: absolute;
+    margin-top: 3.25rem;
+    font-family: var(--font-mono);
+    font-size: 0.625rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--color-ink-muted);
+    white-space: nowrap;
+  }
+  .rs-sharelink__said:empty { display: none; }
+
+  /* --- The customisation line ------------------------------------------- */
+  /* A whole sentence is the link, so the tap target is the words people read
+     rather than a 16px glyph beside them. */
+  .rs-wa {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    margin-top: 0.25rem;
+    padding: 0.7rem 0.9rem;
+    border: 1px solid var(--color-shell-line);
+    border-radius: var(--radius-card);
+    color: var(--color-ink-soft);
+    font-size: 0.8125rem;
+    line-height: 1.5;
+    transition: border-color 0.15s, color 0.15s;
+  }
+  .rs-wa:hover {
+    border-color: color-mix(in srgb, var(--color-ink) 25%, transparent);
+    color: var(--color-ink);
+  }
+
+  /* WhatsApp's own green, not the shop's palette: it identifies the app, and a
+     recoloured one stops being recognisable at this size. */
+  .rs-wa__icon {
+    display: inline-flex;
+    flex: 0 0 auto;
+    width: 1.25rem;
+    height: 1.25rem;
+    color: #25D366;
+  }
+  .rs-wa__icon svg {
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+  }
+
+  .rs-wa__text { min-width: 0; }
+  .rs-wa__cta {
+    font-weight: 600;
+    color: var(--color-ink);
+    text-decoration: underline;
+    text-decoration-color: var(--color-brass);
+    text-underline-offset: 3px;
+  }
 }
 
 

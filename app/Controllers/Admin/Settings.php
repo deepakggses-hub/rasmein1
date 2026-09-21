@@ -44,7 +44,9 @@ class Settings extends AdminController
 
         return $this->adminPage('admin/settings/index', [
             'groups'        => $groups,
-            'journeyMode'   => $this->settings->journeyMode(),
+            // The stored setting: this dropdown edits the STORE's mode, so it
+            // must open showing the store's mode and not this browser's.
+            'journeyMode'   => $this->settings->storedJourneyMode(),
             'journeyModes'  => config(Rasmein::class)->journeyModes,
             'canManage'     => $this->can('settings.manage'),
             'canSwitchMode' => $this->can('settings.journey_mode'),
@@ -113,7 +115,16 @@ class Settings extends AdminController
             return redirect()->back()->with('error', 'That is not a journey mode.');
         }
 
-        $previous = $this->settings->journeyMode();
+        /*
+         * storedJourneyMode(), NOT journeyMode().
+         *
+         * journeyMode() consults this administrator's own rs_mode cookie
+         * first — and merely opening /corporate sets that cookie. So an admin
+         * who had looked at their own storefront was told "Already set to
+         * that." and the setting was never written: the master switch appeared
+         * completely stuck. The audit "from" was wrong for the same reason.
+         */
+        $previous = $this->settings->storedJourneyMode();
 
         if ($previous === $mode) {
             return redirect()->back()->with('success', 'Already set to that.');
@@ -126,6 +137,16 @@ class Settings extends AdminController
         }
 
         $this->settings->set('journey_mode', $mode);
+
+        /*
+         * Drop this browser's own per-visitor choice.
+         *
+         * Otherwise the administrator sets the store to Enquire, opens the
+         * storefront, still sees Buy — because their cookie outranks the
+         * setting — and reasonably concludes the switch did not work. Only the
+         * browser that performed the action is affected.
+         */
+        $this->settings->forgetJourneyChoice();
 
         service('audit')->log(
             'journey_mode_switched',

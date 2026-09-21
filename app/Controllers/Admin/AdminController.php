@@ -97,7 +97,15 @@ abstract class AdminController extends BaseController
             'brand'       => $this->brand,
             'admin'       => $this->admin,
             'pageTitle'   => $title,
-            'journeyMode' => $this->settings->journeyMode(),
+            /*
+             * The STORE's mode, not this administrator's browsing preference.
+             *
+             * The admin shell describes the shop. journeyMode() would report
+             * whatever rs_mode cookie the admin picked up from their own
+             * storefront, so the panel could state the store was in Enquire
+             * while it was selling normally to everyone else.
+             */
+            'journeyMode' => $this->settings->storedJourneyMode(),
             'nav'         => $this->navigation(),
         ], $data));
     }

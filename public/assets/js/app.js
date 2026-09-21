@@ -861,6 +861,149 @@
       done(ok);
     });
   });
+
+  /**
+   * The system share sheet.
+   *
+   * navigator.share opens the OS picker — the Windows share flyout, the iOS and
+   * Android sheets — which reaches every app the person actually has, including
+   * the ones no hand-written list of links could name.
+   *
+   * THREE THINGS IT IS NOT SAFE TO ASSUME
+   *
+   *  - That it exists. It is absent on most desktop Firefox, and present but
+   *    inert in some embedded webviews. So the explicit links are what the
+   *    server renders, and they are hidden only once the check below passes.
+   *  - That it works outside a secure context. Over plain http the property can
+   *    be there and the call rejects, so window.isSecureContext is required.
+   *  - That canShare() agrees. Some builds expose share() but refuse a payload
+   *    carrying a url; where canShare exists it is asked first.
+   *
+   * A rejection is NOT an error path: dismissing the sheet rejects with
+   * AbortError, which is the person saying no. Only a real failure falls back,
+   * and it falls back by revealing the links again rather than by doing
+   * nothing — a button that swallows a tap is the worst of the options.
+   */
+  document.querySelectorAll('[data-share]').forEach(function (box) {
+    var button = box.querySelector('[data-share-native]');
+    var links = box.querySelector('[data-share-fallback]');
+
+    if (!button) return;
+
+    var payload = {
+      title: box.getAttribute('data-share-title') || document.title,
+      url: box.getAttribute('data-share-url') || window.location.href
+    };
+
+    var text = box.getAttribute('data-share-text');
+    if (text) payload.text = text;
+
+    var supported = typeof navigator.share === 'function' && window.isSecureContext;
+
+    if (supported && typeof navigator.canShare === 'function') {
+      try { supported = navigator.canShare(payload); } catch (e) { supported = false; }
+    }
+
+    if (!supported) return;
+
+    // Only now is the sheet known to exist, so only now do the links go.
+    button.hidden = false;
+    if (links) links.hidden = true;
+
+    button.addEventListener('click', function () {
+      navigator.share(payload).catch(function (err) {
+        // Dismissing the sheet is not a failure — leave everything as it is.
+        if (err && err.name === 'AbortError') return;
+
+        // Anything else means the sheet did not work. Give the links back and
+        // stop pretending the button does something.
+        if (links) links.hidden = false;
+        button.hidden = true;
+      });
+    });
+  });
+
+  /**
+   * The sticky call-to-action bar.
+   *
+   * Revealed only while the real buttons are off screen, so the page never
+   * shows the same action twice. An IntersectionObserver on the CTA block
+   * rather than a scroll listener: the browser does the work off the main
+   * thread, and there is no threshold to tune against page length.
+   *
+   * It starts hidden in the MARKUP, not in CSS, because without JavaScript
+   * there is nothing to tell it when to go away and a bar permanently covering
+   * the foot of the page would be in the reader's way. This is the same rule
+   * the rail arrows follow.
+   */
+  (function () {
+    var bar = document.querySelector('[data-sticky-cta]');
+    var anchors = document.querySelectorAll('[data-cta-anchor]');
+
+    if (!bar || !anchors.length) return;
+
+    // No observer (a very old browser) means no reliable way to know when to
+    // show it, so it simply never appears. The real buttons still work.
+    if (typeof window.IntersectionObserver !== 'function') return;
+
+    /*
+     * THE ANCHOR IS THE BUTTONS, NOT THE BLOCK AROUND THEM.
+     *
+     * This first watched the whole `space-y-3` wrapper, which also holds the
+     * variant chips, the specification list, the gift-box link and the
+     * customisation line. That wrapper stays on screen long after the buttons
+     * have scrolled away, so the bar hid itself exactly when it was needed —
+     * and the taller the variant section, the worse it got, which is why it
+     * looked like variants "broke" it.
+     *
+     * Visibility is tracked as SHARED STATE across every anchor rather than
+     * acted on per entry. Only one branch renders today, but a callback that
+     * does `if (!entry.isIntersecting) show()` gets it wrong the moment there
+     * are two: whichever entry fires last wins, regardless of the other.
+     */
+    var onScreen = new Set();
+
+    function apply() {
+      if (onScreen.size === 0) {
+        // hidden toggles presence; the class drives the slide, and it is set
+        // on the next frame so the transition has a state to move FROM.
+        bar.hidden = false;
+        window.requestAnimationFrame(function () { bar.classList.add('is-up'); });
+      } else {
+        bar.classList.remove('is-up');
+      }
+    }
+
+    var observer = new IntersectionObserver(function (entries) {
+      entries.forEach(function (entry) {
+        if (entry.isIntersecting) {
+          onScreen.add(entry.target);
+        } else {
+          onScreen.delete(entry.target);
+        }
+      });
+
+      apply();
+    }, {
+      /*
+       * The top margin clears the sticky header, so buttons sitting underneath
+       * it count as gone. The bottom margin is the bar's own height: without
+       * it the bar slides up over the buttons, the buttons become "visible"
+       * again behind it, and it oscillates.
+       */
+      rootMargin: '-96px 0px -88px 0px',
+      threshold: 0
+    });
+
+    anchors.forEach(function (el) { observer.observe(el); });
+
+    // Only stop occupying space once the slide has finished, or the page jumps.
+    bar.addEventListener('transitionend', function (e) {
+      if (e.propertyName === 'transform' && !bar.classList.contains('is-up')) {
+        bar.hidden = true;
+      }
+    });
+  })();
 })();
 
 /**
@@ -1849,11 +1992,25 @@
     window.history.replaceState({}, '', data.base + '/' + variant.key);
 
     // Price, SKU and picture follow the selection.
-    var priceEl = document.querySelector('[data-variant-price]');
-    if (priceEl && variant.price) priceEl.textContent = variant.price;
+    /*
+     * querySelectorAll, not querySelector.
+     *
+     * The price and SKU are now shown in two places — the details column and
+     * the sticky CTA bar — and updating only the first leaves the bar quoting
+     * the base price for a variant that costs more. A stale number beside a
+     * live "Add to cart" is worse than no number at all.
+     */
+    if (variant.price) {
+      document.querySelectorAll('[data-variant-price]').forEach(function (el) {
+        el.textContent = variant.price;
+      });
+    }
 
-    var skuEl = document.querySelector('[data-variant-sku]');
-    if (skuEl && variant.sku) skuEl.textContent = variant.sku;
+    if (variant.sku) {
+      document.querySelectorAll('[data-variant-sku]').forEach(function (el) {
+        el.textContent = variant.sku;
+      });
+    }
 
     if (variant.image) {
       var main = document.querySelector('[data-gallery-main] img, .rs-gallery__main img');

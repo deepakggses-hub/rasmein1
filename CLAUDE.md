@@ -3027,6 +3027,328 @@ nothing to click is worse than saying nothing. The stored value is digits with
 the country code; every reader strips non-digits, so `wa.me` links are built
 identically wherever they appear.
 
+### The product card's image fallback was the PLACEHOLDER
+
+`partials/product_card` read:
+
+```php
+// Fall back to the single primary image when a caller has not batched them.
+$shots = $images ?? [];
+if ($shots === []) { $shots = [['path' => null, ...]]; }
+```
+
+The comment describes the right behaviour; the code hardcodes `null`, which is
+the placeholder. So every card drawn by a caller that does not pre-load images
+showed a blank frame — the homepage best-sellers rail, new arrivals and the
+gift-box row — while the same product's photograph appeared correctly on its own
+page.
+
+The listing page batches through `ProductModel::imagesFor()` and so looked fine,
+which is exactly what made this read as a homepage bug rather than a card one.
+`primary_image` was there the whole time: `withPrimaryImage()` selects it and
+every one of those queries goes through it.
+
+**A comment that describes the intent is not the intent.** When a fallback
+renders "nothing" rather than erroring, nothing anywhere says it fired.
+
+### A Tailwind theme token can never follow a runtime setting
+
+`.rs-btn--primary` was `background: var(--color-mulberry)`. That token is
+compiled into the stylesheet at BUILD time, so Add to cart stayed `#5E1F3D`
+whatever Admin → Appearance said — while `.rs-btn--gold` (Buy now), already on
+`var(--rs-accent)`, followed it correctly. The two buttons sat side by side
+disagreeing about which palette the shop was using.
+
+`--rs-primary` / `--rs-deep` / `--rs-accent` are emitted into the page head by
+`DesignService::cssVariables()` on every request. Anything that must follow a
+setting reads those, with the Tailwind token as the FALLBACK so a page rendered
+without the design block still looks right:
+
+```css
+background: var(--rs-primary, var(--color-mulberry));
+```
+
+Now dynamic: `.rs-btn--primary` (+ hover, on `--rs-deep` rather than a
+colour-mix, so no `@supports` guard is needed), `.rs-btn--outline:hover`,
+`.rs-badge--buy`, `.rs-prose a`, `.rs-facet__row input` accent, and input focus.
+Admin chrome — the sidebar, sparklines, the avatar, the Quill toolbar — stays on
+the fixed token deliberately: the panel is not the shop.
+
+**Grep rule:** a `var(--color-*)` on anything a customer sees is a candidate
+bug. Ask whether the shop can change it in Appearance; if so it must be
+`var(--rs-*)`.
+
+### Share uses the SYSTEM sheet, with the links as the fallback
+
+`navigator.share` opens the Windows share flyout and the iOS/Android sheets,
+which reach every app the person actually has — no list of links can match that.
+
+Three things it is not safe to assume, and all three are handled:
+
+- **That it exists.** Absent on most desktop Firefox, present but inert in some
+  webviews.
+- **That it works.** It needs a secure context; over plain http the property is
+  there and the call rejects, so `window.isSecureContext` is required too.
+- **That `canShare()` agrees.** Some builds expose `share()` and refuse a
+  payload carrying a url. Where `canShare` exists it is asked first.
+
+So the SERVER renders the explicit links (WhatsApp, Pinterest, Email, Copy
+link), and the script hides them only once all three checks pass — the same rule
+as the rail arrows. Rendering the button first and hiding the links up front
+would strand anyone whose browser has no sheet.
+
+**An `AbortError` is not a failure.** Dismissing the sheet rejects the promise;
+that is the person saying no, and nothing should change. Only a real rejection
+falls back, and it falls back by REVEALING the links and hiding the button — a
+control that swallows a tap is worse than either.
+
+### Icons beside text, and the layer-order trap
+
+The WhatsApp customisation line and every share control now carry an SVG next to
+their words rather than a bare glyph. On a page of buttons an unlabelled icon is
+the one thing nobody clicks, and the whole sentence being the link makes the tap
+target the words people are already reading.
+
+The WhatsApp mark keeps its own green (`#25D366`), not the shop palette: it
+identifies an app, and a recoloured one stops being recognisable at 20px.
+
+**Icons are sized from a wrapper class in the stylesheet, and `rs_icon()` is
+passed an EMPTY class.** `rs_icon()` defaults to `'h-4 w-4'`, and in Tailwind v4
+the `utilities` layer is emitted AFTER `components` — so a utility beats a
+component rule regardless of specificity, and `.rs-sharelink__icon svg { width:
+100% }` would have lost to `h-4`. This is the decimal-class trap's cousin: same
+symptom (icon renders at the wrong size), different cause (layer order, not
+`esc()` eating the dot).
+
+Two new icons in the helper: `share` (box with an arrow leaving the top — the OS
+glyph, chosen over the three-linked-dots mark, which reads as "social network"
+when this opens the system sheet) and `link`.
+
+`resources/css/app.css` and the compiled `public/assets/css/app.css` were both
+edited again, `node_modules` still being absent. Brace balance checked; the
+appended block guards its two `color-mix()` uses behind `@supports`, matching how
+the real build emits them.
+
+### A brand mark is not an interface glyph
+
+The first pass at the WhatsApp and Pinterest icons approximated them with two
+or three strokes from the same 1.5px outline family as the interface set. At
+20px that is recognisable to nobody — it reads as a speech bubble and a
+squiggle.
+
+`rs_icon()` now carries a `$filled` list. A name on it renders
+`fill="currentColor" stroke="none"`; everything else keeps the stroked
+treatment. The `-mark` suffix (`whatsapp-mark`, `pinterest-mark`,
+`facebook-mark`, `x-mark`, `share-ios`) exists so the two families can never be
+confused at a call site.
+
+**A filled mark must not also be stroked** — the stroke rides outside the shape
+and thickens every counter until the glyph closes up.
+
+Verified by RENDERING them, not by counting paths: `icons.php` in the scratchpad
+emits each one, asserts it parses as XML, and writes a page that was then served
+and screenshotted. All seven read correctly at 56px. Counting `<path>` elements
+would have passed the broken versions too.
+
+### Share is ONE icon button, with a `<details>` fallback
+
+No labels: a circle per destination, each carrying its real mark and an
+`aria-label`. The visible control is a single share button in both states.
+
+- **Native sheet** where `navigator.share` passes all three checks (exists,
+  secure context, `canShare()` accepts the payload) — the plain `<button>`.
+- **Otherwise a `<details>`**, whose `<summary>` IS the same button. This is why
+  it is not a scripted popover: the browser opens `<details>` with no
+  JavaScript at all, so the one-button design survives a blocked script instead
+  of becoming a control that does nothing.
+- The menu is absolutely positioned. A `<details>` that reflows the page under
+  the reader's cursor when it opens is disorienting.
+- The summary's marker needs hiding in BOTH spellings — `::marker` and
+  `::-webkit-details-marker` — or Safari draws a triangle beside the glyph.
+
+### The Bespoke journey drift needed a WIDER pass, not a faster one
+
+`.rs-drift` loops by translating the track `-50%`, which is exactly one pass of
+a duplicated row. That is only seamless when a pass already fills the viewport.
+With a handful of gallery banners it does not: three photographs split across
+two rows is two per row, about 380px of content on a 1920px screen — so the row
+ran out mid-screen, sat empty, and jumped.
+
+The row is now repeated in PHP until a pass holds at least 16 tiles (a tile is
+`clamp(7rem, 16vw, 11rem)` plus gap, so ~190px at most; 16 covers ~3000px), and
+THAT is what gets duplicated.
+
+Same failure as the `.rs-loop` slider — "Clone to at least THREE copies,
+whatever the widths" — reached from the other direction, because here the
+repetition is in PHP and no script measures anything. **Any duplicate-and-
+translate loop needs its unit of repetition to exceed the viewport, and that is
+a statement about WIDTH, never about how many records exist.**
+
+Only the first appearance of each photograph is announced; the rest are
+`aria-hidden`, or a screen reader lists the gallery thirty-two times.
+
+### The product page: sticky image, sticky CTA
+
+**The gallery sticks on desktop only.** Two things that are easy to miss:
+`align-self: start` (a grid item stretches to the row height by default, so it
+is already as tall as the column beside it and has nothing to stick WITHIN —
+the usual reason "sticky doesn't work" in a grid), and a `top` clear of the
+sticky header. It turns itself off below 1024px, where the columns stack, and
+on viewports under 640px tall, where the image would never move anyway.
+
+**The sticky bar's buttons are the SAME form.** `form="rs-add"` associates a
+button with a form it is not inside, so the chosen variant, the chosen quantity
+and the CSRF token all travel, and the existing `[data-cart]` handler picks it
+up through `e.submitter` exactly as it does for the buttons in the column. A
+second form here would be a second copy of that state and would drift the first
+time someone changed a variant.
+
+- It renders every state the column can be in — sold out, bulk enquiry, normal.
+  A bar that vanishes on some products reads as a fault; one offering Add to
+  cart for something sold out is worse.
+- `hidden` in the MARKUP, revealed by the observer. With no JavaScript nothing
+  can say when the real buttons are on screen, and a bar permanently covering
+  the foot of the page would be in the way.
+- An IntersectionObserver on the CTA block, not a scroll listener — and the
+  `rootMargin` excludes the bar's own height, or it covers the thing it is
+  watching and oscillates.
+- `transform: translateY(100%)`, not opacity: nothing of it may intercept a tap
+  along the bottom edge while it is away. `hidden` is restored on
+  `transitionend` so it stops occupying space without the page jumping.
+- `padding-bottom: env(safe-area-inset-bottom)` clears the iOS home indicator.
+
+**`[data-variant-price]` is now updated with `querySelectorAll`.** The price
+appears in two places and updating only the first left the bar quoting the base
+price for a variant that costs more — a stale number beside a live Add to cart.
+
+### Observe the CONTROL, not the block that contains it
+
+The sticky CTA bar watched `[data-cta-anchor]`, which sat on the `space-y-3`
+wrapper. That wrapper also holds the variant chips, the specification list, the
+gift-box link and the customisation line — so it stayed on screen long after
+the buttons had scrolled away, and the bar hid itself exactly when it was
+needed. The taller the variant section, the worse it got, which is why it
+presented as "variants break the sticky bar".
+
+The anchor is now on each branch's actual buttons: the sold-out span, the bulk
+enquiry button, and the two-button grid.
+
+Two rules that follow:
+
+- **An IntersectionObserver anchor is the thing the reader needs to reach**,
+  never a convenient parent. A parent that is mostly other content answers a
+  different question than the one being asked.
+- **Track visibility as shared STATE across all anchors**, not per entry. Only
+  one branch renders today, but `if (!entry.isIntersecting) show()` in the
+  callback gets it wrong the moment there are two — whichever entry fires last
+  wins regardless of the other. A `Set` of what is on screen, then one `apply()`.
+
+`rootMargin`'s bottom value is the BAR'S OWN HEIGHT. Without it the bar slides
+up over the buttons, the buttons are then "visible" behind it, and it
+oscillates.
+
+### The sticky bar keeps every action on mobile
+
+Buy now was hidden below 640px to save width. That was wrong: it is the whole
+point of the bar for someone who has already decided, and a bar offering fewer
+actions than the page it replaces is a worse bar. Both buttons now share the
+width with `flex: 1 1 0` and a smaller label, and the thumbnail and product
+name go instead — the reader has just scrolled past both.
+
+`min-width: 0` plus `text-overflow: ellipsis` matters here: `ctaLabel()` comes
+from the settings, and a long one would otherwise force a horizontal scrollbar
+across the whole page.
+
+### Share moved onto the photograph
+
+Top right of the image, where catalogues and apps put it, and reachable without
+scrolling — which it was not beside the description.
+
+- **The frame is its own element** (`.rs-gallery-main`, `position: relative`,
+  NO overflow clip). The picture inside it still needs `overflow: hidden` to
+  crop, and a popover inside that would be clipped the instant it opened.
+- The menu is anchored `inset-inline-end: 0`. Opening from the left edge of a
+  button already at the right of the image runs it off the page.
+- The button gets a translucent white ground over the photograph: a transparent
+  circle disappears against a pale product shot and shouts against a dark one.
+- **The icon is `share-nodes`** — three nodes joined by two lines, the
+  Material/Android glyph. The tray-and-arrow (`share-ios`) is an iOS
+  convention and means nothing on Android or Windows, and three distinct shapes
+  read far better at 18px over a photograph than one outline. Both remain
+  defined.
+
+### grid-auto-rows must be FIXED in a height-capped scroller
+
+The thumbnail rail used `grid-auto-flow: row` with no `grid-auto-rows`, so the
+rows defaulted to `auto` inside a `max-height` container — and a grid divides
+available height between auto rows. Every extra photograph made all of them
+shorter, and past about six they collapsed into slivers. Reported as "the
+thumbnails shrink when there are more of them", which is exactly what it was.
+
+`grid-auto-rows: 4.5rem` fixes the size, so the column overflows instead, which
+is what the scrollbar is for. Same family as "never use 1fr as the MAX in
+grid-auto-columns" and "never use minmax(0, X) in a scroller": **a track sized
+by available space is wrong wherever the content is meant to overflow.**
+
+The rail is now exactly as tall as the photograph beside it —
+`align-self: stretch` fills the grid row (whose height comes from the main
+image) and **`min-height: 0` is what actually permits a grid item to be smaller
+than its content**, and therefore to scroll at all. Without it the rail grows
+to fit every thumbnail and `overflow-y` never engages.
+
+`.rs-thumb` drops its `aspect-ratio` above 640px and fills the row instead: a
+square derived from the 5.5rem column would overflow a 4.5rem row and overlap
+its neighbours. The scrollbar is visible and in the shop's colour — a hidden
+scrollbar on a column that scrolls is a scroller nobody discovers.
+
+### The admin master switch was reading the ADMIN'S OWN cookie
+
+Field report: the Buy / Enquire switch could not be changed at all.
+
+`SettingsService::journeyMode()` answers "what should THIS VISITOR be shown",
+and it consults the `rs_mode` cookie first — that is the whole point of the
+per-visitor corporate switch. `Admin\Settings::switchJourney()` used it for the
+master switch:
+
+```php
+$previous = $this->settings->journeyMode();
+if ($previous === $mode) return ...'Already set to that.';
+```
+
+So it compared the requested store setting against the administrator's own
+browsing preference. Three consequences, all silent:
+
+- Switching to whichever mode the cookie happened to hold was answered with
+  **"Already set to that." and nothing was written.** The switch looked
+  completely stuck — which is exactly how it was reported.
+- The dropdown opened on the wrong current mode, and the admin shell's journey
+  indicator described the admin's browser rather than the shop.
+- When it did write, the audit entry recorded the wrong `from`.
+
+**Merely opening `/corporate` sets that cookie** (pages set the mode — see "The
+corporate journey"), so almost any administrator who had looked at their own
+storefront was in this state.
+
+`storedJourneyMode()` is the fix: it reads the setting and is blind to both the
+cookie and `setJourneyMode()`. The admin panel uses it in all three places; the
+storefront keeps `journeyMode()`, which is correct there.
+
+**Two questions, two methods.** "What should this visitor see" and "what has
+the shop decided" are different, and one function answering both means the
+wrong caller gets a plausible answer rather than an error. Any new caller has
+to choose deliberately: a storefront render wants `journeyMode()`, anything
+administrative wants `storedJourneyMode()`.
+
+`switchJourney()` also calls `forgetJourneyChoice()`, clearing the acting
+admin's own cookie — otherwise they set the store to Enquire, open the
+storefront, still see Buy, and reasonably conclude it did not work. It affects
+only the browser that performed the action.
+
+Verified: the storefront switcher writes `rs_mode` and flips the whole site in
+both directions (browser), and `set('journey_mode', …)` persists and reads back
+despite `is_locked = 1` (the lock only excludes a row from the bulk form). The
+admin screen itself was not exercised end to end — that needs a login.
+
 ### Outstanding security work (tracked, not yet done)
 
 - [ ] **CSP is written but not enabled.** `Config/ContentSecurityPolicy.php`

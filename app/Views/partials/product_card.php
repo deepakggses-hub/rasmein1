@@ -20,11 +20,26 @@ $inStock   = $product->inStock();
 $isEnquire = rs_is_enquire_mode($product->sale_mode ?? 'inherit');
 $url       = site_url('product/' . $product->slug);
 
-// Fall back to the single primary image when a caller has not batched them.
+/*
+ * Fall back to the single primary image when a caller has not batched them.
+ *
+ * This said `'path' => null`, which is the PLACEHOLDER — so every card drawn
+ * by a caller that does not pre-load images showed a blank frame while the
+ * same product's photograph appeared correctly on its own page. The homepage
+ * rails (best sellers, new arrivals, the gift-box row) are all such callers;
+ * the listing page batches through imagesFor() and so looked fine, which is
+ * what made it read as a homepage problem rather than a card one.
+ *
+ * `primary_image` is selected by ProductModel::withPrimaryImage(), which every
+ * one of those queries already goes through.
+ */
 $shots = $images ?? [];
 
 if ($shots === []) {
-    $shots = [['path' => null, 'alt_text' => $product->name]];
+    $shots = [[
+        'path'     => $product->primary_image ?? null,
+        'alt_text' => $product->name,
+    ]];
 }
 
 $shots  = array_slice($shots, 0, 5);

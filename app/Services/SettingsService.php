@@ -129,11 +129,59 @@ class SettingsService
             return $chosen;
         }
 
+        return $this->storedJourneyMode();
+    }
+
+    /**
+     * The mode the STORE is set to — the admin master switch's value.
+     *
+     * Deliberately blind to the cookie and to setJourneyMode(). journeyMode()
+     * answers "what should this visitor be shown", which a per-visitor choice
+     * and the page being viewed both legitimately override. This answers "what
+     * has the shop decided", and nothing about one browser may change that.
+     *
+     * THE BUG THIS FIXES. The admin panel used journeyMode() for the master
+     * switch, so it was reading the administrator's OWN rs_mode cookie:
+     *
+     *  - the dropdown showed the wrong current mode;
+     *  - switching to the mode the cookie happened to hold was answered with
+     *    "Already set to that." and NOTHING WAS WRITTEN — reported from the
+     *    field as the switch being completely stuck;
+     *  - and when it did write, the audit entry recorded the wrong "from".
+     *
+     * Merely visiting /corporate sets that cookie, so almost any administrator
+     * who had looked at their own storefront was in this state.
+     */
+    public function storedJourneyMode(): string
+    {
         $mode = (string) $this->get('journey_mode', Rasmein::MODE_BUY);
 
         return in_array($mode, [Rasmein::MODE_BUY, Rasmein::MODE_ENQUIRE], true)
             ? $mode
             : Rasmein::MODE_BUY;
+    }
+
+    /**
+     * Drop this browser's per-visitor choice, so it falls back to the store's.
+     *
+     * Used after an administrator changes the master switch: without it they
+     * set the store to Enquire, see their own storefront still in Buy, and
+     * reasonably conclude the switch did not work. It touches only the browser
+     * performing the action.
+     */
+    public function forgetJourneyChoice(): void
+    {
+        $this->modeOverride = null;
+
+        setcookie(Rasmein::MODE_COOKIE, '', [
+            'expires'  => time() - 3600,
+            'path'     => '/',
+            'secure'   => service('request')->isSecure(),
+            'httponly' => false,
+            'samesite' => 'Lax',
+        ]);
+
+        unset($_COOKIE[Rasmein::MODE_COOKIE]);
     }
 
     /**
