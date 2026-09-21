@@ -88,7 +88,7 @@ class ImageVariantService
                 }
 
                 // WebP of the same width: same visual quality, far fewer bytes.
-                if (function_exists('imagewebp') && @imagewebp($canvas, $stem . '-' . $width . '.webp', $config->webpQuality)) {
+                if ($this->webpSafe($canvas) && @imagewebp($canvas, $stem . '-' . $width . '.webp', $config->webpQuality)) {
                     $webp = true;
                 }
 
@@ -97,7 +97,7 @@ class ImageVariantService
 
             // The full-size original also gets a WebP, for slots wider than the
             // largest ladder step.
-            if (function_exists('imagewebp')) {
+            if ($this->webpSafe($source)) {
                 $webp = @imagewebp($source, $this->stem($full) . '.webp', $config->webpQuality) || $webp;
             }
         } finally {
@@ -212,6 +212,20 @@ class ImageVariantService
 
     // =================================================================
 
+    /**
+     * May imagewebp() be called on this image?
+     *
+     * Handing it a palette image is not a failure that returns false — it is a
+     * FATAL error, which neither `@` nor a try/catch can hold. open() converts
+     * everything to truecolor so this should now always be true; the guard
+     * stays because the cost of being wrong is a dead request with no response
+     * and nothing in the log.
+     */
+    private function webpSafe(GdImage $image): bool
+    {
+        return function_exists('imagewebp') && imageistruecolor($image);
+    }
+
     private function open(string $path, int $type): ?GdImage
     {
         $image = match ($type) {
@@ -223,6 +237,25 @@ class ImageVariantService
 
         if ($image === false) {
             return null;
+        }
+
+        /*
+         * Normalise to TRUECOLOR first, before anything else looks at it.
+         *
+         * A PNG-8 — "Save for Web", and what most logo exporters produce —
+         * loads as a PALETTE image whose transparency is a single index in a
+         * tRNS chunk, not an alpha channel. imagesavealpha() on a palette image
+         * is a no-op, so the flags below protected nothing, and imagewebp()
+         * does not merely fail on one: it raises "Palette image not supported
+         * by webp", which is FATAL and not caught by the @ or by the caller's
+         * try/catch. The upload died after writing the ladder, with the
+         * original left flattened.
+         *
+         * Converting up front gives every path below a real alpha channel to
+         * carry, whatever was uploaded.
+         */
+        if (! imageistruecolor($image)) {
+            imagepalettetotruecolor($image);
         }
 
         /*

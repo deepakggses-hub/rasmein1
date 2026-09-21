@@ -371,6 +371,22 @@ class ImageUploadService
         }
 
         /*
+         * Normalise to TRUECOLOR before the alpha flags mean anything.
+         *
+         * A PNG-8 — what "Save for Web" and most logo exporters produce — loads
+         * as a PALETTE image. Its transparency is one index in a tRNS chunk,
+         * not an alpha channel, so imagesavealpha() below is a no-op on it and
+         * the transparency survives only by luck of the write path. Converting
+         * here gives both branches a real alpha channel to carry.
+         *
+         * It also keeps imagewebp() reachable downstream: that function does
+         * not fail on a palette image, it raises a FATAL error.
+         */
+        if (! imageistruecolor($image)) {
+            imagepalettetotruecolor($image);
+        }
+
+        /*
          * Keep the alpha channel on the LOADED image, before anything else.
          *
          * imagecreatefrompng() does not turn save-alpha on, so a PNG that needed

@@ -43,7 +43,11 @@ class SettingsSeeder extends Seeder
             ['group_name' => 'store', 'key_name' => 'store_tagline', 'value' => 'Gifting that carries a feeling.', 'value_type' => 'string', 'label' => 'Tagline', 'is_public' => 1, 'sort_order' => 2],
             ['group_name' => 'store', 'key_name' => 'support_email', 'value' => 'hello@rasmein.com', 'value_type' => 'string', 'label' => 'Support email', 'is_public' => 1, 'sort_order' => 3],
             ['group_name' => 'store', 'key_name' => 'support_phone', 'value' => '+91 98765 43210', 'value_type' => 'string', 'label' => 'Support phone', 'is_public' => 1, 'sort_order' => 4],
-            ['group_name' => 'store', 'key_name' => 'whatsapp_number', 'value' => '', 'value_type' => 'string', 'label' => 'WhatsApp number', 'is_public' => 1, 'sort_order' => 5],
+            // Digits only, with the country code. Every reader strips
+            // non-digits anyway, so storing it clean means wa.me links are
+            // built the same way wherever they appear. Editable at
+            // Admin → Shop identity; this is only the first-install default.
+            ['group_name' => 'store', 'key_name' => 'whatsapp_number', 'value' => '919871873871', 'value_type' => 'string', 'label' => 'WhatsApp number', 'is_public' => 1, 'sort_order' => 5],
             ['group_name' => 'store', 'key_name' => 'maintenance_mode', 'value' => '0', 'value_type' => 'bool', 'label' => 'Maintenance mode', 'is_public' => 0, 'is_locked' => 1, 'sort_order' => 6],
 
             // ---------------------------------------------- checkout

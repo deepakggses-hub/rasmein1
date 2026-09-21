@@ -49,6 +49,17 @@ class DatabaseSeeder extends Seeder
          * harmless.
          */
         $this->call(VariantSeeder::class);
+
+        /*
+         * The Candle Stand Collection, from the shop's own workbook.
+         *
+         * MUST run after ProductCatalogueSeeder, which TRUNCATES products —
+         * seeded before it, these fourteen would simply be wiped. This one
+         * truncates nothing and is idempotent on SKU, so it sits safely at the
+         * end of the catalogue run.
+         */
+        $this->call(CandleStandSeeder::class);
+
         // The landing page at /collection.
         // Occasions first: the collections and corporate pages both list them,
         // so they have to exist before those pages are set up.

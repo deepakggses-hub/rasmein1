@@ -904,8 +904,12 @@
   /* Roughly a third taller at every step. max-width rises with it so a wide
      wordmark is not cropped by the very cap meant to let it breathe. */
   .rs-logo--header { max-height: 2.65rem; max-width: 12rem; }
-  @media (min-width: 640px) { .rs-logo--header { max-height: 3rem; max-width: 14rem; } }
-  @media (min-width: 1024px) { .rs-logo--header { max-height: 3.35rem; max-width: 17rem; } }
+  @media (min-width: 640px) { .rs-logo--header { max-height: 3.25rem; max-width: 15rem; } }
+  /* Desktop has the room, and the logo is the one thing on the bar that should
+     read from across a room. The bar's min-height rises with it below, so the
+     extra height is deliberate space rather than the logo straining its box. */
+  @media (min-width: 1024px) { .rs-logo--header { max-height: 4.25rem; max-width: 21rem; } }
+  @media (min-width: 1280px) { .rs-logo--header { max-height: 4.75rem; max-width: 24rem; } }
 
   /* Footer sits on a dark ground with plenty of room. */
   .rs-logo--footer { max-height: 2.25rem; max-width: 11rem; }
@@ -960,6 +964,17 @@
     gap: clamp(0.75rem, 2vw, 2.25rem);
     min-height: 4.5rem;
     padding-block: 0.75rem;
+  }
+
+  /* Written as its own rule, not by splitting the block above — a property
+     added inside a media query that opens mid-rule orphans everything after
+     it, silently. */
+  @media (min-width: 1024px) {
+    .rs-head__bar { min-height: 5.75rem; }
+  }
+
+  @media (min-width: 1280px) {
+    .rs-head__bar { min-height: 6.25rem; }
   }
 
   .rs-head__nav {

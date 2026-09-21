@@ -309,6 +309,27 @@ $gallery = $images !== [] ? $images : [['path' => null, 'alt_text' => $product->
                 <a href="<?= site_url('build') ?>" class="rs-btn rs-btn--outline w-full">
                     Put this in a gift box
                 </a>
+
+                <?php /* Customisation is a conversation, not a form.
+                 *
+                 * The number comes from Shop identity via service('brand'), the
+                 * same source the footer and every lead form read, so the shop
+                 * changes it in ONE place. Three page templates once each asked
+                 * for their own WhatsApp number and forgetting one left a live
+                 * button pointing at a dead line.
+                 *
+                 * Hidden entirely when no number is set: "please connect us on
+                 * WhatsApp" with nothing to click is worse than saying nothing.
+                 */ ?>
+                <?php $rsWhatsApp = (string) preg_replace('/\D/', '', (string) service('brand')->whatsapp); ?>
+                <?php if ($rsWhatsApp !== ''): ?>
+                    <p class="text-sm leading-relaxed text-ink-muted">
+                        For Customisation, please connect us on
+                        <a href="https://wa.me/<?= $rsWhatsApp ?>"
+                           target="_blank" rel="noopener noreferrer"
+                           class="font-medium text-ink underline decoration-brass underline-offset-4 hover:text-brass">WhatsApp</a>
+                    </p>
+                <?php endif; ?>
             </div>
 
             <?php /* Share. Plain links, not a script-injected widget: they work

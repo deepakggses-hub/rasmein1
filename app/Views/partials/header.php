@@ -115,7 +115,10 @@ $rsNoticeTo = trim((string) service('settings')->get('header_notice_link', ''));
                 <?= rs_icon('menu', 'h-5 w-5') ?>
             </button>
 
-            <a href="<?= site_url('/') ?>" class="shrink-0" aria-label="<?= esc($brand->brandName, 'attr') ?> — home">
+            <?php /* min-w-0, never shrink-0: a wide wordmark must be able to
+                     give way on a narrow screen rather than push the icon row
+                     off the page. */ ?>
+            <a href="<?= site_url('/') ?>" class="min-w-0" aria-label="<?= esc($brand->brandName, 'attr') ?> — home">
                 <?php if ($rsLogo !== ''): ?>
                     <img src="<?= rs_url($rsLogo) ?>" alt="<?= esc($brand->brandName, 'attr') ?>"
                          class="rs-logo rs-logo--header" width="180" height="44">

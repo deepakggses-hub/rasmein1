@@ -2932,6 +2932,101 @@ write alt text inline, delete.
 - Bulk delete checks each picture for use independently: one still on a product
   must not stop the other nine, and the reply names what it kept.
 
+### PNG transparency, round two — the PALETTE case
+
+The earlier fix (alpha flags at the point of opening) was right and is still
+there. It did not cover PNG-**8**: "Save for Web", and most logo exporters,
+write a palette image whose transparency is one index in a tRNS chunk, not an
+alpha channel. `imagesavealpha()` on a palette image is a **no-op**, so those
+flags protected nothing.
+
+Worse, `imagewebp()` does not *fail* on a palette image — it raises
+`Palette image not supported by webp`, which is **FATAL**. Neither the `@` nor
+`ImageUploadService`'s `try/catch (Throwable)` can hold that: the request dies
+after the ladder is written, with no response, no error page and nothing useful
+in the log.
+
+- **`imagepalettetotruecolor()` at the point of opening**, in BOTH
+  `ImageUploadService::reencode()` and `ImageVariantService::open()`, before the
+  alpha flags are set. Everything downstream then has a real alpha channel to
+  carry, whatever was uploaded.
+- **`ImageVariantService::webpSafe()`** guards every `imagewebp()` call. After
+  the conversion it should always pass; it stays because the cost of being
+  wrong is an unrecoverable fatal, not a `false`.
+- Verified against the real service code by reflection: a PNG-8 with tRNS and a
+  PNG-24 with an alpha channel both come out of `open()` truecolor and round-trip
+  through WebP at `alpha=127`.
+
+**A format flag that is a no-op on some inputs is not a fix.** Check what
+`imageistruecolor()` says before trusting `imagesavealpha()`.
+
+Files uploaded BEFORE this are already flattened on disk, variants and all —
+re-upload them.
+
+### The header logo, and hand-patching the compiled CSS
+
+`.rs-logo--header` now steps 2.65rem → 3.25rem (640px) → 4.25rem (1024px) →
+4.75rem (1280px), with `max-width` rising alongside so a wide wordmark is not
+cropped by the cap meant to let it breathe. `.rs-head__bar` gains matching
+`min-height` at the same two breakpoints, written as **its own rules after the
+block** rather than by splitting it open — a property added inside a media query
+that opens mid-rule orphans everything after it, silently.
+
+The header anchor is `min-w-0`, not `shrink-0`. It had drifted back to
+`shrink-0`, which is exactly the thing that pushed the navigation off the page
+last time; a taller logo makes that more likely, not less.
+
+**`node_modules` is not installed, so Tailwind could not rebuild.** Both
+`resources/css/app.css` (the source) and `public/assets/css/app.css` (the
+compiled, committed output) were edited. Brace balance on the minified file was
+checked after. Run `npm install && npm run build` at the next opportunity and
+confirm the two still agree — a hand-patched build artefact is correct only
+until someone rebuilds.
+
+### The Candle Stand Collection
+
+`CandleStandSeeder` — 14 pieces, generated from the shop's own
+"Candle Stand Description.xlsx" rather than retyped, so the prose on the site is
+verbatim what was written.
+
+- **Additive and idempotent on SKU**, unlike `ProductCatalogueSeeder`, which
+  truncates. It therefore has to run AFTER that seeder in `DatabaseSeeder`, or
+  these fourteen are wiped by it. Re-running is how a revised description
+  reaches the site.
+- **The workbook has no prices.** Every piece seeds at one obvious
+  `PLACEHOLDER_PRICE` and carries `eyebrow_label = "Price to confirm"`, so an
+  unpriced product is visible in the listing rather than shippable by accident.
+  A plausible-looking invented spread would have been far more dangerous than a
+  figure that is visibly a placeholder.
+- Sections map onto real columns: Overview + Key Features become the HTML
+  `description`, Specifications become `composition`, Care Instructions become
+  `care_note`, and the Finish line becomes `material` so the Material facet has
+  something to filter on.
+- The seeder writes through the query builder, which **bypasses
+  `ProductModel::sanitiseDescription()`**. The markup is therefore built from a
+  fixed tag set with every variable part escaped — nothing in it comes from a
+  request. Never widen that to accept arbitrary HTML.
+- `alt_text` is written on every image. The column existed from the start and
+  the product form rendered no field for years, so earlier images shipped silent
+  to a screen reader.
+- Photographs were imported to `uploads/products/2026/09/{slug}.jpg` with the
+  full ladder beside them, produced by the same arithmetic the services use. A
+  missing file is **reported**, not silently linked: a `product_images` row
+  pointing at nothing renders a broken image and the media picker still offers
+  it.
+
+### "For Customisation, connect us on WhatsApp"
+
+On the product page, under the CTA block, reading
+`service('brand')->whatsapp` — the same Shop identity key the footer and every
+lead form use. Three page templates once each asked for their own number, and
+forgetting one left a live button pointing at a dead line.
+
+Hidden entirely when no number is set: "please connect us on WhatsApp" with
+nothing to click is worse than saying nothing. The stored value is digits with
+the country code; every reader strips non-digits, so `wa.me` links are built
+identically wherever they appear.
+
 ### Outstanding security work (tracked, not yet done)
 
 - [ ] **CSP is written but not enabled.** `Config/ContentSecurityPolicy.php`
