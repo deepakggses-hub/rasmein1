@@ -87,10 +87,52 @@ class ImageUploadService
             return $fail('That image has no dimensions.');
         }
 
-        // A modest pixel ceiling: a "decompression bomb" can be a tiny file
-        // that expands to gigabytes in memory.
-        if ($width * $height > 50_000_000) {
-            return $fail('That image is too large to process.');
+        /*
+         * Accept anything this server can actually decode.
+         *
+         * A fixed pixel ceiling refused perfectly ordinary artwork — a logo
+         * exported at print resolution is easily past 50 megapixels — while
+         * still not protecting a server with little memory, where a smaller
+         * image can exhaust it. The real constraint is MEMORY, so that is what
+         * is measured.
+         *
+         * GD holds a truecolor image at roughly four bytes per pixel, and a
+         * resize means two of them alive at once, plus headroom for everything
+         * else the request is doing.
+         */
+        $needed = (int) ($width * $height * 4 * 2 * 1.2);
+
+        /*
+         * Raise the limit, but NEVER past what the machine has.
+         *
+         * memory_limit is permission, not reservation. Setting it to 1.4 GB on a
+         * 1 GB box lets GD keep allocating until the kernel kills the process —
+         * the request dies with no response, no error page and nothing in the
+         * log. A clean refusal is far better than a killed worker.
+         */
+        $ceiling = self::safeCeiling();
+
+        if ($needed <= $ceiling && self::memoryLimit() > 0 && self::memoryLimit() < $needed) {
+            @ini_set('memory_limit', (int) ceil(($needed + 64 * 1048576) / 1048576) . 'M');
+        }
+
+        $limit = self::memoryLimit();
+
+        /*
+         * Refuse when it will not fit — including when the LIMIT is unlimited.
+         *
+         * `-1` used to mean "nothing can refuse this", which is precisely the
+         * configuration where an oversized image kills the process instead of
+         * being turned away.
+         */
+        if ($needed > $ceiling || ($limit > 0 && $limit < $needed)) {
+            return $fail(sprintf(
+                'That image is %s megapixels, which needs about %d MB to process — '
+                . 'this server can spare about %d MB. Save it smaller and try again.',
+                number_format($width * $height / 1_000_000, 1),
+                (int) ceil($needed / 1048576),
+                (int) floor(min($ceiling, $limit > 0 ? $limit : $ceiling) / 1048576)
+            ));
         }
 
         if (! extension_loaded('gd')) {
@@ -166,6 +208,21 @@ class ImageUploadService
             // A missing variant degrades to the original being served, which is
             // correct but heavier — worth logging, not worth failing the upload.
             log_message('error', 'Image variants failed for {p}: {m}', ['p' => $path, 'm' => $e->getMessage()]);
+        }
+
+        /*
+         * Record it in the library, so a picture uploaded on ANY screen can be
+         * reused from any other. Failure must not fail the upload — the file is
+         * already written, and the screen that asked for it should still work.
+         */
+        try {
+            model(\App\Models\MediaModel::class)->remember(
+                $path,
+                $file->getClientName() ?: basename($path),
+                $destination
+            );
+        } catch (\Throwable $e) {
+            log_message('error', 'Media library write failed for {p}: {m}', ['p' => $path, 'm' => $e->getMessage()]);
         }
 
         return [
@@ -416,5 +473,70 @@ class ImageUploadService
             UPLOAD_ERR_NO_TMP_DIR, UPLOAD_ERR_CANT_WRITE => 'The server could not save the file.',
             default                                   => 'That file could not be uploaded.',
         };
+    }
+
+    /**
+     * The memory limit, in bytes. -1 when there is none.
+     *
+     * `ini_get` returns shorthand like "256M", which is not a number any
+     * comparison can use directly.
+     */
+    private static function memoryLimit(): int
+    {
+        $raw = trim((string) ini_get('memory_limit'));
+
+        if ($raw === '' || $raw === '-1') {
+            return -1;
+        }
+
+        $unit  = strtolower(substr($raw, -1));
+        $value = (int) $raw;
+
+        return match ($unit) {
+            'g'     => $value * 1024 * 1024 * 1024,
+            'm'     => $value * 1024 * 1024,
+            'k'     => $value * 1024,
+            default => $value,
+        };
+    }
+
+    /**
+     * The most memory it is safe to let one image use, in bytes.
+     *
+     * Read from the machine rather than assumed: /proc/meminfo gives what is
+     * actually available right now. Sixty per cent of that, because this
+     * request is not the only thing running — and capped at 1 GB, since no
+     * legitimate shop photograph needs more and letting one upload take the
+     * whole box is its own kind of outage.
+     *
+     * Falls back to 256 MB where /proc is unreadable, which is conservative and
+     * still ample for anything a camera produces.
+     */
+    private static function safeCeiling(): int
+    {
+        static $cached = null;
+
+        if ($cached !== null) {
+            return $cached;
+        }
+
+        $available = 0;
+
+        if (is_readable('/proc/meminfo')) {
+            $info = (string) @file_get_contents('/proc/meminfo');
+
+            // MemAvailable is the kernel's own estimate of what a new process
+            // can have without swapping — better than MemFree, which ignores
+            // reclaimable cache.
+            if (preg_match('/^MemAvailable:\s+(\d+) kB/m', $info, $m) === 1) {
+                $available = (int) $m[1] * 1024;
+            }
+        }
+
+        if ($available < 1) {
+            return $cached = 256 * 1024 * 1024;
+        }
+
+        return $cached = (int) min($available * 0.6, 1024 * 1024 * 1024);
     }
 }

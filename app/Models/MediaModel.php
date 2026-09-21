@@ -71,6 +71,11 @@ class MediaModel extends Model
      */
     public function remember(string $path, string $filename, string $collection = 'content'): array
     {
+        // A variant is never an entry in its own right, whoever asks.
+        if (self::isVariant($path)) {
+            return [];
+        }
+
         $existing = $this->where('path', $path)->first();
 
         if ($existing !== null) {
@@ -80,6 +85,15 @@ class MediaModel extends Model
         $full = FCPATH . ltrim($path, '/');
         $size = is_file($full) ? (int) filesize($full) : 0;
         $dims = is_file($full) ? @getimagesize($full) : false;
+
+        /*
+         * The file's own modified time, not "now".
+         *
+         * A backfill stamps every row with the same instant, so "newest first"
+         * would order by nothing at all — the library would look shuffled to
+         * anyone who knew what they uploaded last.
+         */
+        $when = is_file($full) ? date('Y-m-d H:i:s', (int) filemtime($full)) : null;
 
         $id = $this->insert([
             'path'       => $path,
@@ -91,6 +105,77 @@ class MediaModel extends Model
             'collection' => $collection,
         ], true);
 
+        /*
+         * Stamp the real date AFTER the insert.
+         *
+         * `$useTimestamps` sets created_at to "now" and overwrites anything
+         * passed in, so the correction has to be a second write. Straight to
+         * the builder, because going through the model would re-apply the
+         * timestamp it is here to replace.
+         */
+        if ($id !== false && $when !== null) {
+            $this->db->table($this->table)->where('id', $id)
+                ->set(['created_at' => $when, 'updated_at' => $when])->update();
+        }
+
         return $this->find($id) ?? [];
+    }
+
+    /**
+     * Is this path a generated size variant rather than an original?
+     *
+     * ImageVariantService writes `name-400.jpg`, `name-1200.webp` and a
+     * same-width `name.webp` beside every upload. Listing those shows one
+     * photograph six times and lets someone pick a 400px copy for a hero band.
+     *
+     * ONE rule, used by the backfill, the uploader and delete alike — three
+     * copies of this test would disagree the first time the ladder changed.
+     */
+    public static function isVariant(string $path): bool
+    {
+        // A trailing -<digits> before the extension is a width variant.
+        if (preg_match('/-\d{2,5}\.[a-z0-9]+$/i', $path) === 1) {
+            return true;
+        }
+
+        /*
+         * A .webp sitting beside an original of another type is the full-size
+         * WebP twin, not an upload in its own right. A .webp that was itself
+         * uploaded has no such sibling, so it stays.
+         */
+        if (preg_match('/\.webp$/i', $path) === 1) {
+            $stem = substr($path, 0, -5);
+
+            foreach (['jpg', 'jpeg', 'png'] as $ext) {
+                if (is_file(FCPATH . $stem . '.' . $ext)) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Every file belonging to one original: the original and its variants.
+     *
+     * @return list<string> paths relative to public/
+     */
+    public static function family(string $path): array
+    {
+        $dot  = strrpos($path, '.');
+        $stem = $dot === false ? $path : substr($path, 0, $dot);
+        $out  = [$path];
+
+        foreach (glob(FCPATH . $stem . '-*') ?: [] as $file) {
+            $out[] = ltrim(str_replace(FCPATH, '', $file), '/');
+        }
+
+        // The full-size WebP twin sits at the stem, not under a width.
+        if (is_file(FCPATH . $stem . '.webp') && ! str_ends_with($path, '.webp')) {
+            $out[] = $stem . '.webp';
+        }
+
+        return array_values(array_unique($out));
     }
 }

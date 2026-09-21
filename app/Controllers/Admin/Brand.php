@@ -169,6 +169,29 @@ class Brand extends AdminController
                 continue;
             }
 
+            /*
+             * A picture chosen from the library.
+             *
+             * Validated against the media table rather than trusted: this is a
+             * posted path that becomes a src on the storefront, and an
+             * arbitrary string there is somebody else's problem to find.
+             */
+            $chosen = trim((string) $this->request->getPost($field . '_path'));
+
+            if ($chosen !== '') {
+                $known = model(\App\Models\MediaModel::class)->where('path', $chosen)->first();
+
+                if ($known !== null) {
+                    $this->settings->set($field, $chosen, 'string', 'brand');
+
+                    continue;
+                }
+
+                $uploadErrors[] = self::IMAGES[$field] . ': that picture is not in the library.';
+
+                continue;
+            }
+
             $file = $this->request->getFile($field);
 
             if ($file === null || $file->getError() === UPLOAD_ERR_NO_FILE) {

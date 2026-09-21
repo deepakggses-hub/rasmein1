@@ -174,6 +174,7 @@ abstract class AdminController extends BaseController
                     ['label' => 'Shop identity', 'url' => 'admin/brand', 'match' => 'admin/brand', 'icon' => 'store', 'permission' => 'settings.view'],
                     ['label' => 'Appearance', 'url' => 'admin/appearance', 'match' => 'admin/appearance', 'icon' => 'banners', 'permission' => 'settings.view'],
                     ['label' => 'Header & footer', 'url' => 'admin/chrome', 'match' => 'admin/chrome', 'icon' => 'pages', 'permission' => 'settings.manage'],
+                    ['label' => 'Media library', 'url' => 'admin/media-library', 'match' => 'admin/media-library', 'icon' => 'image', 'permission' => 'content.manage'],
                     ['label' => 'Settings', 'url' => 'admin/settings', 'match' => 'admin/settings', 'icon' => 'settings', 'permission' => 'settings.view'],
                     ['label' => 'Mail', 'url' => 'admin/mail', 'match' => 'admin/mail', 'icon' => 'mail', 'permission' => 'settings.view'],
                     ['label' => 'Mail queue', 'url' => 'admin/mail/queue', 'match' => 'admin/mail/queue', 'icon' => 'orders', 'permission' => 'settings.manage'],

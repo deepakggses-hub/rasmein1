@@ -359,6 +359,9 @@ $routes->group('admin', [
     $routes->post('products/(:num)/variants/(:num)/delete', 'Variants::delete/$1/$2', ['filter' => 'adminAuth:catalogue.manage']);
 
     // ---- The media library the picker talks to ----
+    $routes->match(['GET', 'HEAD'], 'media-library', 'MediaLibrary::index', ['filter' => 'adminAuth:content.manage']);
+    $routes->post('media/(:num)/delete', 'MediaLibrary::delete/$1', ['filter' => 'adminAuth:content.manage']);
+    $routes->post('media/bulk-delete', 'MediaLibrary::bulkDelete', ['filter' => 'adminAuth:content.manage']);
     $routes->match(['GET', 'HEAD'], 'media/browse', 'MediaLibrary::browse', ['filter' => 'adminAuth:content.manage']);
     $routes->post('media/upload', 'MediaLibrary::upload', ['filter' => 'adminAuth:content.manage']);
     $routes->post('media/(:num)/alt', 'MediaLibrary::alt/$1', ['filter' => 'adminAuth:content.manage']);

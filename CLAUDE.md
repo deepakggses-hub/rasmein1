@@ -2862,6 +2862,76 @@ black hairline on an otherwise transparent image.
 **Set format flags where the image is OPENED, not where it happens to be
 transformed** — the untransformed path is the one nobody tests.
 
+### Accept any image the server can actually decode
+
+A fixed 50-megapixel ceiling refused ordinary artwork — a logo exported at print
+resolution passes it easily — while still not protecting a small server, where a
+much smaller image can exhaust memory. The number was arbitrary in both
+directions.
+
+The guard measures what the image actually NEEDS: roughly `w x h x 4 x 2 x 1.2`
+(GD holds a truecolor image at four bytes a pixel, a resize means two alive at
+once, plus headroom). It raises `memory_limit` to suit — but NEVER past what the
+machine has.
+
+**memory_limit is permission, not reservation.** Raising it to 1.4 GB on a 1 GB
+box let GD keep allocating until the kernel killed the process: the request died
+with no response, no error page and nothing in the log — ERR_EMPTY_RESPONSE. The
+first version of this guard caused exactly that.
+
+`safeCeiling()` reads `MemAvailable` from /proc and allows 60% of it, capped at
+1 GB. A limit of `-1` no longer means "nothing can refuse this" — that is
+precisely the configuration where an oversized image kills the worker instead of
+being turned away.
+
+It refuses only when the limit genuinely cannot be raised, and says so with real
+numbers: how many megapixels, how much it needs, how much the server allows.
+`memory_limit` of `-1` means nothing here can refuse anything.
+
+**A limit expressed in the wrong unit protects nothing.** The risk was memory, so
+the check is in bytes — not in pixels, which only correlates with it.
+
+### One variant rule, in the model
+
+`MediaModel::isVariant()` is the single test, used by the backfill, by
+`remember()` and by delete. Three copies would disagree the first time the size
+ladder changed — and the first version already did: the backfill's regex required
+`-400w.jpg` while `ImageVariantService` writes `-400.jpg`, so every variant
+became a library row and one photograph appeared six times.
+
+It also catches the full-size WebP twin: a `.webp` sitting beside a `.jpg` of the
+same stem is generated, while a `.webp` that was genuinely uploaded has no such
+sibling and stays.
+
+Deleting an entry removes the whole FAMILY — `service('images')->delete()` already
+purges variants, so the row and every file go together. Verified: 6 files on
+disk, 1 library row, delete leaves 0.
+
+`remember()` stamps the file's own `filemtime`, corrected in a second write
+because `$useTimestamps` overwrites anything passed in. A backfill would
+otherwise give every row the same instant and "newest first" would order by
+nothing.
+
+### The media library screen
+
+`admin/media-library` — browse, search by filename or alt text, filter by folder,
+write alt text inline, delete.
+
+- Alt text saves on its own row. Describing a picture is the one thing people
+  come here to do; it should not need a second screen.
+- Delete removes the FILE and its variants too. A library row pointing at nothing
+  is worse than no row, because the picker would still offer it.
+- Delete is REFUSED while the picture is in use, naming what uses it. Removing
+  one a product is showing leaves a broken image on the storefront and no way to
+  tell which product broke.
+- Every upload on every screen now registers in the library, wrapped in a catch:
+  the file is already written and the screen that asked for it must still work.
+- Multi-select with shift-click for a run, and a STICKY bar that appears only
+  once something is ticked — a permanent "delete 0 selected" is a control that
+  does nothing, and one that looks armed when it is not is worse.
+- Bulk delete checks each picture for use independently: one still on a product
+  must not stop the other nine, and the reply names what it kept.
+
 ### Outstanding security work (tracked, not yet done)
 
 - [ ] **CSP is written but not enabled.** `Config/ContentSecurityPolicy.php`

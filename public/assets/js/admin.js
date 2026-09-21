@@ -646,3 +646,57 @@
     field.insertAdjacentElement('afterend', btn);
   });
 })();
+
+/**
+ * Selecting several pictures in the media library.
+ *
+ * The bar stays hidden until something is ticked: a permanent "delete 0
+ * selected" is a control that does nothing, and one that looks armed when it is
+ * not is worse.
+ */
+(function () {
+  'use strict';
+
+  var bar = document.querySelector('[data-bulk-bar]');
+  if (!bar) return;
+
+  var count = bar.querySelector('[data-bulk-count]');
+  var clear = bar.querySelector('[data-bulk-none]');
+  var boxes = Array.prototype.slice.call(document.querySelectorAll('[data-bulk-check]'));
+
+  function refresh() {
+    var on = boxes.filter(function (b) { return b.checked; });
+
+    count.textContent = on.length;
+    bar.hidden = on.length === 0;
+
+    boxes.forEach(function (b) {
+      var tile = b.closest('[data-media-tile]');
+      if (tile) tile.classList.toggle('is-picked', b.checked);
+    });
+  }
+
+  boxes.forEach(function (b) { b.addEventListener('change', refresh); });
+
+  clear.addEventListener('click', function () {
+    boxes.forEach(function (b) { b.checked = false; });
+    refresh();
+  });
+
+  // Shift-click selects a run, which is what anyone tidying a library expects.
+  var last = null;
+
+  boxes.forEach(function (b, i) {
+    b.addEventListener('click', function (e) {
+      if (e.shiftKey && last !== null) {
+        var from = Math.min(last, i);
+        var to = Math.max(last, i);
+
+        for (var n = from; n <= to; n++) boxes[n].checked = b.checked;
+        refresh();
+      }
+
+      last = i;
+    });
+  });
+})();

@@ -76,14 +76,9 @@ class BackfillMedia extends BaseCommand
 
             $path = 'uploads/' . str_replace('\\', '/', substr($file->getPathname(), strlen($root) + 1));
 
-            /*
-             * Skip the generated size variants.
-             *
-             * ImageVariantService writes thumb/card/hero copies beside the
-             * original; listing them would show the same picture six times and
-             * let someone pick a 200px thumbnail for a hero band.
-             */
-            if (preg_match('/-(thumb|card|hero|content|products|banners|\d{3,4}w)\.[a-z]+$/i', $path) === 1) {
+            // Skip the generated size variants — one shared rule, so this and
+            // the uploader cannot disagree about what counts as one.
+            if (MediaModel::isVariant($path)) {
                 continue;
             }
 

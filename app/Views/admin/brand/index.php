@@ -67,10 +67,17 @@ $hints = [
                     </div>
 
                     <?php if ($canManage): ?>
+                        <?php /* The hidden field is what a library choice writes
+                                 into; the file input still works on its own, so
+                                 the screen keeps functioning without script. */ ?>
+                        <input type="hidden" name="<?= esc($field, 'attr') ?>_path" value="">
+
                         <label class="mt-3 block">
                             <span class="sr-only">Upload <?= esc($label) ?></span>
                             <input type="file" name="<?= esc($field, 'attr') ?>" class="rs-input text-xs"
-                                   accept="image/jpeg,image/png,image/webp">
+                                   accept="image/jpeg,image/png,image/webp"
+                                   data-media="brand"
+                                   data-media-field="<?= esc($field, 'attr') ?>_path">
                         </label>
                         <?php if ($current !== ''): ?>
                             <label class="mt-2 flex items-center gap-2 text-xs">
