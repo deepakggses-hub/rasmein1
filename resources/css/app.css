@@ -1,18 +1,18 @@
 /* =====================================================================
-   RASMEIN — Design System
+   RASMEIN Ã¢â‚¬â€ Design System
    ---------------------------------------------------------------------
-   Brand idea: "rasa" — the essence a gift carries. The visual language
+   Brand idea: "rasa" Ã¢â‚¬â€ the essence a gift carries. The visual language
    borrows from Indian gifting materials: brass trays, mithai boxes with
    compartments, deep jewel silks, gold-leaf (vark) hairlines, pistachio.
 
    Palette      ink / mulberry / brass / pista / shell / rose
-   Display      Cormorant Garamond — a light, high-contrast garalde. It reads
+   Display      Cormorant Garamond Ã¢â‚¬â€ a light, high-contrast garalde. It reads
                 small and thin for its point size, so display sizes are nudged
                 up and weights start at 500 rather than 400; at 400 the hairline
                 strokes disappear on a low-density screen.
    Body         Karla   (grotesque, sturdy at UI sizes)
    Data         DM Mono (order refs, SKUs, slot counters)
-   Signature    "The Tray" — a brass-ringed compartment grid that fills
+   Signature    "The Tray" Ã¢â‚¬â€ a brass-ringed compartment grid that fills
                 with real product thumbnails as a gift box is built.
    ===================================================================== */
 
@@ -20,6 +20,17 @@
 
 @source "../../app/Views";
 @source "../js";
+
+/*
+ * Keep the readable gold in step with whatever accent the shop chooses.
+ *
+ * Outside @theme, because this derives from --rs-accent, which DesignService
+ * writes into the page head at RUNTIME â€” a build-time token could not see it.
+ * The literal in @theme is the fallback for browsers without color-mix.
+ */
+@supports (color: color-mix(in srgb, red, red)) {
+  :root { --rs-accent-ink: color-mix(in srgb, var(--rs-accent, #C6A15B) 65%, #000); }
+}
 
 /* --------------------------------------------------------------- tokens */
 @theme {
@@ -55,14 +66,68 @@
   --font-body:    "Karla", ui-sans-serif, system-ui, -apple-system, sans-serif;
   --font-mono:    "DM Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
 
-  --text-eyebrow:     0.6875rem;
-  --text-eyebrow--line-height: 1.2;
+  /* Fluid, on the same basis as the tokens below: it was a fixed 11px and so
+     stayed 11px on a 1920 desktop beside an 84px heading. */
+  --text-eyebrow:     clamp(0.6875rem, 0.659rem + 0.128vw, 0.8125rem);
+  --text-eyebrow--line-height: 1.35;
+
+  /*
+   * FLUID SMALL TYPE.
+   *
+   * The display sizes were already fluid and the small ones were not, so the
+   * scale pulled apart as the screen grew: measured on a 1920x1080 desktop,
+   * an h1 rendered at 84px beside a 9px product eyebrow and a 10px section
+   * kicker. Reported from the field as "some text is too small", and it is Ã¢â‚¬â€
+   * 9px uppercase mono with 0.16em tracking is under any reasonable floor.
+   *
+   * Each clamp is solved for its two endpoints rather than eyeballed:
+   * min at a 360px phone, max at a 1920px desktop, linear between.
+   *
+   *   micro   11 -> 13px
+   *   kicker  11 -> 14px
+   *   nav     13 -> 15px
+   *   action  14 -> 15px   (buttons)
+   *
+   * 11px is the FLOOR, not 10. These are uppercase mono at 0.14Ã¢â‚¬â€œ0.22em
+   * tracking, which reads smaller than its nominal size, and a 360px phone is
+   * held further from the eye than its pixel count suggests. Measured before
+   * the change: 10px at 360px and 9px for a product eyebrow.
+   *
+   * Tailwind's own text-xs and text-sm are redefined below on the same basis,
+   * because the views use them everywhere and a component-only fix would
+   * leave half the page behind.
+   */
+  --rs-t-micro:  clamp(0.6875rem, 0.659rem + 0.128vw, 0.8125rem);
+  --rs-t-kicker: clamp(0.6875rem, 0.644rem + 0.192vw, 0.875rem);
+
+  /*
+   * GOLD FOR TEXT ON A LIGHT GROUND.
+   *
+   * The brass accent measures 2.3:1 against the cream shell â€” it fails every
+   * contrast threshold there, and small uppercase mono at 2.3:1 is the other
+   * half of "the text is hard to read". On a DARK ground the same gold is
+   * about 6:1 and is used raw; this token is only for light ones.
+   *
+   * Derived from the accent rather than fixed, so it still follows whatever
+   * colour the shop sets in Admin â†’ Appearance. 65% toward black takes the
+   * default #C6A15B to roughly 4.8:1 on cream while staying recognisably gold.
+   */
+  --rs-accent-ink: #8A6A2A;
+  --rs-t-nav:    clamp(0.8125rem, 0.784rem + 0.128vw, 0.9375rem);
+  --rs-t-action: clamp(0.875rem,  0.856rem + 0.083vw, 0.9375rem);
+
+  /* 12 -> 13.5px and 14 -> 15.5px. Tailwind v4 reads these for text-xs and
+     text-sm, so every existing utility follows without touching a view. */
+  --text-xs: clamp(0.75rem, 0.716rem + 0.096vw, 0.84375rem);
+  --text-xs--line-height: 1.5;
+  --text-sm: clamp(0.875rem, 0.841rem + 0.096vw, 0.96875rem);
+  --text-sm--line-height: 1.55;
 
   /* Rhythm */
   --radius-card: 2px;
   --radius-pill: 999px;
 
-  /* Elevation — soft, warm, never grey */
+  /* Elevation Ã¢â‚¬â€ soft, warm, never grey */
   --shadow-lift:  0 1px 2px rgb(23 18 27 / 0.04), 0 8px 24px -12px rgb(23 18 27 / 0.14);
   --shadow-panel: 0 24px 60px -32px rgb(64 16 38 / 0.45);
 
@@ -89,7 +154,7 @@
 
   h1, h2, h3, h4 {
     font-family: var(--font-display);
-    /* Cormorant needs the extra weight and slightly open tracking —
+    /* Cormorant needs the extra weight and slightly open tracking Ã¢â‚¬â€
        see the note on .rs-display. */
     font-weight: 600;
     line-height: 1.12;
@@ -97,7 +162,7 @@
     text-wrap: balance;
   }
 
-  /* Prices, quantities, references — always tabular so columns align */
+  /* Prices, quantities, references Ã¢â‚¬â€ always tabular so columns align */
   .num, td.num, th.num { font-variant-numeric: tabular-nums; }
 
   /* Visible keyboard focus everywhere. Never remove without replacing. */
@@ -135,7 +200,9 @@
     font-weight: 500;
     letter-spacing: 0.18em;
     text-transform: uppercase;
-    color: var(--color-brass);
+    /* The readable gold. Raw brass measures 2.1:1 on the cream ground; the
+       --on-dark modifier and the dark-band override cover the inverse. */
+    color: var(--rs-accent-ink, #8A6A2A);
   }
   .rs-eyebrow::before {
     content: "";
@@ -169,7 +236,7 @@
     border: 1px solid transparent;
     border-radius: var(--radius-card);
     font-family: var(--font-body);
-    font-size: 0.875rem;
+    font-size: var(--rs-t-action);
     font-weight: 700;
     letter-spacing: 0.04em;
     text-transform: uppercase;
@@ -186,8 +253,8 @@
   }
 
   /* --rs-primary is emitted into the page head by DesignService at RUNTIME, so
-     it follows Admin → Appearance. --color-mulberry is a Tailwind theme token
-     compiled at BUILD time and can never follow a setting — using it here is
+     it follows Admin Ã¢â€ â€™ Appearance. --color-mulberry is a Tailwind theme token
+     compiled at BUILD time and can never follow a setting Ã¢â‚¬â€ using it here is
      why Add to cart and Buy now stayed #5E1F3D whatever the palette said.
      The token remains as the fallback, so a page rendered without the design
      block still looks right. */
@@ -233,7 +300,7 @@
     border-color: var(--color-brass);
   }
 
-  .rs-btn--sm { padding: 0.5rem 0.875rem; font-size: 0.75rem; }
+  .rs-btn--sm { padding: 0.5rem 0.875rem; font-size: var(--text-xs); }
 
   /* --- Link with brass underline that grows on hover --- */
   .rs-link {
@@ -277,7 +344,7 @@
     padding: 0.25rem 0.5rem;
     border-radius: var(--radius-card);
     font-family: var(--font-mono);
-    font-size: 0.625rem;
+    font-size: var(--rs-t-micro);
     font-weight: 500;
     letter-spacing: 0.1em;
     text-transform: uppercase;
@@ -317,7 +384,7 @@
   .rs-error { margin-top: 0.375rem; font-size: 0.75rem; color: var(--color-bad); font-weight: 500; }
 
   /* ============================================================
-     THE TRAY — signature element
+     THE TRAY Ã¢â‚¬â€ signature element
      A top-down brass-ringed compartment grid. Each slot is one unit
      of box capacity; slots fill with product thumbnails as the
      customer builds. Used live in the builder, static on the home hero.
@@ -411,7 +478,7 @@
   letter-spacing: -0.02em;
 }
 
-/* Tray stagger — kept in CSS rather than inline style attributes so a strict
+/* Tray stagger Ã¢â‚¬â€ kept in CSS rather than inline style attributes so a strict
    Content-Security-Policy (no unsafe-inline) does not have to be relaxed. */
 @layer components {
   .rs-tray--animate .rs-slot:nth-child(1)  { animation-delay: 0.06s; }
@@ -527,7 +594,7 @@
 
 /* ------------------------------------------------------------- SweetAlert
    Restyled so a dialog looks like part of the panel rather than a library
-   dropped on top of it. Only chrome — behaviour is untouched. */
+   dropped on top of it. Only chrome Ã¢â‚¬â€ behaviour is untouched. */
 @layer components {
   .rs-swal {
     border-radius: 0 !important;
@@ -580,7 +647,7 @@
   }
   .rs-stat__label {
     font-family: var(--font-mono);
-    font-size: 0.5625rem;
+    font-size: var(--rs-t-micro);
     letter-spacing: 0.16em;
     text-transform: uppercase;
     color: var(--color-ink-muted);
@@ -598,7 +665,7 @@
   .rs-stat--bad { border-color: var(--color-bad); }
   .rs-stat--bad .rs-stat__value { color: var(--color-bad); }
 
-  /* Section heading with a rule running to the edge — gives the long
+  /* Section heading with a rule running to the edge Ã¢â‚¬â€ gives the long
      dashboard a readable rhythm without heavy boxes. */
   .rs-section-head {
     display: flex;
@@ -640,7 +707,7 @@
   /* A tile that holds a chart rather than a figure. */
   .rs-stat:has(canvas) { padding-bottom: 1rem; }
 
-  /* Cards lift very slightly on hover — enough to read as interactive,
+  /* Cards lift very slightly on hover Ã¢â‚¬â€ enough to read as interactive,
      not enough to be a distraction on a screen full of them. */
   .rs-card,
   .rs-stat {
@@ -831,7 +898,7 @@
   .rs-sidebar__group {
     padding: 1rem 1rem 0.375rem;
     font-family: var(--font-mono);
-    font-size: 0.5625rem;
+    font-size: var(--rs-t-micro);
     letter-spacing: 0.16em;
     text-transform: uppercase;
     color: rgb(250 246 243 / 0.35);
@@ -896,7 +963,7 @@
 
 /* ================================================================== logo
    An uploaded logo is an unknown quantity: it might be square, or a 10:1
-   banner. Constraining HEIGHT alone — which is what this did first — lets a
+   banner. Constraining HEIGHT alone Ã¢â‚¬â€ which is what this did first Ã¢â‚¬â€ lets a
    wide image grow to any width, and since the header wordmark sits in a
    shrink-0 container it pushed the navigation off the page instead of wrapping.
    Capping both dimensions with object-contain means any aspect ratio fits the
@@ -921,8 +988,10 @@
   @media (min-width: 1024px) { .rs-logo--header { max-height: 4.25rem; max-width: 21rem; } }
   @media (min-width: 1280px) { .rs-logo--header { max-height: 4.75rem; max-width: 24rem; } }
 
-  /* Footer sits on a dark ground with plenty of room. */
-  .rs-logo--footer { max-height: 2.25rem; max-width: 11rem; }
+  /* Footer sits on a dark ground with plenty of room. The taller cap lets a
+     square or stacked lock-up fill its box; object-fit: contain on .rs-logo
+     still keeps any aspect ratio inside both dimensions. */
+  .rs-logo--footer { max-width: 11rem; max-height: 5.25rem; }
 
   /* The admin bar is 3.25rem tall, so the logo must stay well inside it. */
   .rs-logo--admin { max-height: 1.5rem; max-width: 8rem; }
@@ -933,7 +1002,7 @@
 }
 
 /* =====================================================================
-   THE DESIGN — full-bleed shell, fluid grids, dark chrome
+   THE DESIGN Ã¢â‚¬â€ full-bleed shell, fluid grids, dark chrome
    ---------------------------------------------------------------------
    Everything below is written against the --rs-* custom properties that
    DesignService emits into the page head. That indirection is the whole
@@ -976,7 +1045,7 @@
     padding-block: 0.75rem;
   }
 
-  /* Written as its own rule, not by splitting the block above — a property
+  /* Written as its own rule, not by splitting the block above Ã¢â‚¬â€ a property
      added inside a media query that opens mid-rule orphans everything after
      it, silently. */
   @media (min-width: 1024px) {
@@ -996,7 +1065,7 @@
 
   .rs-head__link {
     position: relative;
-    font-size: 0.8125rem;
+    font-size: var(--rs-t-nav);
     letter-spacing: 0.12em;
     text-transform: uppercase;
     color: rgb(246 239 230 / 0.86);
@@ -1113,7 +1182,7 @@
   .rs-marquee {
     overflow: hidden;
     /* The design continues the hero's deep band through the strip rather than
-       breaking to cream — it reads as one dark mass with the promises set in
+       breaking to cream Ã¢â‚¬â€ it reads as one dark mass with the promises set in
        light italic across it. */
     background: var(--rs-deep, #4A0C18);
     border-block: 1px solid rgb(255 255 255 / 0.08);
@@ -1132,7 +1201,7 @@
     font-family: var(--font-display);
     font-size: clamp(0.9375rem, 1vw + 0.7rem, 1.1875rem);
     font-style: italic;
-    /* The design sets these in the warm gold, not white — white on maroon is
+    /* The design sets these in the warm gold, not white Ã¢â‚¬â€ white on maroon is
        a harder, colder contrast than the rest of the page uses. */
     color: var(--rs-accent, #C6A15B);
     white-space: nowrap;
@@ -1158,7 +1227,7 @@
   .rs-grid--wide {
     grid-template-columns: repeat(auto-fill, minmax(min(22rem, 100%), 1fr));
   }
-  /* One column, always — the shop's list toggle. */
+  /* One column, always Ã¢â‚¬â€ the shop's list toggle. */
   .rs-grid--list { grid-template-columns: 1fr; }
 
   /* --------------------------------------------------------- product card
@@ -1237,7 +1306,7 @@
     top: 0.75rem; left: 0.75rem;
     padding: 0.3rem 0.7rem;
     font-family: var(--font-mono);
-    font-size: 0.5625rem;
+    font-size: var(--rs-t-micro);
     letter-spacing: 0.14em;
     text-transform: uppercase;
     background: var(--color-brass-soft);
@@ -1247,7 +1316,7 @@
   .rs-product__flag--new { background: var(--rs-primary, #5E1F3D); color: #fff; }
   .rs-product__flag--plain { background: #fff; }
 
-  /* Quick actions slide in on hover, and are always visible on touch —
+  /* Quick actions slide in on hover, and are always visible on touch Ã¢â‚¬â€
      hover states that hide functionality are unusable on a phone. */
   .rs-product__quick {
     position: absolute;
@@ -1270,7 +1339,7 @@
   .rs-product__eyebrow {
     margin-top: 0.9rem;
     font-family: var(--font-mono);
-    font-size: 0.5625rem;
+    font-size: var(--rs-t-micro);
     letter-spacing: 0.16em;
     text-transform: uppercase;
     color: var(--color-ink-muted);
@@ -1285,7 +1354,7 @@
   }
   .rs-product__price {
     margin-top: 0.4rem;
-    font-size: 0.9375rem;
+    font-size: clamp(0.9375rem, 0.9rem + 0.104vw, 1.0625rem);
     color: var(--color-ink-soft);
   }
   .rs-product__was {
@@ -1310,7 +1379,7 @@
      * x-height makes it read a size or two below its nominal point size. So the
      * weight starts at 500 and every step is roughly a tenth larger than the
      * previous typeface needed. Tracking goes slightly POSITIVE rather than
-     * negative — a garalde at display size opens up, where a modern face
+     * negative Ã¢â‚¬â€ a garalde at display size opens up, where a modern face
      * tightens.
      */
     font-weight: 500;
@@ -1323,13 +1392,37 @@
   .rs-display--lg { font-size: clamp(2.1rem, 4.2vw, 3.6rem); }
   .rs-display--md { font-size: clamp(1.65rem, 2.7vw, 2.5rem); }
 
-  /* The italic accent is the face's best feature — give it a touch more weight
+  /* The italic accent is the face's best feature Ã¢â‚¬â€ give it a touch more weight
      so it does not vanish beside the roman. */
   .rs-display em { font-weight: 500; }
-  /* The gold italic second clause used throughout the design. */
+  /*
+   * The gold italic second clause used throughout the design.
+   *
+   * Defaults to the readable-on-light gold: the raw accent measured 2.3:1 on
+   * cream, and large text still needs 3:1. A DARK band re-points the variable
+   * below rather than restating the colour, so a new dark section opts in with
+   * one declaration and cannot forget the em.
+   */
   .rs-display em {
     font-style: italic;
-    color: var(--rs-accent, #C6A15B);
+    color: var(--rs-display-accent, var(--rs-accent-ink, #8A6A2A));
+  }
+
+  /* Dark grounds: the accent itself is already ~6:1 there, and the darkened
+     gold would drop to 2.8:1 â€” the opposite problem. */
+  .rs-hero,
+  .rs-head,
+  .rs-drawer,
+  .rs-feature,
+  .rs-foot,
+  .rs-split__panel,
+  .rs-marquee,
+  .rs-sidebar,
+  /* The opt-in, for a dark panel that has no component class of its own â€”
+     put .rs-on-dark on the element that paints the dark background. */
+  .rs-on-dark {
+    --rs-display-accent: var(--rs-accent, #C6A15B);
+    --rs-accent-ink: var(--rs-accent, #C6A15B);
   }
 
   .rs-kicker {
@@ -1337,10 +1430,12 @@
     align-items: center;
     gap: 0.75rem;
     font-family: var(--font-mono);
-    font-size: 0.625rem;
+    font-size: var(--rs-t-kicker);
     letter-spacing: 0.22em;
     text-transform: uppercase;
-    color: var(--rs-accent, #C6A15B);
+    /* Darker gold: the raw accent is 2.3:1 on cream. --light restores it
+       for the dark bands, which is what that modifier is for. */
+    color: var(--rs-accent-ink, #8A6A2A);
   }
   .rs-kicker::before {
     content: '';
@@ -1349,6 +1444,16 @@
     background: currentColor;
   }
   .rs-kicker--bare::before { display: none; }
+
+  /*
+   * Gold TEXT, readable wherever it lands.
+   *
+   * Resolves --rs-accent-ink in the ELEMENT'S own context, so a dark band that
+   * re-points that variable turns this back into the bright accent with no
+   * second class to remember. It replaced the `text-brass` utility on text,
+   * which is the raw accent and measured 2.1â€“2.3:1 on the cream ground.
+   */
+  .rs-gold { color: var(--rs-accent-ink, #8A6A2A); }
 
   /* ----------------------------------------------------------- controls */
   .rs-btn { border-radius: var(--rs-pill, 999px); }
@@ -1391,7 +1496,7 @@
     gap: 1rem;
     padding-block: 1.1rem;
     font-family: var(--font-mono);
-    font-size: 0.6875rem;
+    font-size: var(--rs-t-micro);
     letter-spacing: 0.16em;
     text-transform: uppercase;
     color: var(--color-ink);
@@ -1406,7 +1511,7 @@
     color: var(--color-ink-muted);
     transition: rotate 0.2s;
   }
-  .rs-disclose[open] > summary::after { content: '−'; }
+  .rs-disclose[open] > summary::after { content: 'Ã¢Ë†â€™'; }
   .rs-disclose__body { padding-bottom: 1.25rem; color: var(--color-ink-soft); }
 
   /* ---------------------------------------------------------- scroller
@@ -1444,7 +1549,7 @@
 
   .rs-foot__head {
     font-family: var(--font-mono);
-    font-size: 0.625rem;
+    font-size: var(--rs-t-micro);
     letter-spacing: 0.2em;
     text-transform: uppercase;
     color: var(--rs-accent, #C6A15B);
@@ -1610,7 +1715,7 @@
   }
   /*
    * The current dot stretches into a bar and fills over the slide's own
-   * duration, so it doubles as a progress indicator — the reader can see how
+   * duration, so it doubles as a progress indicator Ã¢â‚¬â€ the reader can see how
    * long is left rather than being surprised by the change.
    *
    * The fill is a ::after inside the track, animated by width, and the duration
@@ -1646,7 +1751,7 @@
     animation: rs-dot-fill var(--rs-slide-ms, 6500ms) linear forwards;
   }
 
-  /* Paused with the slider — on hover, on focus, and while the tab is hidden. */
+  /* Paused with the slider Ã¢â‚¬â€ on hover, on focus, and while the tab is hidden. */
   .rs-hero.is-paused .rs-hero__dot.is-current::after { animation-play-state: paused; }
 
   @keyframes rs-dot-fill { from { width: 0; } to { width: 100%; } }
@@ -1670,7 +1775,7 @@
     align-items: center;
     gap: 0.5rem;
     font-family: var(--font-mono);
-    font-size: 0.625rem;
+    font-size: var(--rs-t-micro);
     letter-spacing: 0.18em;
     text-transform: uppercase;
     color: var(--color-ink);
@@ -1825,8 +1930,8 @@
   /*
    * Star sizing lives HERE, not in a utility class passed through rs_icon().
    *
-   * esc() strips the dot from `h-3.5`, so it arrived as `h-35` — not a class
-   * Tailwind generates — and the SVG fell back to its intrinsic size, filling
+   * esc() strips the dot from `h-3.5`, so it arrived as `h-35` Ã¢â‚¬â€ not a class
+   * Tailwind generates Ã¢â‚¬â€ and the SVG fell back to its intrinsic size, filling
    * the card. A named class cannot be mangled on the way in.
    */
   .rs-star {
@@ -1897,10 +2002,11 @@
 
   .rs-facet__head {
     font-family: var(--font-mono);
-    font-size: 0.625rem;
+    font-size: var(--rs-t-micro);
     letter-spacing: 0.18em;
     text-transform: uppercase;
-    color: var(--rs-accent, #C6A15B);
+    /* The filter column sits on the light shell: raw brass is 2.3:1 there. */
+    color: var(--rs-accent-ink, #8A6A2A);
   }
 
   .rs-facet__list {
@@ -1926,11 +2032,11 @@
   .rs-facet__name { flex: 1; min-width: 0; }
   .rs-facet__count {
     font-family: var(--font-mono);
-    font-size: 0.6875rem;
+    font-size: var(--rs-t-micro);
     color: var(--color-ink-muted);
   }
 
-  /* Just the rule between facets — no padding. A closed accordion needs the
+  /* Just the rule between facets Ã¢â‚¬â€ no padding. A closed accordion needs the
      separator, not the airspace an always-open block did. */
   .rs-facet + .rs-facet {
     border-top: 1px solid var(--color-shell-line);
@@ -1951,12 +2057,23 @@
   .rs-chip:hover { border-color: var(--color-bad); color: var(--color-bad); }
 
   /* The filter column becomes a sheet below the layout breakpoint.
-     NOT .rs-sidebar — that is the admin panel's dark navigation column, and
+     NOT .rs-sidebar Ã¢â‚¬â€ that is the admin panel's dark navigation column, and
      reusing the name gave the storefront filters a near-black background. */
   .rs-filterbar { display: none; }
   @media (max-width: 1023px) {
-    .rs-filterbar { display: flex; }
-    .rs-filtercol {
+    /*
+     * ARMED BY THE SCRIPT, not by default.
+     *
+     * The sheet is `position: fixed` and translated off-screen, and only
+     * JavaScript can ever add `is-open`. So with the script blocked the whole
+     * filter column sat permanently off the left edge of every phone and the
+     * Filter button did nothing — the filters were unreachable, silently.
+     * Same rule as `.rs-reveal`: the hiding must be what the script turns ON.
+     * Unarmed, the column simply renders in the flow above the grid, which is
+     * a perfectly good small-screen layout and what the GET form expects.
+     */
+    .rs-sheet-ready .rs-filterbar { display: flex; }
+    .rs-sheet-ready .rs-filtercol {
       position: fixed;
       inset-block: 0;
       left: 0;
@@ -1968,8 +2085,30 @@
       translate: -100% 0;
       transition: translate 0.22s ease;
     }
-    .rs-filtercol.is-open { translate: 0 0; }
+    .rs-sheet-ready .rs-filtercol.is-open { translate: 0 0; }
+
+    /* The in-panel "Filter / ×" header belongs to the sheet. Unarmed there is
+       nothing to close, and a dead × is worse than no ×. */
+    .rs-filtercol [data-sidebar-close] { display: none; }
+    .rs-sheet-ready .rs-filtercol [data-sidebar-close] { display: inline-flex; }
+
+    /* Dims the page and gives the sheet somewhere to be dismissed from.
+       Without it an open sheet reads as part of the page rather than over it,
+       and the only way out is a close button most people never look for. */
+    .rs-filterscrim {
+      position: fixed;
+      inset: 0;
+      z-index: 59;
+      background: rgb(28 12 20 / 0.45);
+      opacity: 0;
+      transition: opacity 0.22s ease;
+    }
+    .rs-filterscrim.is-open { opacity: 1; }
   }
+
+  /* Beats the scrim's own display rule, and keeps it out of the way entirely
+     on desktop where the column is just a column. */
+  .rs-filterscrim[hidden] { display: none; }
 }
 
 @layer components {
@@ -1978,7 +2117,7 @@
     appearance: none;
     padding: 0.55rem 2.25rem 0.55rem 1.1rem;
     font-family: var(--font-mono);
-    font-size: 0.625rem;
+    font-size: var(--rs-t-micro);
     letter-spacing: 0.16em;
     text-transform: uppercase;
     color: var(--color-ink);
@@ -1997,14 +2136,24 @@
     outline-offset: 2px;
   }
 
-  /* The filter column is a plain column on cream — no panel, no border, as in
+  /* The filter column is a plain column on cream Ã¢â‚¬â€ no panel, no border, as in
      the design. The rule between facets does the separating. */
-  .rs-filtercol { background: transparent; }
+  /*
+   * SCOPED TO DESKTOP DELIBERATELY. This rule and the mobile sheet's own
+   * `background: var(--rs-surface)` are both single-class selectors in the same
+   * layer, so whichever comes later wins wherever it applies - a media query
+   * adds no specificity. The sheet therefore opened fully TRANSPARENT on every
+   * phone, with the product grid showing straight through the filters.
+   * The min-width query is what keeps the two rules out of each other's way.
+   */
+  @media (min-width: 1024px) {
+    .rs-filtercol { background: transparent; }
+  }
 }
 
 /* ================================================== product detail page */
 @layer components {
-  /* Thumbnails run below the image on narrow screens and beside it on wide —
+  /* Thumbnails run below the image on narrow screens and beside it on wide Ã¢â‚¬â€
      a vertical strip on a phone steals the width the photograph needs. */
   .rs-gallery-wrap { display: grid; gap: 0.75rem; }
   @media (min-width: 640px) {
@@ -2024,13 +2173,13 @@
    *
    *  - `align-self: start`. A grid item stretches to the row height by default,
    *    so it is already as tall as the column beside it and has nothing to
-   *    stick WITHIN — position: sticky then does visibly nothing, which is the
+   *    stick WITHIN Ã¢â‚¬â€ position: sticky then does visibly nothing, which is the
    *    usual reason "sticky doesn't work" in a grid.
    *  - `top` clear of the header, which is sticky itself on most shops.
    *
    * Desktop only. On a phone the two columns are stacked, so pinning the image
    * would mean scrolling the description through a window a third of the screen
-   * tall — the sticky CTA bar is what serves that case instead.
+   * tall Ã¢â‚¬â€ the sticky CTA bar is what serves that case instead.
    */
   @media (min-width: 1024px) {
     .rs-gallery-wrap {
@@ -2040,7 +2189,7 @@
     }
   }
 
-  /* A reader who has asked for less motion still gets the sticky column —
+  /* A reader who has asked for less motion still gets the sticky column Ã¢â‚¬â€
      it does not animate. But a very short viewport cannot afford it: the
      image would be taller than the space and simply never move. */
   @media (min-width: 1024px) and (max-height: 640px) {
@@ -2065,7 +2214,7 @@
        * grid-auto-rows must be a FIXED size, not the default `auto`.
        *
        * With `auto` rows inside a height-capped scroller, the grid divides the
-       * available height between them — so every extra photograph made all of
+       * available height between them Ã¢â‚¬â€ so every extra photograph made all of
        * them shorter, and past about six they collapsed into slivers. It read
        * as "the thumbnails shrink when there are more of them", which is
        * exactly what it was.
@@ -2117,7 +2266,7 @@
     opacity: 0.72;
   }
   /* In the vertical rail the row height is what governs, so the thumbnail
-     fills it rather than deriving its own height from its width — a square
+     fills it rather than deriving its own height from its width Ã¢â‚¬â€ a square
      derived from a 5.5rem column would overflow a 4.5rem row and the
      thumbnails would overlap their neighbours. */
   @media (min-width: 640px) {
@@ -2144,11 +2293,232 @@
   }
   .rs-sharelink:hover { color: var(--rs-primary, #5E1F3D); border-color: currentColor; }
 
+  /* --- The account home ------------------------------------------------- */
+  .rs-statcard {
+    display: grid;
+    gap: 0.15rem;
+    height: 100%;
+    padding: 1.1rem 1.15rem;
+    border: 1px solid var(--color-shell-line);
+    background: #fff;
+    transition: border-color 0.15s, transform 0.15s;
+  }
+  .rs-statcard:hover {
+    border-color: var(--rs-primary, #5E1F3D);
+    transform: translateY(-1px);
+  }
+  .rs-statcard__icon { color: var(--rs-accent-ink, #8A6A2A); }
+  .rs-statcard__svg { width: 1.125rem; height: 1.125rem; }
+  .rs-statcard__label {
+    margin-top: 0.4rem;
+    font-family: var(--font-mono);
+    font-size: var(--rs-t-micro);
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--color-ink-muted);
+  }
+  .rs-statcard__value {
+    font-family: var(--font-display);
+    font-size: clamp(1.5rem, 1.3rem + 0.7vw, 1.9rem);
+    font-weight: 600;
+    line-height: 1.1;
+    color: var(--rs-primary, #5E1F3D);
+  }
+
+  /* A row per order. The whole row is the link â€” a reference-sized target is
+     a poor one on a phone. */
+  .rs-orderrow {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem 1rem;
+    padding: 0.9rem 1.1rem;
+    border: 1px solid var(--color-shell-line);
+    background: #fff;
+    transition: border-color 0.15s;
+  }
+  .rs-orderrow:hover { border-color: var(--rs-primary, #5E1F3D); }
+
+  .rs-orderrow__main { display: grid; gap: 0.1rem; min-width: 0; }
+  .rs-orderrow__kind {
+    font-family: var(--font-mono);
+    font-size: var(--rs-t-micro);
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--color-ink-muted);
+  }
+  .rs-orderrow__ref { font-weight: 600; color: var(--color-ink); }
+  .rs-orderrow__date { font-size: var(--text-xs); color: var(--color-ink-muted); }
+
+  .rs-orderrow__side { display: flex; align-items: center; gap: 0.85rem; }
+  .rs-orderrow__total { font-weight: 600; }
+  .rs-orderrow__go {
+    width: 1rem;
+    height: 1rem;
+    color: var(--color-ink-muted);
+    transition: translate 0.15s, color 0.15s;
+  }
+  .rs-orderrow:hover .rs-orderrow__go {
+    translate: 0.2rem 0;
+    color: var(--rs-primary, #5E1F3D);
+  }
+
+  .rs-inlineicon {
+    display: inline-block;
+    width: 1rem;
+    height: 1rem;
+    vertical-align: -0.15em;
+  }
+
+  /* --- Enquiry progress, on the customer's own screens ------------------ */
+  .rs-stagecard {
+    border: 1px solid var(--color-shell-line);
+    border-left: 3px solid var(--rs-primary, #5E1F3D);
+    background: #fff;
+    padding: 1.25rem 1.25rem 1.1rem;
+  }
+  .rs-stagecard__now {
+    margin-top: 0.6rem;
+    font-family: var(--font-display);
+    font-size: clamp(1.35rem, 1.2rem + 0.6vw, 1.75rem);
+    font-weight: 600;
+    line-height: 1.15;
+    color: var(--color-ink);
+  }
+  .rs-stagecard__note {
+    margin-top: 0.35rem;
+    font-size: var(--text-sm);
+    line-height: 1.55;
+    color: var(--color-ink-soft);
+  }
+  .rs-stagecard__meta {
+    margin-top: 0.75rem;
+    font-size: var(--text-xs);
+    color: var(--color-ink-muted);
+  }
+
+  /* The track. A row on anything but the narrowest screen, a column below â€”
+     four labels side by side at 360px is four stacks of one word each. */
+  .rs-steps {
+    display: grid;
+    gap: 0.75rem;
+    margin-top: 1.1rem;
+    list-style: none;
+  }
+  @media (min-width: 480px) {
+    .rs-steps {
+      grid-auto-flow: column;
+      grid-auto-columns: 1fr;
+      gap: 0;
+    }
+  }
+
+  .rs-steps__item {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    font-size: var(--text-xs);
+    color: var(--color-ink-muted);
+  }
+  @media (min-width: 480px) {
+    .rs-steps__item {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 0.45rem;
+      position: relative;
+      padding-right: 0.5rem;
+    }
+    /* The connector runs from each dot to the next, so it is drawn by the
+       item rather than as a bar behind them â€” no second element to keep in
+       step with the dots' positions. */
+    .rs-steps__item:not(:last-child)::after {
+      content: "";
+      position: absolute;
+      top: 0.3125rem;
+      left: 0.9rem;
+      right: 0;
+      height: 1px;
+      background: var(--color-shell-line);
+    }
+    .rs-steps__item.is-done:not(:last-child)::after { background: var(--rs-primary, #5E1F3D); }
+  }
+
+  .rs-steps__dot {
+    flex: none;
+    width: 0.625rem;
+    height: 0.625rem;
+    border-radius: 50%;
+    border: 1px solid var(--color-shell-line);
+    background: #fff;
+  }
+  .rs-steps__item.is-done .rs-steps__dot {
+    background: var(--rs-primary, #5E1F3D);
+    border-color: var(--rs-primary, #5E1F3D);
+  }
+  /* The current step is a ring rather than a bigger dot: size alone shifts
+     the baseline and nudges the connector out of line. */
+  .rs-steps__item.is-here .rs-steps__dot {
+    background: #fff;
+    border-color: var(--rs-primary, #5E1F3D);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--rs-primary, #5E1F3D) 22%, transparent);
+  }
+  .rs-steps__item.is-here { color: var(--color-ink); font-weight: 600; }
+  .rs-steps__item.is-done { color: var(--color-ink-soft); }
+
+  /* The "already registered" hint under a field. Empty until there is
+     something to say â€” :empty keeps it from reserving a blank line. */
+  .rs-checkmsg {
+    display: block;
+    margin-top: 0.4rem;
+    font-size: var(--text-xs);
+    line-height: 1.45;
+    color: var(--color-ink-muted);
+  }
+  .rs-checkmsg:empty { display: none; }
+  .rs-checkmsg.is-taken { color: var(--color-warn, #B07A1F); }
+
+  /* --- The development-only code panel ----------------------------------
+     Deliberately unlike anything else on the site: if it ever shows up on a
+     live shop it must look like a mistake, not like a feature. */
+  .rs-devcode {
+    margin-top: 1.25rem;
+    padding: 0.9rem 1rem;
+    border: 2px dashed var(--color-warn, #B07A1F);
+    border-radius: var(--radius-card);
+    background: rgb(176 122 31 / 0.07);
+    text-align: center;
+  }
+  .rs-devcode__tag {
+    font-family: var(--font-mono);
+    font-size: var(--rs-t-micro);
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--color-warn, #B07A1F);
+  }
+  .rs-devcode__code {
+    margin-top: 0.4rem;
+    font-family: var(--font-mono);
+    font-size: 2rem;
+    font-weight: 500;
+    letter-spacing: 0.36em;
+    /* The tracking adds a trailing gap; pull it back so the digits look centred. */
+    text-indent: 0.36em;
+    color: var(--color-ink);
+    user-select: all;
+  }
+  .rs-devcode__note {
+    margin-top: 0.35rem;
+    font-size: var(--text-xs);
+    line-height: 1.5;
+    color: var(--color-ink-muted);
+  }
+
   /* --- Share: ONE icon button ------------------------------------------- */
   .rs-share { position: relative; }
 
-  /* The frame around the photograph. It is NOT overflow-hidden — the picture
-     inside it is — so the share menu can open past the image edge. */
+  /* The frame around the photograph. It is NOT overflow-hidden Ã¢â‚¬â€ the picture
+     inside it is Ã¢â‚¬â€ so the share menu can open past the image edge. */
   .rs-gallery-main { position: relative; }
 
   /* Top right of the photograph. */
@@ -2182,7 +2552,7 @@
     inset-inline-end: 0;
   }
 
-  /* The button, in both its forms — the native-sheet <button> and the
+  /* The button, in both its forms Ã¢â‚¬â€ the native-sheet <button> and the
      <details> summary that stands in for it. They must be identical, because
      only one is ever on screen and the page should not change shape depending
      on which. */
@@ -2205,7 +2575,7 @@
   }
   .rs-sharebtn[hidden] { display: none; }
 
-  /* The summary's own marker, in both spellings — Safari still needs the
+  /* The summary's own marker, in both spellings Ã¢â‚¬â€ Safari still needs the
      -webkit- one, and without it the triangle sits beside the glyph. */
   .rs-sharepop > summary { list-style: none; }
   .rs-sharepop > summary::-webkit-details-marker { display: none; }
@@ -2222,7 +2592,7 @@
 
   .rs-sharepop[hidden] { display: none; }
 
-  /* The menu. Absolute, so opening it does not shove the page down — a details
+  /* The menu. Absolute, so opening it does not shove the page down Ã¢â‚¬â€ a details
      that reflows the layout under the reader's cursor is disorienting. */
   .rs-sharepop__menu {
     position: absolute;
@@ -2348,8 +2718,8 @@
     white-space: nowrap;
   }
 
-  /* On a phone the thumbnail and name go — the reader has just scrolled past
-     both — and BOTH buttons share the full width. Dropping Buy now here was
+  /* On a phone the thumbnail and name go Ã¢â‚¬â€ the reader has just scrolled past
+     both Ã¢â‚¬â€ and BOTH buttons share the full width. Dropping Buy now here was
      wrong: it is the whole point of the bar for someone who has already
      decided, and a bar offering fewer actions than the page it replaces is a
      worse bar. They shrink together instead, which two short labels allow. */
@@ -2375,7 +2745,7 @@
     position: absolute;
     margin-top: 3.25rem;
     font-family: var(--font-mono);
-    font-size: 0.625rem;
+    font-size: var(--rs-t-micro);
     letter-spacing: 0.1em;
     text-transform: uppercase;
     color: var(--color-ink-muted);
@@ -2461,7 +2831,7 @@
     scrollbar-width: none;
 
     /*
-     * Column width. A MAXIMUM, never 1fr — with 1fr a lone item absorbs the
+     * Column width. A MAXIMUM, never 1fr Ã¢â‚¬â€ with 1fr a lone item absorbs the
      * whole track.
      *
      * Two across on a phone, three on a laptop, matching the design's mosaic.
@@ -2473,7 +2843,7 @@
     /*
      * A bare width, NOT minmax(0, X).
      *
-     * minmax(0, X) means "may shrink to nothing, up to X" — so when the content
+     * minmax(0, X) means "may shrink to nothing, up to X" Ã¢â‚¬â€ so when the content
      * is wider than the track, every column collapses toward zero and five
      * cards squeeze into the viewport at 62px each. In a horizontal scroller
      * the CARD must keep its width and the TRACK must overflow, which is what a
@@ -2524,7 +2894,7 @@
   /*
    * Arrows stay on touch too.
    *
-   * They were hidden on the reasoning that a finger is the control — but a
+   * They were hidden on the reasoning that a finger is the control Ã¢â‚¬â€ but a
    * scroller with no visible affordance reads as a static row, and nobody
    * swipes something they do not know moves. They are made smaller and pulled
    * to the very edge instead, so they sit beside the cards rather than over
@@ -2577,13 +2947,13 @@
      A control that only exists on hover is invisible on a touch screen and
      undiscoverable with a keyboard. */
   /*
-   * On the band and in rails the actions are always visible — a hover-only
+   * On the band and in rails the actions are always visible Ã¢â‚¬â€ a hover-only
    * control cannot be reached on a touch screen. They stay anchored to the
    * BOTTOM OF THE IMAGE rather than dropping into a row of their own, which
    * pushed the name and price down and split the card in two.
    */
   /*
-   * Anchored to the bottom of the IMAGE, and revealed on hover — the
+   * Anchored to the bottom of the IMAGE, and revealed on hover Ã¢â‚¬â€ the
    * photograph is the thing being sold, and a permanent bar across it competes
    * with the product.
    *
@@ -2615,7 +2985,7 @@
 
   /* ------------------------------------------------- notable clients
      Wordmarks set in the display face, two rows of four, as in the design. An
-     uploaded logo sits in the same box rather than at its own natural size —
+     uploaded logo sits in the same box rather than at its own natural size Ã¢â‚¬â€
      otherwise one large PNG dwarfs the rest of the row. */
   .rs-clients__grid {
     display: grid;
@@ -2666,7 +3036,7 @@
   /*
    * Quotes. `align-items: start` matters: the loop clones until the track is
    * three viewports wide, and with `stretch` every card grew to the height of
-   * the tallest in the whole cloned set — which is what produced the enormous
+   * the tallest in the whole cloned set Ã¢â‚¬â€ which is what produced the enormous
    * empty white box.
    */
   .rs-loop__track--quotes {
@@ -2686,7 +3056,7 @@
   @media (min-width: 1024px) {
     /*
      * Exactly three across, derived from the track's own width rather than a
-     * fixed rem value — a fixed width leaves a ragged gap on some viewports and
+     * fixed rem value Ã¢â‚¬â€ a fixed width leaves a ragged gap on some viewports and
      * spills to a fourth on others. With three quotes the row fits and the
      * script leaves it static; with four or more it becomes a slider.
      */
@@ -2719,7 +3089,7 @@
   }
 
   /* Height is deliberate rather than content-driven, so the effect has room
-     to happen — too short and the picture barely moves. */
+     to happen Ã¢â‚¬â€ too short and the picture barely moves. */
   .rs-feature--parallax { min-height: clamp(22rem, 60vh, 34rem); }
 
   /* A fixed plate cannot be pinned to a scrolling element, and on a phone the
@@ -2741,7 +3111,9 @@
     display: flex;
     width: max-content;
     gap: clamp(0.5rem, 0.9vw, 0.9rem);
-    animation: rs-drift 48s linear infinite;
+    /* The duration is set inline per row, from the number of tiles, so the
+       drift moves at the same speed with two photographs or seventy. */
+    animation: rs-drift var(--rs-drift-ms, 48s) linear infinite;
   }
   .rs-drift--back .rs-drift__track { animation-direction: reverse; }
 
@@ -2756,7 +3128,7 @@
     border-radius: var(--rs-radius, 2px);
   }
 
-  /* -50% exactly, because the content is duplicated once — any other value
+  /* -50% exactly, because the content is duplicated once Ã¢â‚¬â€ any other value
      and the loop visibly jumps. */
   @keyframes rs-drift { to { transform: translateX(-50%); } }
 
@@ -2785,7 +3157,7 @@
 
 /* ==================================================== sign in / register
    A split screen: forms on one side, a deep panel that slides across to
-   cover whichever pane is not in use. The palette is the shop's own — the
+   cover whichever pane is not in use. The palette is the shop's own Ã¢â‚¬â€ the
    reference design is a layout, not a colour scheme. */
 @layer components {
   .rs-auth {
@@ -2831,7 +3203,7 @@
      * The forms MOVE with the panel.
      *
      * Previously they were pinned to column 1 while the panel slid from the
-     * right half to the left — straight on top of them. Every field was
+     * right half to the left Ã¢â‚¬â€ straight on top of them. Every field was
      * present, visible and opacity 1, and completely covered by an opaque
      * aside. Nothing in the markup or the computed styles looked wrong; only
      * asking "what is actually on top of this input" showed it.
@@ -2872,7 +3244,7 @@
   }
   @media (max-width: 899px) {
     /* No room to slide: it becomes a header strip above the form.
-       `position: static` matters — the desktop rule leaves it absolutely
+       `position: static` matters Ã¢â‚¬â€ the desktop rule leaves it absolutely
        positioned, so on a narrow screen it sat on top of the lower half of the
        form and the last control could not be tapped. */
     .rs-auth__panel {
@@ -2902,7 +3274,7 @@
     position: relative;
     padding-inline: 0.9rem;
     font-family: var(--font-mono);
-    font-size: 0.625rem;
+    font-size: var(--rs-t-micro);
     letter-spacing: 0.16em;
     text-transform: uppercase;
     color: var(--color-ink-muted);
@@ -3048,7 +3420,7 @@
     background: var(--rs-deep, #4A0C18);
   }
 
-  /* The looping sliders hide theirs entirely — the row never ends, so a
+  /* The looping sliders hide theirs entirely Ã¢â‚¬â€ the row never ends, so a
      scrollbar position would be meaningless. Restated after the block above,
      which would otherwise give them one back. */
   .rs-loop__track {
@@ -3072,14 +3444,37 @@
   }
   .rs-facet__head::-webkit-details-marker { display: none; }
 
+  /* Takes the free space so the dot, reset and chevron sit right in order. */
+  .rs-facet__title { flex: 1; min-width: 0; }
+
   .rs-facet__chev {
     flex: none;
     width: 0.85rem;
     height: 0.85rem;
-    margin-left: auto;
     color: var(--color-ink-muted);
     transition: rotate 0.2s ease;
   }
+
+  /* Clear THIS facet. Shown only where the facet is actually filtering, so it
+     is never an armed-looking control with nothing to undo. */
+  .rs-facet__reset {
+    flex: none;
+    display: inline-grid;
+    place-items: center;
+    width: 1.35rem;
+    height: 1.35rem;
+    border-radius: 999px;
+    color: var(--color-ink-muted);
+    transition: color 0.15s, background-color 0.15s;
+  }
+  .rs-facet__reset:hover,
+  .rs-facet__reset:focus-visible {
+    color: var(--rs-primary, #5E1F3D);
+    background: var(--color-shell-line);
+  }
+  /* Sized here, never with a utility: a Tailwind class carrying a dot
+     (h-3.5) does not survive the escaping rs_icon() applies. */
+  .rs-facet__reseticon { width: 0.8rem; height: 0.8rem; }
   .rs-facet[open] .rs-facet__chev { rotate: 180deg; }
 
   /* A dot beside a closed facet that is filtering, so a narrowed result set is
@@ -3118,7 +3513,7 @@
    * An icon is never the click target.
    *
    * Inside a button or a summary the SVG sits on top, so `e.target` is the
-   * <svg> rather than the control — every handler then has to remember
+   * <svg> rather than the control Ã¢â‚¬â€ every handler then has to remember
    * `.closest()`, and a real click on the icon can miss a `<summary>`'s native
    * toggle entirely. Cheaper to make icons transparent to the pointer once,
    * here, than to guard every handler.
@@ -3130,7 +3525,7 @@
   .rs-iconbtn svg,
   .rs-btn svg { pointer-events: none; }
 
-  /* Filled once saved. The fill is what actually reads as "saved" — a colour
+  /* Filled once saved. The fill is what actually reads as "saved" Ã¢â‚¬â€ a colour
      change alone is too subtle beside a photograph. */
   .rs-heart[aria-pressed="true"] {
     color: var(--rs-primary, #5E1F3D);
@@ -3152,7 +3547,7 @@
     height: 1.05rem;
     padding-inline: 0.2rem;
     font-family: var(--font-mono);
-    font-size: 0.625rem;
+    font-size: var(--rs-t-micro);
     line-height: 1.05rem;
     text-align: center;
     color: var(--rs-deep, #4A0C18);
@@ -3235,17 +3630,53 @@
 
 /* ======================================================== price range slider */
 @layer components {
-  .rs-range { position: relative; padding-top: 1.1rem; }
+  /*
+ * TWO alignment bugs lived here, and both came from the track and the thumbs
+ * being positioned by unrelated numbers.
+ *
+ * VERTICAL: the inputs were `top: 0.55rem` while `padding-top: 1.1rem` pushed
+ * the track down. Absolute positioning resolves against the PADDING box, so
+ * the padding moved the track and not the inputs â€” measured, the thumbs sat
+ * 10.3px above the line, which is why the bar appeared to run underneath the
+ * circles rather than through them. The rail is now a real element the thumbs
+ * and the line both centre inside, so nothing has to be kept in step by hand.
+ *
+ * HORIZONTAL: a native range thumb travels between half a thumb from each end,
+ * never the full width. The fill was a percentage of the whole track, so at
+ * the extremes it ran past the thumb centres. Insetting the track by half a
+ * thumb makes the track span EXACTLY the thumb's travel, and the existing
+ * percentages then land under the handles with no arithmetic in the script.
+ */
+.rs-range {
+  --rs-range-thumb: 1.05rem;
+  position: relative;
+  /* Margin, not padding: padding would shift the track away from the inputs
+     again, which is the bug above. */
+  margin-top: 0.9rem;
+}
 
   .rs-range__track {
     position: relative;
+    height: var(--rs-range-thumb);
+    margin-inline: calc(var(--rs-range-thumb) / 2);
+    background: none;
+  }
+  /* The visible line, centred in the rail. */
+  .rs-range__track::before {
+    content: "";
+    position: absolute;
+    inset-inline: 0;
+    top: 50%;
+    translate: 0 -50%;
     height: 3px;
     background: var(--color-shell-line);
     border-radius: 999px;
   }
   .rs-range__fill {
     position: absolute;
-    inset-block: 0;
+    top: 50%;
+    translate: 0 -50%;
+    height: 3px;
     background: var(--rs-primary, #5E1F3D);
     border-radius: 999px;
   }
@@ -3253,12 +3684,16 @@
   /* Both inputs sit on the same line as the track. `pointer-events: none` on
      the input with only the THUMB re-enabled is what lets two overlapping
      sliders both stay grabbable. */
+  /* Both inputs span the full width and share the rail's height, so each
+     thumb centres on the same line the track draws. A zero-height input gave
+     the thumb no vertical hit area at all, which made it fiddly with a mouse
+     and close to ungrabbable on touch. */
   .rs-range input[type="range"] {
     position: absolute;
-    top: 0.55rem;
+    top: 0;
     left: 0;
     width: 100%;
-    height: 0;
+    height: var(--rs-range-thumb);
     margin: 0;
     appearance: none;
     background: none;
@@ -3268,8 +3703,8 @@
   .rs-range input[type="range"]::-webkit-slider-thumb {
     appearance: none;
     pointer-events: auto;
-    width: 0.9rem;
-    height: 0.9rem;
+    width: var(--rs-range-thumb);
+    height: var(--rs-range-thumb);
     background: #fff;
     border: 2px solid var(--rs-primary, #5E1F3D);
     border-radius: 999px;
@@ -3277,8 +3712,8 @@
   }
   .rs-range input[type="range"]::-moz-range-thumb {
     pointer-events: auto;
-    width: 0.9rem;
-    height: 0.9rem;
+    width: var(--rs-range-thumb);
+    height: var(--rs-range-thumb);
     background: #fff;
     border: 2px solid var(--rs-primary, #5E1F3D);
     border-radius: 999px;
@@ -3290,7 +3725,7 @@
   }
 
   .rs-range__read {
-    margin-top: 1rem;
+    margin-top: 0.5rem;
     display: flex;
     justify-content: space-between;
     font-size: 0.8125rem;
@@ -3326,7 +3761,7 @@
   .rs-channel__value {
     margin-top: 0.6rem;
     font-family: var(--font-mono);
-    font-size: 0.6875rem;
+    font-size: var(--rs-t-micro);
     letter-spacing: 0.12em;
     text-transform: uppercase;
     color: var(--color-ink);
@@ -3375,7 +3810,7 @@
   }
   .rs-faq__q::-webkit-details-marker { display: none; }
 
-  /* A + that becomes a −, drawn rather than iconed so it lines up exactly. */
+  /* A + that becomes a Ã¢Ë†â€™, drawn rather than iconed so it lines up exactly. */
   .rs-faq__sign {
     position: relative;
     flex: none;
@@ -3464,13 +3899,16 @@
   /* The active side is FILLED, not merely tinted: the header already carries
      several muted tones, and a colour change alone does not read as "you are
      here". */
+  /* Dark ink on the gold fill, not white: white measured 2.4:1 here, so the
+     ACTIVE journey was the least readable label in the header. This is the
+     same pairing .rs-btn--gold already uses. */
   .rs-modeswitch__opt.is-on {
-    color: #fff;
+    color: #2A1208;
     background: var(--rs-accent, #C6A15B);
     box-shadow: 0 1px 3px rgb(0 0 0 / 0.14);
   }
 
-  .rs-modeswitch__opt.is-on:hover { color: #fff; }
+  .rs-modeswitch__opt.is-on:hover { color: #2A1208; }
   .rs-modeswitch__opt svg { flex: none; pointer-events: none; }
 
   .rs-modeswitch__opt:focus-visible {
@@ -3485,7 +3923,7 @@
   .rs-modebar {
     padding-block: 0.55rem;
     font-family: var(--font-mono);
-    font-size: 0.625rem;
+    font-size: var(--rs-t-micro);
     letter-spacing: 0.16em;
     text-transform: uppercase;
     text-align: center;
@@ -3512,7 +3950,7 @@
   }
   .rs-attr:hover { border-color: var(--color-ink-muted); }
 
-  /* :has, so the label reacts to its own radio without a class from script —
+  /* :has, so the label reacts to its own radio without a class from script Ã¢â‚¬â€
      which also means it still works if the script never runs. */
   .rs-attr:has(input:checked) {
     border-color: var(--rs-primary, #5E1F3D);
@@ -3530,7 +3968,7 @@
     border-radius: 999px;
   }
 
-  /* On a card, the swatches are a hint of what exists — no labels, no room. */
+  /* On a card, the swatches are a hint of what exists Ã¢â‚¬â€ no labels, no room. */
   .rs-product__swatches {
     display: flex;
     gap: 0.3rem;
@@ -3564,7 +4002,7 @@
     text-decoration: line-through;
   }
 
-  /* Exists, but sold out — a different fact, shown differently. */
+  /* Exists, but sold out Ã¢â‚¬â€ a different fact, shown differently. */
   .rs-attr.is-soldout {
     opacity: 0.65;
     border-style: dashed;
@@ -3578,7 +4016,7 @@
 }
 
 @layer components {
-  /* Exists, but choosing it moves another axis. Dimmed, never struck through —
+  /* Exists, but choosing it moves another axis. Dimmed, never struck through Ã¢â‚¬â€
      it is stock the shop has, just not in the current combination. */
   .rs-attr.is-adjusts { opacity: 0.72; }
 }
@@ -3606,7 +4044,7 @@
   .rs-notice {
     padding-block: 0.5rem;
     font-family: var(--font-mono);
-    font-size: 0.625rem;
+    font-size: var(--rs-t-micro);
     letter-spacing: 0.16em;
     text-transform: uppercase;
     text-align: center;
@@ -3667,7 +4105,7 @@
 }
 
 /* ================================================================ cart drawer
-   NOT .rs-drawer — the mobile menu already owns that name, and reusing it gave
+   NOT .rs-drawer Ã¢â‚¬â€ the mobile menu already owns that name, and reusing it gave
    this panel a maroon background and a 20rem width, so it opened invisibly
    while still locking the page scroll. A frozen page with nothing on it. */
 @layer components {
@@ -3796,7 +4234,7 @@
    * The maroon runs to the edge; the words line up with the rest of the page.
    *
    * A full-bleed band whose text starts at the viewport edge does not agree with
-   * any other section, so the panel is padded to meet the container instead —
+   * any other section, so the panel is padded to meet the container instead Ã¢â‚¬â€
    * the colour is full width, the reading measure is not.
    */
   .rs-split__panel {
@@ -3810,7 +4248,7 @@
 
   .rs-split__inner {
     width: 100%;
-    /* Half the container, less its gutter — so the words begin exactly where
+    /* Half the container, less its gutter Ã¢â‚¬â€ so the words begin exactly where
        every other section's do. --rs-container is what .rs-shell uses. */
     max-width: calc(var(--rs-container, 78rem) / 2 - var(--rs-gutter, 3rem));
   }
@@ -3997,7 +4435,7 @@
 
 @layer components {
   /* The selection bar. Sticky, so it stays reachable while scrolling a long
-     library — the whole point is acting on things further down. */
+     library Ã¢â‚¬â€ the whole point is acting on things further down. */
   .rs-bulkbar {
     position: sticky;
     top: 0;
@@ -4016,4 +4454,104 @@
     border-color: var(--rs-primary, #5E1F3D);
     box-shadow: inset 0 0 0 1px var(--rs-primary, #5E1F3D);
   }
+}
+
+/* ============================================================== brochures */
+@layer components {
+  .rs-brochure {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+    padding: 1rem 1.15rem;
+    background: #fff;
+    border: 1px solid var(--color-shell-line);
+    border-radius: var(--rs-radius, 2px);
+  }
+
+  .rs-brochure__icon {
+    flex: none;
+    display: inline-grid;
+    place-items: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 999px;
+    color: var(--rs-primary, #5E1F3D);
+    background: var(--color-shell);
+  }
+  /* Sized from a named class, never a utility carrying a dot: esc() strips
+     the dot out of h-3.5 and the icon renders at its intrinsic size. */
+  .rs-brochure__glyph { width: 1.15rem; height: 1.15rem; }
+
+  .rs-brochure__body { flex: 1 1 12rem; min-width: 0; }
+  .rs-brochure__title { font-size: 0.95rem; font-weight: 500; }
+  .rs-brochure__note { margin-top: 0.15rem; font-size: 0.8125rem; color: var(--color-ink-muted); }
+  .rs-brochure__cta { flex: none; }
+  .rs-brochure__size { margin-left: 0.5rem; font-size: var(--rs-t-micro); opacity: 0.7; }
+
+  /* The honeypot. Off-screen rather than display:none — some bots skip a
+     field they can see is hidden, and none of them read a stylesheet. */
+  .rs-hp {
+    position: absolute;
+    left: -9999px;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+  }
+
+  .rs-fielderr {
+    display: block;
+    margin-top: 0.3rem;
+    font-size: 0.8125rem;
+    color: var(--color-bad, #A3253B);
+  }
+}
+
+/* ====================================================== brochure modal */
+@layer components {
+  /*
+   * A form needs more room and a left-aligned reading line than the auth
+   * modal's short centred message. Same shell, different card.
+   */
+  .rs-modal__card--form {
+    position: relative;
+    width: min(30rem, 100%);
+    text-align: left;
+    /* A short viewport must not trap the submit button off screen. */
+    max-height: calc(100dvh - 2rem);
+    overflow-y: auto;
+  }
+
+  .rs-modal__x {
+    position: absolute;
+    top: 0.6rem;
+    inset-inline-end: 0.6rem;
+    display: grid;
+    place-items: center;
+    width: 2rem;
+    height: 2rem;
+    cursor: pointer;
+    color: var(--color-ink-muted);
+    border-radius: 999px;
+    transition: color 0.15s, background-color 0.15s;
+  }
+  .rs-modal__x:hover,
+  .rs-modal__x:focus-visible {
+    color: var(--color-ink);
+    background: var(--color-shell);
+  }
+  /* Sized from a named class: esc() strips the dot out of a utility like
+     h-3.5 and the icon then renders at its intrinsic size. */
+  .rs-modal__xicon { width: 1rem; height: 1rem; }
+
+  /* The required marker. An asterisk with no explanation is a convention
+     people half-know, so it carries a title and a real <abbr>. */
+  .rs-req {
+    margin-inline-start: 0.15rem;
+    color: var(--color-bad, #A3253B);
+    text-decoration: none;
+    cursor: help;
+  }
+
+  .rs-fielderr[hidden] { display: none; }
 }

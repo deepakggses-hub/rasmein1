@@ -64,9 +64,9 @@
                                     <input type="text" name="variant[<?= $id ?>][label]"
                                            class="rs-input" maxlength="191"
                                            value="<?= esc($variant['label'], 'attr') ?>">
-                                    <p class="rs-help mt-1 font-mono text-[0.625rem]">
+                                    <p class="rs-help mt-1 font-mono text-xs">
                                         <?= esc($variant['sku']) ?>
-                                        <span class="mx-1 text-brass" aria-hidden="true">&middot;</span>
+                                        <span class="mx-1 rs-gold" aria-hidden="true">&middot;</span>
                                         /<?= esc($variant['variant_key']) ?>
                                     </p>
 

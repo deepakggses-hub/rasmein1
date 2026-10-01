@@ -82,7 +82,7 @@ $isEnquire = $journeyMode === \Config\Rasmein::MODE_ENQUIRE;
 
         <?php foreach ($groups as $groupName => $settings): ?>
             <section class="mt-5 border border-shell-line bg-white">
-                <h2 class="border-b border-shell-line px-4 py-3 font-mono text-[0.625rem] tracking-[0.16em] text-ink-muted uppercase">
+                <h2 class="border-b border-shell-line px-4 py-3 font-mono text-xs tracking-[0.16em] text-ink-muted uppercase">
                     <?= esc(ucfirst(str_replace('_', ' ', $groupName))) ?>
                 </h2>
 
@@ -96,7 +96,7 @@ $isEnquire = $journeyMode === \Config\Rasmein::MODE_ENQUIRE;
                         <div class="flex flex-wrap items-start gap-4 px-4 py-3">
                             <div class="min-w-52 flex-1">
                                 <p class="text-sm font-medium"><?= esc($label) ?></p>
-                                <p class="font-mono text-[0.5625rem] tracking-[0.1em] text-ink-muted"><?= esc($setting['key_name']) ?></p>
+                                <p class="font-mono text-xs tracking-[0.1em] text-ink-muted"><?= esc($setting['key_name']) ?></p>
                                 <?php if (! empty($setting['description'])): ?>
                                     <p class="rs-help max-w-xl"><?= esc($setting['description']) ?></p>
                                 <?php endif; ?>

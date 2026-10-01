@@ -140,7 +140,7 @@ $sel = old('mail_protocol') ?? $protocol;
                     <li>Create an <strong>OAuth client ID</strong> of type <em>Web application</em>.</li>
                     <li>Add this exact <strong>authorised redirect URI</strong>:</li>
                 </ol>
-                <p class="mt-2 overflow-x-auto border border-shell-line bg-white px-3 py-2 font-mono text-[0.6875rem]">
+                <p class="mt-2 overflow-x-auto border border-shell-line bg-white px-3 py-2 font-mono text-xs">
                     <?= esc($google['redirectUri']) ?>
                 </p>
                 <p class="rs-help mt-2">

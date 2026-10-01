@@ -55,9 +55,23 @@ if (! function_exists('rs_journey_mode')) {
 }
 
 if (! function_exists('rs_is_enquire_mode')) {
-    function rs_is_enquire_mode(): bool
+    /**
+     * Is this an enquiry rather than a purchase?
+     *
+     * @param string|null $itemMode A product's own `sale_mode`. 'inherit', or
+     *                              null, follows the site.
+     *
+     * THE ARGUMENT USED TO BE DISCARDED. This was declared with no parameters
+     * while three call sites passed `$product->sale_mode` — and PHP accepts
+     * extra arguments to a userland function in silence. So a product pinned
+     * to `enquire_now` was tested against the SITE mode instead of its own,
+     * and showed "Add to cart" on a shop taking orders. Every piece over
+     * ₹5,000 in the seeded catalogue is pinned that way, so this was not an
+     * edge case.
+     */
+    function rs_is_enquire_mode(?string $itemMode = null): bool
     {
-        return rs_journey_mode() === Rasmein::MODE_ENQUIRE;
+        return service('settings')->resolveItemMode($itemMode) === Rasmein::MODE_ENQUIRE;
     }
 }
 
@@ -333,6 +347,12 @@ if (! function_exists('rs_icon')) {
             'linkedin'     => '<path d="M4 9h4v11H4zM6 4a2 2 0 1 1 0 4 2 2 0 0 1 0-4ZM11 20V9h4v1.6a4 4 0 0 1 6 3.4V20h-4v-5a2 2 0 0 0-4 0v5h-2Z"/>',
             'whatsapp'     => '<path d="M3 21l1.7-4.5A8 8 0 1 1 8 20.3L3 21Z"/><path d="M9 10c0 3 2 5 5 5"/>',
             'close'        => '<path d="M6 6l12 12M18 6 6 18"/>',
+            /*
+             * A counter-clockwise arrow, not a cross. A cross beside a filter
+             * heading reads as "close this section", which is what the chevron
+             * already does — this one has to say "put it back how it was".
+             */
+            'rotate-ccw'   => '<path d="M3 12a9 9 0 1 0 2.6-6.4"/><path d="M3 4v5h5"/>',
             'store'        => '<path d="M4 9h16v11H4z"/><path d="M4 9 5.5 4h13L20 9M9 20v-6h6v6"/>',
             'logout'       => '<path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3"/><path d="M10 17l-5-5 5-5M5 12h10"/>',
 ];

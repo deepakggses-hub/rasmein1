@@ -48,7 +48,7 @@ if ($editing !== null) {
         <?php else: ?>
             <table class="w-full text-sm">
                 <thead class="border-b border-shell-line bg-shell-deep text-left">
-                    <tr class="font-mono text-[0.5625rem] tracking-[0.14em] text-ink-muted uppercase">
+                    <tr class="font-mono text-xs tracking-[0.14em] text-ink-muted uppercase">
                         <th class="px-4 py-2.5">Category</th>
                         <th class="px-4 py-2.5">Web address</th>
                         <th class="num px-4 py-2.5 text-right">Products</th>
@@ -194,7 +194,7 @@ if ($editing !== null) {
                 </label>
 
                 <details class="mt-4">
-                    <summary class="cursor-pointer font-mono text-[0.625rem] tracking-widest text-brass uppercase">
+                    <summary class="cursor-pointer font-mono text-xs tracking-widest rs-gold uppercase">
                         Search listing
                     </summary>
                     <label class="mt-3 block">

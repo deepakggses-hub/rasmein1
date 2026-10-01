@@ -10,7 +10,7 @@ $next     = $pager->getNextPageURI();
     <?php else: ?>
         <span class="rs-btn rs-btn--outline rs-btn--sm" aria-disabled="true">Previous</span>
     <?php endif; ?>
-    <p class="num font-mono text-[0.625rem] tracking-widest text-ink-muted uppercase">
+    <p class="num font-mono text-xs tracking-widest text-ink-muted uppercase">
         Page <?= $pager->getCurrentPage() ?> of <?= $pager->getPageCount() ?>
     </p>
     <?php if ($next !== null): ?>

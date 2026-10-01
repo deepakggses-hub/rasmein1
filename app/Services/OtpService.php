@@ -56,6 +56,8 @@ class OtpService
                 // Deliberately vague about the limit itself.
                 'error' => 'Too many codes requested. Please wait a little while before trying again.',
                 'expires_at' => null,
+                // Same shape on every path, so a caller never has to guess.
+                'code'       => null,
             ];
         }
 
@@ -88,7 +90,27 @@ class OtpService
 
         $this->send($email, $code, $purpose, $payload);
 
-        return ['ok' => true, 'error' => null, 'expires_at' => $expires];
+        /*
+         * OUTSIDE PRODUCTION ONLY, the plaintext code comes back with the
+         * result so the sign-in screens can show it.
+         *
+         * Until SMTP is configured there is no inbox to read, and the admin
+         * mail queue is a poor place to be sent mid-signup. This makes the
+         * development flow testable without weakening anything that ships: the
+         * code is still hashed in `auth_codes`, still emailed, still expires,
+         * and is still capped at five guesses.
+         *
+         * The gate is ENVIRONMENT, which CodeIgniter derives from
+         * CI_ENVIRONMENT — so a production .env cannot return it whatever a
+         * caller does. The views check the same constant again before drawing
+         * anything, so one mistake in one place does not leak a live code.
+         */
+        return [
+            'ok'         => true,
+            'error'      => null,
+            'expires_at' => $expires,
+            'code'       => ENVIRONMENT === 'production' ? null : $code,
+        ];
     }
 
     /**

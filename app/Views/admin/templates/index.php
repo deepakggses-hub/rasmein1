@@ -42,7 +42,7 @@
                 <?php else: ?>
                     <table class="w-full min-w-3xl text-sm">
                         <thead class="border-b border-shell-line bg-shell-deep text-left">
-                            <tr class="font-mono text-[0.5625rem] tracking-[0.14em] text-ink-muted uppercase">
+                            <tr class="font-mono text-xs tracking-[0.14em] text-ink-muted uppercase">
                                 <th class="px-4 py-2.5">Template</th>
                                 <th class="px-4 py-2.5">Subject</th>
                                 <th class="px-4 py-2.5">State</th>
@@ -55,7 +55,7 @@
                                     <td class="px-4 py-2.5">
                                         <a href="<?= site_url('admin/email-templates/' . $template['id'] . '/edit') ?>"
                                            class="rs-link font-medium"><?= esc($template['name']) ?></a>
-                                        <span class="block font-mono text-[0.5625rem] text-ink-muted">
+                                        <span class="block font-mono text-xs text-ink-muted">
                                             <?= esc($template['template_key']) ?>
                                         </span>
                                         <?php if (! empty($template['description'])): ?>

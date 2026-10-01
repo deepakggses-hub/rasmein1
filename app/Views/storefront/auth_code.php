@@ -25,6 +25,32 @@ $c = static fn (string $k, string $fallback = ''): string => trim($copy[$k] ?? '
             <strong class="text-ink"><?= esc($shown) ?></strong>.
         </p>
 
+        <?php /* ============================ DEVELOPMENT ONLY ==============
+         *
+         * The code on screen, so the sign-in flow can be walked through on a
+         * machine with no working SMTP.
+         *
+         * THREE independent gates, deliberately: OtpService returns the
+         * plaintext only when ENVIRONMENT is not production, the controller
+         * checks again before flashing it, and this checks a third time before
+         * drawing. Any one of them alone would be enough; all three mean a
+         * single careless edit cannot put a live code on a customer's screen.
+         *
+         * It is loud and ugly ON PURPOSE. If this ever appears on the real
+         * site it must be unmistakable rather than something that blends in.
+         */ ?>
+        <?php if (ENVIRONMENT !== 'production' && session('dev_otp')): ?>
+            <div class="rs-devcode">
+                <p class="rs-devcode__tag">Development only — not shown in production</p>
+                <p class="rs-devcode__code num"><?= esc((string) session('dev_otp')) ?></p>
+                <p class="rs-devcode__note">
+                    Shown because <span class="font-mono">CI_ENVIRONMENT</span> is
+                    <span class="font-mono"><?= esc(ENVIRONMENT) ?></span>. The code was still
+                    emailed and is still stored hashed.
+                </p>
+            </div>
+        <?php endif; ?>
+
         <form method="post" action="<?= site_url('account/code/verify') ?>" class="mt-7 grid gap-4">
             <?= csrf_field() ?>
 

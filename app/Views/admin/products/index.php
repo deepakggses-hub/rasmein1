@@ -50,7 +50,7 @@
         <?php else: ?>
             <table class="w-full min-w-3xl text-sm">
                 <thead class="border-b border-shell-line bg-shell-deep text-left">
-                    <tr class="font-mono text-[0.5625rem] tracking-[0.14em] text-ink-muted uppercase">
+                    <tr class="font-mono text-xs tracking-[0.14em] text-ink-muted uppercase">
                         <th class="px-4 py-2.5">Product</th>
                         <th class="px-4 py-2.5">SKU</th>
                         <th class="px-4 py-2.5">Category</th>

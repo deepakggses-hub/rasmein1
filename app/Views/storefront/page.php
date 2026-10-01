@@ -4,10 +4,10 @@
 <?php /** @var array<string, mixed> $page */ ?>
 
 <article class="rs-shell py-14 lg:py-20">
-    <nav class="font-mono text-[0.625rem] tracking-[0.16em] text-ink-muted uppercase" aria-label="Breadcrumb">
+    <nav class="font-mono text-xs tracking-[0.16em] text-ink-muted uppercase" aria-label="Breadcrumb">
         <ol class="flex items-center gap-2">
             <li><a href="<?= site_url('/') ?>" class="rs-link">Home</a></li>
-            <li aria-hidden="true" class="text-brass">/</li>
+            <li aria-hidden="true" class="rs-gold">/</li>
             <li aria-current="page"><?= esc($page['title']) ?></li>
         </ol>
     </nav>
@@ -30,6 +30,18 @@
          */
         echo $page['content'] ?? '';
         ?>
+    </div>
+
+    <?php /* Every key the partial reads is named EXPLICITLY, even when empty:
+             view() merges the parent's data, so `$sourceId ?? null` inside a
+             partial is not a default — it is whatever the parent happens to
+             hold. That is what once drew one photograph on twelve cards. */ ?>
+    <div class="mt-12">
+        <?= view('partials/brochure_cta', [
+            'brochure'   => $brochure ?? null,
+            'sourceType' => $brochureSource ?? null,
+            'sourceId'   => $brochureSourceId ?? null,
+        ]) ?>
     </div>
 
     <footer class="mt-14 border-t border-shell-line pt-6">

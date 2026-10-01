@@ -20,7 +20,7 @@
 <div class="rs-shell py-8 lg:py-12">
     <header class="border-b border-shell-line pb-5">
         <h1 class="rs-display rs-display--lg">Saved for later</h1>
-        <p class="mt-3 font-mono text-[0.625rem] tracking-[0.18em] text-ink-muted uppercase">
+        <p class="mt-3 font-mono text-xs tracking-[0.18em] text-ink-muted uppercase">
             <span class="num"><?= count($products) ?></span>
             <?= count($products) === 1 ? 'piece' : 'pieces' ?>
         </p>

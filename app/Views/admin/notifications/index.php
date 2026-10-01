@@ -52,7 +52,7 @@ $tone = [
                             <?php if (! empty($note['body'])): ?>
                                 <p class="mt-0.5 text-xs text-ink-muted"><?= esc($note['body']) ?></p>
                             <?php endif; ?>
-                            <p class="num mt-1 font-mono text-[0.5625rem] tracking-[0.12em] text-ink-muted uppercase">
+                            <p class="num mt-1 font-mono text-xs tracking-[0.12em] text-ink-muted uppercase">
                                 <?= esc(str_replace('_', ' ', $note['event'])) ?> ·
                                 <?= esc(date('j M y, H:i', strtotime((string) $note['created_at']))) ?>
                             </p>

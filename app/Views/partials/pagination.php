@@ -46,7 +46,7 @@ sort($pages);
         <?php endforeach; ?>
     </ol>
 
-    <p class="num font-mono text-[0.6875rem] tracking-widest text-ink-muted uppercase sm:hidden">
+    <p class="num font-mono text-xs tracking-widest text-ink-muted uppercase sm:hidden">
         <?= $current ?> / <?= $last ?>
     </p>
 

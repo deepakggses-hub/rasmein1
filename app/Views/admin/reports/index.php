@@ -44,7 +44,7 @@ $qs = '?days=' . (int) $days;
         foreach ($cards as [$label, $value, $sub]):
         ?>
             <div class="border border-shell-line bg-white p-5">
-                <p class="font-mono text-[0.625rem] tracking-[0.16em] text-ink-muted uppercase"><?= esc($label) ?></p>
+                <p class="font-mono text-xs tracking-[0.16em] text-ink-muted uppercase"><?= esc($label) ?></p>
                 <p class="num mt-2 font-display text-2xl font-semibold text-mulberry"><?= esc($value) ?></p>
                 <p class="rs-help mt-1"><?= esc($sub) ?></p>
             </div>
@@ -139,7 +139,7 @@ $qs = '?days=' . (int) $days;
                     <?php else: ?>
                         <table class="w-full text-sm">
                             <thead class="border-b border-shell-line bg-shell-deep text-left">
-                                <tr class="font-mono text-[0.5625rem] tracking-[0.14em] text-ink-muted uppercase">
+                                <tr class="font-mono text-xs tracking-[0.14em] text-ink-muted uppercase">
                                     <?php foreach ($columns as $key => $label): ?>
                                         <th class="px-4 py-2.5 <?= $key === 'name' || $key === 'category' ? '' : 'num text-right' ?>">
                                             <?= esc($label) ?>

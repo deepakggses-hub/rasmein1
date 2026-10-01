@@ -167,10 +167,20 @@ class FacetService
     /** @return array<string, mixed>|null */
     private function occasions(array $filters): ?array
     {
-        $rows = db_connect()->table('collections c')
-            ->select('c.id, c.name, c.slug, COUNT(cp.product_id) AS n', false)
-            ->join('collection_products cp', 'cp.collection_id = c.id', 'left')
-            ->join('products p', 'p.id = cp.product_id AND p.is_active = 1 AND p.deleted_at IS NULL', 'left')
+        /*
+         * Counted from base(), like every other facet. This one used to query
+         * `collections` on its own, so its numbers were SHOP-WIDE: inside a
+         * category it offered occasions whose gifts were nowhere on the page,
+         * and "Diwali 50" could sit beside a listing showing six. A count is a
+         * promise that ticking it returns that many things.
+         *
+         * The joins are INNER, so an occasion with nothing on this page is
+         * absent rather than present with a zero.
+         */
+        $rows = $this->base()
+            ->select('c.id, c.name, c.slug, COUNT(DISTINCT products.id) AS n', false)
+            ->join('collection_products cp', 'cp.product_id = products.id', 'inner')
+            ->join('collections c', 'c.id = cp.collection_id', 'inner')
             ->where('c.type', 'occasion')
             ->where('c.is_active', 1)
             ->where('c.deleted_at', null)

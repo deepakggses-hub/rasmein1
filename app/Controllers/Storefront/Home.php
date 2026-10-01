@@ -33,7 +33,17 @@ class Home extends StorefrontController
             'heroSlides'   => $banners->liveFor('home_hero', 5),
             'feature'      => $banners->liveFor('home_feature', 1)[0] ?? null,
             'clients'      => $banners->liveFor('home_client', 12),
-            'gallery'      => $banners->liveFor('home_gallery', 12),
+            /*
+             * No cap. A shop that uploads seventy photographs to the Bespoke
+             * journey wants seventy on the page — the section is a drifting
+             * band, so its height does not grow with the count and there is
+             * nothing for a limit to protect. `findAll(0)` means all of them.
+             *
+             * They are lazy-loaded and the track's speed is derived from the
+             * count (see the view), so more pictures cost bytes only as the
+             * reader actually reaches them.
+             */
+            'gallery'      => $banners->liveFor('home_gallery', 0),
             'strip'        => $banners->liveFor('home_strip', 3),
 
             'giftBoxes'    => $boxes->featured(3),

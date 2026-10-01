@@ -18,6 +18,7 @@ use App\Services\OtpService;
 use App\Services\VisitorService;
 use App\Services\FacetService;
 use App\Services\ImageUploadService;
+use App\Services\BrochureService;
 use App\Services\ImageVariantService;
 use App\Services\RootUrlService;
 use App\Services\MailService;
@@ -103,6 +104,21 @@ class Services extends BaseService
         }
 
         return new ImageUploadService();
+    }
+
+    /**
+     * One order, assembled for a customer-facing screen.
+     *
+     * Shared by the signed-in account page and the public tracking page, so
+     * the two cannot disagree about which total to show.
+     */
+    public static function orderView(bool $getShared = true): \App\Services\OrderViewService
+    {
+        if ($getShared) {
+            return static::getSharedInstance('orderView');
+        }
+
+        return new \App\Services\OrderViewService();
     }
 
     /** Streams CSV exports, neutralising spreadsheet formula injection. */
@@ -446,6 +462,16 @@ class Services extends BaseService
         }
 
         return new MailService();
+    }
+
+    /** Brochures: which page offers which, and who downloaded it. */
+    public static function brochures(bool $getShared = true): BrochureService
+    {
+        if ($getShared) {
+            return static::getSharedInstance('brochures');
+        }
+
+        return new BrochureService();
     }
 
     /** Decides who hears about what, in-app and by email. */

@@ -77,14 +77,14 @@ $now = time();
                                 <?php endif; ?>
                             </p>
                             <?php if (trim((string) ($banner['alt_text'] ?? '')) === ''): ?>
-                                <p class="rs-help text-brass">
+                                <p class="rs-help rs-gold">
                                     No description —
                                     <a href="<?= site_url('admin/media?source=banner') ?>" class="rs-link">add one</a>.
                                 </p>
                             <?php endif; ?>
                         </div>
 
-                        <span class="num font-mono text-[0.625rem] text-ink-muted">#<?= (int) $banner['sort_order'] ?></span>
+                        <span class="num font-mono text-xs text-ink-muted">#<?= (int) $banner['sort_order'] ?></span>
 
                         <span class="rs-badge <?= ! $banner['is_active'] || $ended ? 'rs-badge--out' : ($started ? 'rs-badge--soft' : 'rs-badge--brass') ?>">
                             <?= ! $banner['is_active'] ? 'Off' : ($ended ? 'Finished' : ($started ? 'Live' : 'Scheduled')) ?>

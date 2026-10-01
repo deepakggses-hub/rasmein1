@@ -48,6 +48,7 @@ class Permissions extends BaseConfig
         'Content' => [
             'content.manage'  => ['Edit content', 'Pages, banners and email templates.'],
             'homepage.manage' => ['Edit the homepage', 'Headings, hero slides, testimonials and the gallery.'],
+            'brochures.manage' => ['Manage brochures', 'Upload brochures, attach them to pages, and read the download leads.'],
         ],
         'Insight' => [
             'reports.view' => ['See reports', 'Revenue, best sellers, and CSV exports.'],

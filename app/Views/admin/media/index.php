@@ -59,7 +59,7 @@ $pct = $counts['total'] > 0
             </a>
         <?php endforeach; ?>
         <?php if ($missing): ?>
-            <span class="rs-chip border-brass text-brass">Missing only</span>
+            <span class="rs-chip border-brass rs-gold">Missing only</span>
         <?php endif; ?>
     </div>
 
@@ -76,7 +76,7 @@ $pct = $counts['total'] > 0
                 <section class="border border-shell-line bg-white">
                     <div class="flex items-center justify-between gap-3 border-b border-shell-line px-5 py-3">
                         <h2 class="rs-eyebrow rs-eyebrow--plain"><?= esc($group['label']) ?></h2>
-                        <span class="num font-mono text-[0.625rem] text-ink-muted">
+                        <span class="num font-mono text-xs text-ink-muted">
                             <?= count($group['rows']) ?>
                         </span>
                     </div>
@@ -94,7 +94,7 @@ $pct = $counts['total'] > 0
                                 <span class="min-w-40 flex-1">
                                     <span class="block text-sm font-medium"><?= esc($row['title'] ?? 'Untitled') ?></span>
                                     <a href="<?= site_url($row['editUrl']) ?>"
-                                       class="rs-link font-mono text-[0.625rem] text-ink-muted">
+                                       class="rs-link font-mono text-xs text-ink-muted">
                                         Open where it lives
                                     </a>
                                 </span>

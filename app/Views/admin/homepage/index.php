@@ -166,7 +166,7 @@ $lists = ['design_marquee_text'];
                                 <?php endif; ?>
                             </p>
                         </div>
-                        <span class="num text-xs text-brass"><?= str_repeat('★', (int) $quote['rating']) ?></span>
+                        <span class="num text-xs rs-gold"><?= str_repeat('★', (int) $quote['rating']) ?></span>
                         <span class="rs-badge <?= $quote['is_active'] ? 'rs-badge--soft' : 'rs-badge--out' ?>">
                             <?= $quote['is_active'] ? 'Live' : 'Hidden' ?>
                         </span>

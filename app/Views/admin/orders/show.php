@@ -21,7 +21,7 @@
 
         <!-- Items -->
         <section class="border border-shell-line bg-white">
-            <h2 class="border-b border-shell-line px-4 py-3 font-mono text-[0.625rem] tracking-[0.16em] text-ink-muted uppercase">
+            <h2 class="border-b border-shell-line px-4 py-3 font-mono text-xs tracking-[0.16em] text-ink-muted uppercase">
                 Items
             </h2>
             <ul class="divide-y divide-shell-line">
@@ -37,7 +37,7 @@
                                     <span class="rs-help block"><?= esc($item['variant_label']) ?></span>
                                 <?php endif; ?>
                                 <?php if ($item['sku_snapshot'] !== null): ?>
-                                    <span class="ml-1.5 font-mono text-[0.625rem] text-ink-muted"><?= esc($item['sku_snapshot']) ?></span>
+                                    <span class="ml-1.5 font-mono text-xs text-ink-muted"><?= esc($item['sku_snapshot']) ?></span>
                                 <?php endif; ?>
                             </span>
                             <span class="text-ink-muted">
@@ -90,7 +90,7 @@
         <!-- Dispatch -->
         <?php if ($canManage): ?>
             <section class="border border-shell-line bg-white p-4">
-                <h2 class="font-mono text-[0.625rem] tracking-[0.16em] text-ink-muted uppercase">Dispatch</h2>
+                <h2 class="font-mono text-xs tracking-[0.16em] text-ink-muted uppercase">Dispatch</h2>
 
                 <?php if ($shipment !== null): ?>
                     <dl class="num mt-3 space-y-1 text-sm">
@@ -127,7 +127,7 @@
 
         <!-- History -->
         <section class="border border-shell-line bg-white">
-            <h2 class="border-b border-shell-line px-4 py-3 font-mono text-[0.625rem] tracking-[0.16em] text-ink-muted uppercase">
+            <h2 class="border-b border-shell-line px-4 py-3 font-mono text-xs tracking-[0.16em] text-ink-muted uppercase">
                 History
             </h2>
             <ul class="divide-y divide-shell-line text-sm">
@@ -142,7 +142,7 @@
                                 <span class="text-ink-muted">— <?= esc($entry['note']) ?></span>
                             <?php endif; ?>
                         </span>
-                        <span class="num font-mono text-[0.625rem] text-ink-muted">
+                        <span class="num font-mono text-xs text-ink-muted">
                             <?= esc(date('j M, H:i', strtotime((string) $entry['created_at']))) ?>
                         </span>
                     </li>
@@ -155,7 +155,7 @@
     <aside class="space-y-5">
         <?php if ($canManage): ?>
             <section class="border border-shell-line bg-white p-4">
-                <h2 class="font-mono text-[0.625rem] tracking-[0.16em] text-ink-muted uppercase">Status</h2>
+                <h2 class="font-mono text-xs tracking-[0.16em] text-ink-muted uppercase">Status</h2>
                 <p class="mt-2"><span class="rs-badge rs-badge--brass"><?= esc($statuses[$order['status']] ?? $order['status']) ?></span></p>
 
                 <?php if ($nextStates === []): ?>
@@ -181,7 +181,7 @@
             </section>
 
             <section class="border border-shell-line bg-white p-4">
-                <h2 class="font-mono text-[0.625rem] tracking-[0.16em] text-ink-muted uppercase">Payment</h2>
+                <h2 class="font-mono text-xs tracking-[0.16em] text-ink-muted uppercase">Payment</h2>
                 <p class="mt-2"><span class="rs-badge rs-badge--soft"><?= esc($payments[$order['payment_status']] ?? '') ?></span></p>
                 <form method="post" action="<?= site_url('admin/orders/' . $order['id'] . '/payment') ?>" class="mt-4">
                     <?= csrf_field() ?>
@@ -206,7 +206,7 @@
         <?php endif; ?>
 
         <section class="border border-shell-line bg-white p-4">
-            <h2 class="font-mono text-[0.625rem] tracking-[0.16em] text-ink-muted uppercase">Customer</h2>
+            <h2 class="font-mono text-xs tracking-[0.16em] text-ink-muted uppercase">Customer</h2>
             <dl class="mt-3 space-y-1 text-sm">
                 <div><dt class="sr-only">Name</dt><dd class="font-medium"><?= esc($order['customer_name']) ?></dd></div>
                 <div><dt class="sr-only">Email</dt>
@@ -215,7 +215,7 @@
             </dl>
 
             <?php if (! empty($order['ship_line1'])): ?>
-                <h3 class="mt-4 font-mono text-[0.5625rem] tracking-[0.14em] text-ink-muted uppercase">Deliver to</h3>
+                <h3 class="mt-4 font-mono text-xs tracking-[0.14em] text-ink-muted uppercase">Deliver to</h3>
                 <address class="mt-1.5 text-sm leading-relaxed not-italic">
                     <?= esc($order['ship_name']) ?><br>
                     <?= esc($order['ship_line1']) ?><br>
@@ -233,14 +233,14 @@
 
         <?php if (! empty($order['customer_note'])): ?>
             <section class="border border-shell-line bg-white p-4">
-                <h2 class="font-mono text-[0.625rem] tracking-[0.16em] text-ink-muted uppercase">Customer note</h2>
+                <h2 class="font-mono text-xs tracking-[0.16em] text-ink-muted uppercase">Customer note</h2>
                 <p class="mt-2 text-sm"><?= esc($order['customer_note']) ?></p>
             </section>
         <?php endif; ?>
 
         <?php if ($canManage): ?>
             <section class="border border-shell-line bg-white p-4">
-                <h2 class="font-mono text-[0.625rem] tracking-[0.16em] text-ink-muted uppercase">Internal note</h2>
+                <h2 class="font-mono text-xs tracking-[0.16em] text-ink-muted uppercase">Internal note</h2>
                 <form method="post" action="<?= site_url('admin/orders/' . $order['id'] . '/note') ?>" class="mt-3">
                     <?= csrf_field() ?>
                     <textarea name="admin_note" class="rs-textarea" rows="3" maxlength="2000"><?= esc($order['admin_note'] ?? '') ?></textarea>

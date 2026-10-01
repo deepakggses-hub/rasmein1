@@ -562,6 +562,11 @@ existing design instead of inventing a parallel one.
   password reset all return the same response regardless. Registering with a
   taken address reports success and notifies the real owner — do not "improve"
   this into "that email is already registered".
+  **PARTIALLY REVERSED, on request** — `Auth::exists()` now answers this for
+  the registration form's debounced hint. Everything listed above still
+  behaves identically either way; only that one endpoint does not. See "The
+  registration duplicate check" below for the mitigations and the residual
+  risk before extending it anywhere else.
 - `password_verify()` runs even when the account does not exist, so response
   time does not leak existence either.
 - Reset tokens: only `hash('sha256', $token)` is stored, TTL 60 minutes, burned
@@ -3027,6 +3032,383 @@ nothing to click is worse than saying nothing. The stored value is digits with
 the country code; every reader strips non-digits, so `wa.me` links are built
 identically wherever they appear.
 
+### Brochures: one file, many pages, and a lead for every download
+
+`brochures` (the file) + `brochure_targets` (which page offers it) +
+`brochure_leads` (who asked). Three tables because they answer three
+questions; one brochure serves several pages without being uploaded again, and
+a page can be re-pointed at a new edition without touching the page.
+
+**THE FILE LIVES UNDER `WRITEPATH`, NEVER `public/`.** A brochure sitting
+behind a lead form and ALSO fetchable at its own URL is not gated at all — the
+form is decoration from the moment one person shares the direct link, and
+every lead after that is lost. `Storefront\Brochure::download()` is the only
+way to one. Verified: both `/writable/...` and `/uploads/brochures/...` 404.
+
+**The target is polymorphic, and unique.** A category, a collection/occasion
+and a content page have nothing in common, and three nullable foreign keys on
+one row would let two be set at once — a state with no correct answer.
+`(target_type, target_id)` is UNIQUE, so "one brochure per page" is a property
+of the schema rather than of the code that writes it. The price is that the
+database cannot enforce the reference, so `BrochureService::forPage()` falls
+through to the default when a target points at something deleted or switched
+off, rather than erroring.
+
+**Signed in means no form.** Somebody who has already given us their name,
+email and phone should not retype them to read a catalogue; the lead is
+recorded from their profile, which is also more accurate. A guest submits the
+form, which grants THAT brochure for THIS session, once — and `download()`
+re-checks the grant rather than trusting the redirect, so a guessed URL still
+gets the form. The grant is SPENT on use, or a session would keep producing
+downloads with no further lead.
+
+**Leads outlive brochures.** `brochure_id` is `SET NULL` on delete and every
+lead carries a `brochure_title` snapshot, the same reasoning as order lines
+keeping a name. Deleting the DEFAULT is refused outright — every unassigned
+page points at it.
+
+**A PDF cannot be re-encoded the way an image can.** `ImageUploadService`
+destroys polyglots by re-encoding; there is no equivalent here, so the upload
+check is the whole of the protection: extension AND sniffed MIME AND the
+`%PDF-` signature, with a generated filename so nothing from the request
+reaches the path. The original name is kept in a column for the download, and
+rebuilt from `[A-Za-z0-9 ._-]` before it goes in a `Content-Disposition`
+header — quotes and newlines there are a response-splitting surface.
+
+Other details worth keeping: the lead form has a honeypot (off-screen, not
+`display:none` — some bots skip a field they can see is hidden) and is
+throttled to 12/hour per IP, because a public form that raises staff
+notifications needs a ceiling. The CSV export goes through `CsvExporter`, so
+the free-text "notes" a stranger typed cannot execute in Excel — verified with
+`=cmd|'/c calc'!A1`, which exports prefixed with an apostrophe.
+
+**`partials/breadcrumbs` requires `url` on every crumb.** It reads
+`$crumb['url']` directly, so passing only a label is an ErrorException, not a
+missing link. Null means "this is where you are". Cost one 500 on the new
+brochure form.
+
+**Test-harness note, not an app fault.** PowerShell's `-WebSession` lost the
+customer session between calls, which looked exactly like the signed-in path
+being broken. The browser kept cookies properly and the same flow downloaded
+straight away. When a session-dependent check fails, prove the session is
+still alive before changing the code.
+### The brochure form as a modal, and which fields are mandatory
+
+**Name and phone are required; email is optional.** For a gifting business
+taking bulk enquiries by phone that is the honest pair, and a required field
+somebody will not answer truthfully produces worse data than an optional one
+they skip. Email is still VALIDATED when given — an address that cannot
+receive mail looks like a usable lead in the listing and is not.
+
+`brochure_leads.email` is nullable (migration 000036) and stores NULL, never
+`''`: "they did not give us one" is a single fact and only one spelling of it
+should be representable. The admin listing shows "no email given" rather than
+an empty `mailto:` — a link that opens a blank message to nobody is worse than
+saying there is none.
+
+**The modal is an enhancement; the page is the product.** The CTA is a real
+link to `/brochure/{id}`, which serves the same form as a full page. The script
+intercepts it only when it is running AND the server marked the link as
+needing a form.
+
+- **Whether a form is needed is decided on the SERVER**, not by the browser. A
+  signed-in customer's CTA carries no `data-brochure` at all, so their click is
+  never intercepted and goes straight to the download. Working it out in the
+  browser would mean a round trip before the click could do anything, and
+  reading it from a cookie would be a second, wronger copy of the decision.
+- **ONE modal per page, filled from the CTA that was clicked** — title, id and
+  source ride on `data-` attributes. A modal per button would mean duplicate
+  ids on any page offering two brochures.
+- The form carries no `action` in the markup; the script sets it per brochure.
+  A form that could submit to the wrong brochure is worse than one that cannot
+  submit without the script that owns it.
+
+**The submit does not fetch the file.** A `fetch` cannot hand somebody a
+download, so `Brochure::submitJson()` returns WHERE the file is and the script
+navigates there — a response marked `attachment` downloads WITHOUT leaving the
+page, so the modal closes and the reader stays exactly where they were.
+Verified: after a successful submit the tab was still on `/shop`.
+
+`RULES` and `MESSAGES` are constants shared by the page and the JSON endpoint.
+Two copies would drift the first time a rule changed, and the modal would go on
+accepting what the page refuses. The honeypot and the 12/hour throttle are
+shared the same way, and the JSON reply answers a trapped bot exactly like a
+success while recording nothing.
+
+**Every JSON reply carries `csrf_hash()`** and the script writes it back into
+every `input[name^="csrf"]` on the page. `security.regenerate` spends a token
+per validated POST, so without that a second attempt in the same modal is
+rejected as a forgery. Verified across six consecutive posts.
+
+Measured, guest, all through the real endpoint:
+
+```
+name + phone only (no email)   ok, download issued
+no name                        refused: Please tell us your name.
+no phone                       refused: Please give us a phone number.
+email given but malformed      refused: That does not look like an email address.
+email given and valid          ok, download issued
+honeypot filled                answered like a success, 0 leads recorded
+```
+### "Choose a PDF to upload" for a PDF that was chosen
+
+Field report: a 5.4 MB PDF, a genuine one (`%PDF-`, `application/pdf`),
+answered with "Problem. Choose a PDF to upload."
+
+**An upload php.ini refuses arrives as an ERROR CODE, not as a file.** PHP
+discards it before the application sees a byte, and `UploadedFile::isValid()`
+is then false. `Admin\Brochures::save()` had one branch for "no valid file" and
+told the person to choose one — which they had. The only code that means
+nothing was picked is `UPLOAD_ERR_NO_FILE`; every other code is a real failure
+with a real cause, and `getErrorString()` already names it.
+
+The two settings are not interchangeable:
+
+- **`upload_max_filesize` too small** — the rest of the request is intact, so
+  CSRF passes and the file alone carries `UPLOAD_ERR_INI_SIZE`. This is the one
+  that produced the report.
+- **`post_max_size` too small** — the WHOLE body is discarded, so `$_POST` is
+  empty too and the failure surfaces as a CSRF rejection, sending the diagnosis
+  somewhere else entirely. `post_max_size` must be the larger of the two.
+
+**A form must advertise the EFFECTIVE limit.** `effectiveMaxBytes()` is the
+minimum of our own 25 MB and both ini values, so the upload panel says 2 MB on
+a 2 MB server and prints a line naming both directives instead of promising
+something the server will refuse. A form that lies reads as a bug in the
+application.
+
+`php spark rasmein:diag-brochures` checks all of it — the limits, that the
+storage directory exists and is writable, that no copy of the brochures sits
+under `public/` (the gate is only real while that is true), that every stored
+row still has its file, that one brochure is the default, and that each upload
+error code produces a message rather than "no file". Verified by running it at
+`-d upload_max_filesize=2M` and at `post_max_size` below `upload_max_filesize`:
+both fail loudly, with what to change.
+
+**`getErrorString()` needs the framework booted** — it calls `lang()`, so it
+fatals in a bare script with only the Composer autoloader. That is why this
+check lives in a spark command rather than a scratch file.
+### The mobile filter sheet was transparent, and unreachable without a script
+
+Two faults, both invisible on a desktop screen.
+
+**It opened fully transparent.** `.rs-filtercol` is given a surface inside
+`@media (max-width: 1023px)`, and a LATER rule in the same layer said
+`.rs-filtercol { background: transparent; }` for the desktop column. Both are
+single-class selectors and a media query adds no specificity, so the later one
+won wherever it applied: the sheet slid open over the product grid with the
+page showing straight through it. Measured `rgba(0, 0, 0, 0)`.
+
+The desktop rule is now wrapped in `@media (min-width: 1024px)` so the two
+cannot reach each other. `!important` would have worked and would only have
+moved the argument somewhere else. **This is the third time two same-specificity
+rules in one layer have collided** — see also `.rs-loop--gridup .rs-loop__nav`.
+
+**There was no scrim.** Nothing dimmed the page, and the only way out was a
+close button most people never look for. `.rs-filterscrim` is a real element,
+not a pseudo-element, because it has to be clickable; it sits before the panel
+in the markup so the stacking works without a z-index fight. It is unhidden
+one frame BEFORE the opacity class, or the transition has nothing to run from,
+and re-hidden only after the fade so it stops intercepting taps.
+
+**The sheet is now ARMED by the script, like `.rs-reveal`.** It is
+`position: fixed` and translated off-screen, and only JavaScript can ever add
+`is-open` — so with the script blocked the entire filter column sat off the
+left edge of every phone, the Filter button did nothing, and the filters were
+silently unreachable. That flatly contradicts "the filter form is a plain GET
+so it works without JavaScript", which is true on desktop and was not on a
+phone. `.rs-sheet-ready` on the root element is what turns the sheet ON;
+unarmed, the column renders in the flow above the grid, which is a perfectly
+good small-screen layout. The Filter button and the in-panel close button are
+hidden until armed too — a dead control is worse than no control.
+
+Also added while in there: focus moves to the close button on open and back to
+the Filter button on close (the keyboard used to stay on the page underneath),
+Escape only fires when the sheet is actually open, and growing the viewport
+past the breakpoint closes it — otherwise the body scroll lock and the scrim
+both survived into a desktop layout, leaving a page that could not be scrolled
+with nothing visible holding it.
+### Per-facet reset, and two alignment bugs in the price slider
+
+**The reset control is an ANCHOR, not a button.** The sidebar is a GET form, so
+"clear this one" is just another URL: it works with the script blocked, can be
+middle-clicked, and needs no special case in the auto-submit handler.
+`Shop::withResetLinks()` attaches a `reset_url` only where that facet's
+parameters are actually in the query string, so it is never an armed-looking
+control with nothing to undo.
+
+`Shop::withoutFilter(array $keys, ?string $value)` is now the single URL
+builder. The removal chips used to own a private closure doing the same job;
+two copies would drift, and the re-indexing (`band[2]=4` versus `band[]=4`)
+is exactly the detail one copy would lose.
+
+**A link facet gets no reset.** Its selection is the page you are on, so
+"reset" would mean navigating somewhere else — that is the breadcrumb's job,
+and an icon that silently moves you to another page is worse than no icon.
+A facet dropped for having fewer than two options gets none either, because
+there is no heading to hang it on; the chip still clears it, which is why that
+path must keep working.
+
+**`rs_icon('rotate-ccw')` was added for this.** A cross beside a filter heading
+reads as "close this section", which is what the chevron already does.
+
+#### The price slider: the track and the thumbs were positioned by unrelated numbers
+
+Reported as "price range UI issue". Measured, not guessed:
+
+- **Vertical, 10.3px out.** The inputs were `top: 0.55rem` while the wrapper
+  had `padding-top: 1.1rem`. Absolute positioning resolves against the PADDING
+  box, so the padding moved the track and not the inputs — the line ran under
+  the circles instead of through them. The track is now a rail the thumbs and
+  the line both centre inside, and the wrapper uses MARGIN, because padding
+  would reintroduce exactly this.
+- **Horizontal.** A native range thumb travels between half a thumb from each
+  end, never the full width, but the fill was a percentage of the whole track —
+  so at the extremes it ran past the handles. Insetting the track by half a
+  thumb makes it span the thumb's exact travel, and the existing percentages
+  then land under the handles with no arithmetic in the script.
+- **`height: 0` on the inputs** gave the thumb no vertical hit area: fiddly
+  with a mouse, near-ungrabbable on touch. It is the rail height now.
+- **The lower handle could get stuck.** The two inputs overlap and the later
+  one wins every click, so dragging the lower thumb to the top end buried it
+  permanently. It is lifted above once it passes 90%.
+- **A full-width range now drops its parameters.** Clearing the price used to
+  leave `?min_price=1400&max_price=11400` — right results, but the chip and the
+  reset icon stayed and a copied link still looked filtered.
+
+Verified in the browser: vertical offset 0 (was 10.3), fill edges within 0.7px
+of the thumb centres at both extremes, the buried thumb grabbable again, and
+with JavaScript off each reset URL lands on exactly the right state.
+
+**`apply()` refreshes each facet's HEADING after a swap.** It deliberately
+never replaces the sidebar — that would collapse every accordion — but leaving
+the headings alone left a reset icon and an "applied" dot on a facet that was
+no longer filtering. `data-facet-key` on each `<details>` is what lets it find
+the matching heading in the fetched document.
+
+**A blanket regex over the stylesheet hit an unrelated rule.** Replacing
+`width: 0.9rem; height: 0.9rem` to tokenise the slider thumb also rewrote
+`.rs-sortwrap__icon`, pointing the sort chevron at a variable that does not
+exist in its scope. Nothing errors — the icon just sizes to `auto`. Grep for
+the new token afterwards and check every hit is in the block you meant.
+### The Occasion facet was the one that never went through base()
+
+"Facets are scoped to the page" was true of every facet except this one.
+`FacetService::occasions()` queried `collections` on its own, so its counts
+were SHOP-WIDE: inside Candle Holders it offered occasions whose gifts were
+nowhere on that page, and "Diwali 50" could sit beside a listing showing six.
+It now counts from `base()` like the rest, with INNER joins so an occasion with
+nothing on this page is absent rather than present with a zero.
+
+Measured after the fix — the same facet, three pages:
+
+```
+/diwali-gift-hampers  Festivals 50, Festive Corporate Gifting 50, Diwali 50
+/candle-holders       Diwali 2026 2, Client Gifting 1
+/collection/diwali    Festivals 50, Festive Corporate Gifting 50, Diwali 50
+```
+
+**The facet was invisible before any of this, and not because of a bug.** It
+drops itself below two options, and no product was tagged into any occasion, so
+it had none. A filter that is missing because the DATA is empty looks exactly
+like a filter that is missing because it was never built — check what the pivot
+table holds before changing the facet code.
+
+`DiwaliHamperSeeder` tags all fifty into `diwali`, `festivals` and
+`festive-corporate-gifting` through `CollectionModel::syncProductOccasions()`,
+which replaces occasion links and leaves collection links alone — so a rerun is
+idempotent (150 pivot rows, before and after). It CREATES only `diwali`; the
+other two belong to `OccasionSeeder` and are looked up, because a second seeder
+inventing a row another one owns is how two slightly different copies of one
+occasion appear.
+
+Diwali is seeded with `audience = both` and NO dates. A dated occasion 404s
+outside its window, which would kill the page the morning after Diwali while
+the hampers stayed listed everywhere else.
+### An image copied into uploads has no size ladder
+
+`ImageUploadService` builds the ladder on the way in, so anything arriving any
+OTHER way — copied in by hand, restored from a backup, written by an import
+script or a seeder — has none. The failure is SILENT: `rs_picture()` finds no
+variants, falls back to the single stored file, the page looks right, and every
+phone downloads the full-size photograph.
+
+`php spark rasmein:build-variants [dir]` fills the gaps. It defaults to
+`uploads`, skips anything already complete (so it is safe after every deploy),
+takes `--dry-run` and `--force`, and refuses a path containing `..`. A width
+wider than the source is never counted as missing, because the service refuses
+to upscale — without that carve-out every small image rebuilds on every run.
+
+**Normalise BOTH sides before stripping a root path.** The first version did
+`str_replace(['\\', $root], ['/', ''], $full)`, which replaces the separators
+first and therefore leaves `$root` — still carrying backslashes on Windows —
+matching nothing. Every path came out as
+`uploads/C:/xampp/.../uploads/x.jpg`, nothing resolved, and all 64 files were
+reported as "a file GD cannot decode". The error message sent the diagnosis at
+the images rather than at the path that named them.
+### The Diwali Hamper Collection — reading a catalogue with no text in it
+
+`DiwaliHamperSeeder` — 50 hampers, DK01 to DK50, from
+"Diwali catalogue 2026 New.pdf".
+
+**The PDF has no text layer at all.** 373 MB, 51 pages, and every page is a
+single flattened CMYK JPEG — `/ProcSet [/PDF /ImageC]`, one XObject, no fonts.
+`pdftotext` and the Read tool's extraction both return nothing, and the file is
+over the 100 MB extraction ceiling anyway. The pages were dumped by scanning
+the object table for `/Subtype /Image` + `/DCTDecode` and writing each stream
+out whole (a DCTDecode stream IS a JPEG, so no decoding is needed), then read
+visually.
+
+- **Adobe CMYK JPEGs are stored INVERTED, and GD cannot fix them.** GD decodes
+  a CMYK JPEG without complaining and returns what is effectively a negative —
+  the first read was a black page with dark-on-dark text, which looks like a
+  broken catalogue rather than a colour-space problem.
+  `imagefilter($im, IMG_FILTER_NEGATE)` makes it *legible* and was used to
+  read the pages, but **it is not the conversion** and must never be used to
+  produce artwork: inverting the RGB output is a different operation from
+  inverting CMYK and then converting. It shipped 50 product photographs with
+  the aubergine as pale lilac, no gold at all, and the lit diyas flattened to
+  pink discs — reported from the field as "a contrast issue".
+  The order that is correct is invert the CMYK channels FIRST, then convert,
+  which needs a decoder that reads CMYK natively. Pillow does; GD does not:
+  `ImageChops.invert(im).convert("RGB")` on an `im.mode == 'CMYK'` image.
+  Check a known-coloured area — not just a light one — before trusting any
+  page rendered from a print PDF.
+- **The subtitle was invisible until the levels were stretched.** Near-white
+  text on white: `IMG_FILTER_CONTRAST` blew it out completely (wrong
+  direction), and a level stretch mapping 215-255 onto 0-255 read it cleanly.
+  It turned out to be the same sentence on all fifty pages, which is why the
+  short description names the contents instead.
+
+**The prices are real**, unlike the candle stands — the catalogue prints an MRP
+on every page, so there is no placeholder and no "Price to confirm" eyebrow.
+1,552 to 11,344 rupees.
+
+**Corrected misspellings, deliberately.** The artwork carries "Fragnance"
+(about 12 pages), "Organsor", "Noise Grand 3les" and "3s", and
+"Notty NutsCashew". Those are normalised. Brand spellings that merely look odd
+— "Offikraft", "Jower Puffs", "Drippin", "chocosins", "Diwali spl box" — are
+verbatim. A genuine typo repeated across forty product pages reads as
+carelessness; a brand name someone chose does not.
+
+**A hamper is not a gift-box component.** `is_giftbox_eligible = 0` — putting a
+finished hamper inside a build-your-own box is a box in a box. The contents
+list goes in `composition`, one line per item, because for a hamper what is
+inside IS the specification.
+
+**Photographs were cut from the catalogue pages.** The left 60.5% of each page
+is the product tile — the arch plus the shot — so the left 57.8% is extracted
+at 1800px with Lanczos and no chroma subsampling (gold on aubergine is exactly
+what subsampling smears) and stored as
+`uploads/products/2026/09/diwali-gift-hamper-dk01.jpg`. The size ladder was
+then built by `service('imageVariants')->build()`, the same service every
+upload goes through, rather than by reimplementing its arithmetic: 12 files per
+product, 600 in all. **Seeding an image without its ladder is a silent quality
+loss** — `rs_picture()` falls back to the single file and says nothing.
+
+The seeder is additive and idempotent on SKU, so it must run AFTER
+`ProductCatalogueSeeder` in `DatabaseSeeder` or that seeder's truncate takes
+all fifty with it. Same rule as `CandleStandSeeder`, immediately above it.
 ### The product card's image fallback was the PLACEHOLDER
 
 `partials/product_card` read:
@@ -3348,6 +3730,497 @@ Verified: the storefront switcher writes `rs_mode` and flips the whole site in
 both directions (browser), and `set('journey_mode', …)` persists and reads back
 despite `is_locked = 1` (the lock only excludes a row from the bulk form). The
 admin screen itself was not exercised end to end — that needs a login.
+
+### Order-vs-enquiry and retail-vs-corporate are DIFFERENT QUESTIONS
+
+They had been collapsed into one value, and every consequence of that was a
+bug. The distinction, now enforced:
+
+| | what it means | who decides | read it with |
+|---|---|---|---|
+| `settings.journey_mode` | does the shop take money online at all | the admin, shop-wide | `storedJourneyMode()` |
+| `rs_mode` cookie | is this visitor buying for a business | the visitor, per browser | `isCorporate()` |
+| the resolved answer | may THIS person pay for THIS item | both, plus the product's pin | `journeyMode()` / `rs_is_enquire_mode($saleMode)` |
+
+**The shop's setting outranks the visitor's.** A cookie may only escalate
+buy → enquire; it can never pull someone out of a shop-wide enquiry mode,
+because that is not the visitor's decision to make.
+
+**Why the master switch did nothing.** `journeyMode()` consulted the cookie
+first, unconditionally — and `Home::index()` stamps `rs_mode=buy_now` on every
+homepage visit. So every visitor picked up a buy_now cookie on the way in, that
+cookie outranked the setting, and turning the shop to Enquire changed no page
+for anybody. Combined with the admin guard reading the same method (above), the
+switch was unreachable from both ends at once.
+
+Three further conflations fixed at the same time:
+
+- **`products.audience` filtered on `journeyMode()`.** Putting the shop into
+  enquiry mode silently swapped the whole catalogue to the corporate audience
+  and hid every retail-only piece from every visitor. Now `isCorporate()`.
+- **The header switcher tested `rs_is_enquire_mode()`**, so a shop that simply
+  does not take card payments showed "Corporate Gifts" as the active journey to
+  every visitor. Now `isCorporate()`.
+- **The bulk-quote modal** replaced the basket on cards and product pages
+  whenever the answer was "enquire". A retail visitor to an enquiry-mode shop
+  wants the ordinary enquiry list, not a corporate quote form. The modal is
+  `isCorporate()` only; everything else keeps the normal form and lets
+  `ctaLabel()` supply the wording.
+
+**`rs_is_enquire_mode()` was declared with no parameters** while three call
+sites passed `$product->sale_mode` — and PHP accepts extra arguments to a
+userland function in silence. So a product pinned to `enquire_now` was tested
+against the site mode instead of its own and offered "Add to cart" on a shop
+taking orders. Every piece over ₹5,000 in the seeded catalogue is pinned that
+way, so this was not an edge case. It now takes an optional item mode and
+resolves it.
+
+"Buy now" skips the basket, so it is no longer rendered at all when the
+resolved mode is enquire — in the column or in the sticky bar. A bar must never
+offer an action the page itself does not.
+
+Verified across all eight combinations by fetching the real pages:
+
+```
+STORE = buy_now      no cookie   -> Add to cart + Buy now
+                     buy cookie  -> Add to cart + Buy now
+                     corp cookie -> Request a bulk quote
+                     pinned item -> Add to enquiry   (no Buy now)
+STORE = enquire_now  no cookie   -> Add to enquiry   (no Buy now)
+                     buy cookie  -> Add to enquiry   <- the setting now wins
+                     corp cookie -> Request a bulk quote
+                     pinned item -> Add to enquiry
+```
+
+`PricingService::resolveJourney()` reads `isEnquireMode()`, which goes through
+`journeyMode()`, so checkout writes a genuine enquiry — the money path follows
+the switch without a separate change.
+
+**A settings change made with raw SQL is invisible for an hour.**
+`SettingsService` caches the whole table (`rasmein_settings`, 3600s) and only
+`set()` busts it. The first run of the test above showed the store setting
+having no effect at all, and that was the harness, not the app. Clear
+`writable/cache` after any direct UPDATE.
+
+### node_modules IS installable — build, do not hand-patch
+
+Earlier turns hand-edited `public/assets/css/app.css` because `node_modules`
+was absent. `npm install` works here (44 packages, ~16s) and `npm run build`
+takes under half a second. **Always build.** The compiled file went from 157 KB
+of accumulated hand-patching to 108 KB from source, and everything the
+hand-patches had added survived because it was all in the source too.
+
+Hand-patching also cannot introduce a new `@theme` token, which is what this
+change needed — so the first attempt at fluid type produced source edits that
+were simply invisible.
+
+### The type scale pulled apart on large screens
+
+Measured at 1920x1080: an `h1` at **84px** beside a **9px** product eyebrow and
+a **10px** section kicker. The display sizes were fluid (`clamp()` + `vw`) and
+everything small was a fixed `rem`, so the gap widened with every extra pixel
+of viewport. That is the whole of "some text is too small".
+
+Four tokens in `@theme`, each solved for its endpoints (min at a 360px phone,
+max at 1920) rather than eyeballed:
+
+```
+--rs-t-micro   11 -> 13px     eyebrows, flags, footer heads, arrow links
+--rs-t-kicker  11 -> 14px     section kickers
+--rs-t-nav     13 -> 15px     header navigation
+--rs-t-action  14 -> 15px     buttons
+--text-eyebrow 11 -> 13px
+```
+
+**Tailwind's own `--text-xs` and `--text-sm` are redefined on the same basis**,
+because the views use them everywhere and a component-only fix leaves half the
+page behind. The 94 arbitrary `text-[0.625rem]` / `text-[0.5625rem]` /
+`text-[0.6875rem]` utilities across 49 views were replaced with `text-xs` —
+an arbitrary value is a literal and cannot be redefined from the theme.
+
+**11px is the floor, not 10.** These are uppercase mono at 0.14–0.22em
+tracking, which reads smaller than its nominal size.
+
+Verified at 360 / 390 / 768 / 1024 / 1280 / 1366 / 1920 / 2560: nothing under
+11px on any page, and `scrollWidth - clientWidth` is 0 at every width.
+
+### Gold on cream was 2.3:1 — everywhere
+
+The brass accent against the cream shell fails every contrast threshold. It was
+painting section kickers (14px), the `.rs-display em` headline accent, product
+eyebrows, facet headings and the `text-brass` utility. At 14px and 2.3:1 that
+is the other half of "hard to read".
+
+- **`--rs-accent-ink`** is the same hue darkened to ~4.8:1 on cream, DERIVED
+  from `--rs-accent` with `color-mix` so it still follows Admin → Appearance.
+  It lives outside `@theme` because it depends on a variable DesignService
+  writes into the page head at runtime, which a build-time token cannot see;
+  the `@theme` literal is the no-`color-mix` fallback.
+- **Dark bands re-point the variable** rather than restating colours:
+  `.rs-hero, .rs-head, .rs-drawer, .rs-feature, .rs-foot, .rs-split__panel,
+  .rs-marquee, .rs-sidebar, .rs-on-dark { --rs-accent-ink: var(--rs-accent) }`.
+  A new dark section opts in with one declaration and cannot forget the em.
+  `.rs-on-dark` is the opt-in for a dark panel with no component class — the
+  admin sign-in page needed it, and missing it turned "ADMIN" into near-black
+  on maroon.
+- **`.rs-gold` replaced the `text-brass` utility on text** (27 occurrences).
+  It resolves the variable in the ELEMENT's own context, so it is correct on
+  both grounds with one class.
+- `.rs-modeswitch__opt.is-on` was white on brass — 2.4:1, making the ACTIVE
+  journey the least readable label in the header. Now the same `#2A1208` that
+  `.rs-btn--gold` already uses: 7.3:1.
+
+Verified: every gold instance now measures 4.6–5.3:1 on light grounds and
+6.4:1 on dark, across home, shop, product, cart, corporate, collections and
+the admin sign-in.
+
+**Measuring contrast needs the browser to resolve the colour.** A regex over
+`getComputedStyle().color` reports nonsense for `color(srgb …)` and `oklab(…)`
+— it read 0.5047 as an R value of 0.5 out of 255 and called a mid gold
+near-black, inventing four failures that did not exist and hiding the real
+ones. Set the colour on a throwaway element and read back what the browser
+computes. Text over a photograph has no computable background at all, so the
+audit skips it rather than reporting fiction.
+
+### Two traps while doing this
+
+- **`php -S localhost:8080 public/index.php` never serves the stylesheet.** A
+  router script swallows static files, so `app.css` 404s and every page renders
+  as unstyled UA defaults — buttons at 13.33px in Arial. The first round of
+  "measurements" was of a page with no CSS at all. Use `php spark serve`.
+  Check `document.styleSheets` reports a non-zero `cssRules.length` before
+  trusting any computed style.
+- **PowerShell string replacement mangled a CSS rule into one line** with
+  literal `0` where newlines should be, which silently dropped `.rs-gold` from
+  the build. The class was in the source and absent from the output, and the
+  only symptom was one label inheriting the body colour. After a scripted CSS
+  edit, grep the BUILT file for the new selector.
+
+### setJourneyMode() compares the VISITOR'S choice, not the resolved journey
+
+Field report: `/corporate` stopped turning corporate mode on.
+
+Separating the two questions (above) made `journeyMode()` return
+`enquire_now` unconditionally once the SHOP's master switch is set to Enquire.
+`setJourneyMode()` still guarded with `if ($this->journeyMode() === $mode)`, so
+on a shop in enquiry mode the guard matched the moment a visitor reached
+`/corporate`: it returned early, no cookie was written, the header kept reading
+"Personalised", and nothing carried to the next page.
+
+The guard now compares against the visitor's OWN state — the request cookie or
+this request's override — and `null` (no preference expressed yet) is never
+equal to a mode, so the first page that states one always writes.
+
+**It only reproduces on a shop whose master switch is Enquire**, which is why a
+default install looked fine. Reproduce by setting `journey_mode` to
+`enquire_now`, clearing `writable/cache`, and fetching `/corporate` with no
+cookie: the response must carry `Set-Cookie: rs_mode=enquire_now` AND render
+the switcher with `enquire_now` marked `is-on`.
+
+**A guard that reads a DERIVED value will fire on inputs its caller never set.**
+`setJourneyMode()` writes one of the inputs to `journeyMode()`; comparing
+against the output folds in the shop setting, which this method has no business
+reacting to.
+
+### partials/breadcrumbs renders "Home" itself
+
+It always emits a Home link before the crumbs it is given. Every caller relies
+on that and passes only the trail below it. `Pages::collections()` passed a Home
+crumb as well, so `/collection` read **"Home / Home / Collections"**.
+
+Two placement faults on the same page, both visible in one screenshot:
+
+- The partial was called AFTER the hero section, so the trail sat mid-page
+  between the hero and the first band instead of at the top.
+- It was not wrapped in `.rs-shell`, so it ran flush to the viewport edge and
+  lined up with nothing. Every other page opens with
+  `<div class="rs-shell pt-8">` around it.
+
+**`app/Views/storefront/collection_page.php` is DEAD** — `/collection` renders
+`storefront/pages/collections`, and nothing references `collection_page` at
+all. It is a near-copy carrying the same breadcrumb bug, so the next person to
+fix this will fix the wrong file. Delete it (see "Clean up after moving a
+feature between controllers").
+
+### `npm run dev` overwrites the minified build
+
+The `dev` script is `tailwindcss --watch` with no `--minify`, so a watcher left
+running rewrites `public/assets/css/app.css` unminified — 161 KB against the
+109 KB `npm run build` produces. Same CSS, and harmless in itself, but a
+deployed unminified build is a sign a watcher was running when it was cut.
+Run `npm run build` before deploying and check the byte count.
+
+### view() merges the PARENT's data — pass the key even when it is empty
+
+Field report: every card in the product page's "Goes well with" row showed the
+photograph of the product being *viewed*.
+
+`storefront/product.php` has an `$images` of its own — the gallery of the
+current product — and rendered each related card with
+`view('partials/product_card', ['product' => $item])`. CodeIgniter merges the
+calling view's data into the partial, so `$images ?? []` inside the card
+resolved to the PARENT's gallery, for every card. Twelve different pieces, one
+set of pictures, all belonging to something else.
+
+Third appearance of this shared-data trap: it also made 23 of 25 icons render
+at the wrong size, which is why `rs_icon()` is a helper rather than a partial.
+
+**Name every key a partial reads, even when the value is empty.** A partial's
+`?? []` is not a default — it is "whatever the parent happens to have". The
+related cards now pass `'images' => $relatedImages[$item->id] ?? []`, which
+shadows the parent whatever it holds.
+
+The controller batches those through `ProductModel::imagesFor()` — one query
+for the whole row, the same shape the listing uses — so each card also gets its
+full set for hover-cycling rather than the single `primary_image` fallback.
+
+Verified by asserting each card's image filename contains that card's own slug:
+12 of 12 correct, 0 foreign.
+
+### "Goes well with" is a rail, and carries twelve
+
+Four cards in a static grid was a smaller net than the section deserves: this
+row is the page's only route to the rest of the catalogue, and the only
+internal linking a crawler finds below the fold. A scroller costs the same
+vertical space whatever the count, so it shows twelve.
+
+Same component as the homepage best-sellers row — `.rs-rail rs-rail--cards`
+with `data-rail` and the `[data-rail-nav]` arrows — structure copied, not just
+the class name.
+
+### The Bespoke journey gallery shows ALL of them
+
+`liveFor('home_gallery', 12)` capped it at twelve. A shop that uploads seventy
+photographs wants seventy: the section is a drifting band, so its height does
+not grow with the count and the limit was protecting nothing. `findAll(0)`
+means all.
+
+**The drift duration now follows the CONTENT.** It was a fixed 48s, so two
+photographs crawled and seventy raced — a 42-tile row is ~7,900px, and covering
+that in 48s is 165px/s, far too fast to look at. Four seconds per tile, set
+inline from PHP because CSS cannot count children:
+
+```
+--rs-drift-ms: <tiles * 4>s     →  animation-duration: var(--rs-drift-ms, 48s)
+```
+
+Measured: 13 images give rows of 42 and 36 tiles at 84s and 72s — **47 px/s
+each** — and 83 images give 168s and 164s, also 47 px/s. Constant speed from a
+handful to a hundred.
+
+The `$minPerPass = 16` repetition still applies underneath and simply never
+fires once a row holds more than sixteen of its own. Only the first appearance
+of each photograph is announced; with 83 images that is 83 announced out of 166
+rendered.
+
+**A limit exists to protect something. Name what, or drop it.** Twelve here
+protected neither height nor bytes — the tiles are lazy — so it only lost
+pictures the shop had deliberately uploaded.
+
+### The one-time code on screen — DEVELOPMENT ONLY
+
+Until SMTP is configured there is no inbox to read, and being sent to the admin
+mail queue mid-signup is a poor way to test a sign-in flow. So the code screen
+shows the code — but only when `CI_ENVIRONMENT` is not `production`.
+
+**Three independent gates, deliberately.** `OtpService::issue()` returns the
+plaintext only outside production; `Auth::rememberDevCode()` checks again
+before flashing it; `auth_code.php` checks a third time before drawing. Any one
+would do. Three means a single careless edit cannot put a live code on a
+customer's screen.
+
+Nothing else is weakened: the code is still hashed in `auth_codes`, still
+emailed, still expires in ten minutes, still capped at five guesses. The panel
+is deliberately ugly — dashed amber border, "Development only" in the corner —
+so that if it ever does appear on a live shop it reads as a fault rather than a
+feature.
+
+`issue()` returns `'code'` on EVERY path (null on the rate-limited one), so a
+caller never has to guess the shape.
+
+**Verified by flipping the environment**, not by reading the code: with
+`CI_ENVIRONMENT = production` the registration flow renders no panel and no
+code; back on development the panel appears AND the code shown actually
+verifies — proving it is the real one rather than a decorative number.
+
+### The registration duplicate check — a deliberate reversal
+
+`Auth::exists()` answers "does an account already use this email / phone",
+debounced from the registration form.
+
+**This reverses "Never confirm whether an email has an account" above.** That
+rule was set deliberately and the rest of the auth flow still honours it —
+sign-in, reset and the register POST all behave identically whether or not an
+account exists. This one endpoint does not, because it was asked for: filling
+in three fields before discovering you already have an account is a worse
+experience, and that is the shop's trade to make.
+
+**What it costs, plainly: this is an account-enumeration oracle.** The
+mitigations raise the cost of abusing it; they do not remove it.
+
+- POST behind the CSRF filter, so it needs a session and a live token rather
+  than being scrapeable from a bare URL.
+- Throttled to 60/minute per IP. Signing up needs two; hundreds is not signing
+  up.
+- Answers only for a WELL-FORMED value, so it cannot be walked through
+  malformed variants to probe how matching works.
+- Yes or no for the exact value asked about — never a name, a masked address
+  or anything identifying whose account it is.
+- On the limit it returns `ignored`, not an error: a hint that cannot be
+  fetched must never stop someone registering.
+
+The submit path is unchanged. A taken address still gets a LOGIN code and
+signs the real owner in, so this is a hint on the way in, not a new gate — and
+with JavaScript off the form behaves exactly as it did.
+
+**It must return `csrf_hash()`.** `security.regenerate` rotates the token on
+every validated POST, and a debounced check spends one per keystroke-pause. The
+script writes the fresh hash back into every `input[name^="csrf"]` on the page;
+without that the register form is holding a spent token by the time it submits.
+Verified: five consecutive checks, all accepted.
+
+500ms debounce, not per keystroke — a check per character is a dozen requests
+for one address, and far more use to someone enumerating than to someone
+signing up. An in-flight check is aborted when a newer one starts, so a slow
+reply cannot overwrite a newer answer.
+
+Verified end to end with a cookie jar: a just-registered email and phone both
+report `exists: true`, an unknown address `false`, and malformed values and
+unknown field names are ignored.
+
+### One presenter for an order, two screens
+
+`OrderViewService::forCustomer()` assembles everything a customer-facing screen
+needs about one order or enquiry, and `partials/order_detail` draws it. The
+signed-in account page and the public tracking page both use them.
+
+Built twice, those two WOULD drift — one would get the quoted total and the
+other keep showing the basket, and nobody notices until a customer is quoting
+two different numbers back at the shop.
+
+**Access control is deliberately NOT in the service.** It presents an order it
+is given; deciding who may see it belongs to the caller — the account area
+scopes by `customer_id`, Track matches the reference against the contact on the
+order. Putting it inside a formatter would hide the decision that matters.
+
+### Which number the customer is shown
+
+An enquiry's `grand_total` is what the basket came to before anyone looked at
+it — carriage, quantity pricing and anything bespoke all still unknown. Once an
+administrator sets `quoted_value`, THAT is what the shop has offered and it is
+what appears, labelled "Your quote".
+
+- `!== null`, never `?:` or `??`. A quote of exactly zero — a sample, a
+  goodwill replacement — is a real decision and must not fall back to the
+  basket total.
+- When a quote exists the **line breakdown is not drawn at all**. Subtotal and
+  delivery under a different grand total invites the customer to add them up
+  and find they do not reconcile.
+- Until then it reads "Indicative total" with a sentence saying what is still
+  to be settled.
+
+The admin enquiry screen shows both figures together — the only place the gap
+between basket and quote is visible — with "The customer sees this figure."
+under the quoted one.
+
+### The pipeline vocabulary is not the customer's
+
+`enquiryStatuses` is the sales pipeline: New, Contacted, Quoted, Won, Lost,
+Spam. None of those are things to say to the person who sent the enquiry.
+`Config\Rasmein::$enquiryStagesPublic` maps them to Received / In discussion /
+Quote ready / Confirmed / Closed, with a sentence each in
+`$enquiryStageNotes`.
+
+**`spam` reads exactly like `lost`.** Telling someone we marked their enquiry
+as spam is worse than useless, and a shop that got it wrong would have an angry
+customer holding the evidence.
+
+`orders.status` stays `pending` for an enquiry's whole life, so the account
+list and order page show the STAGE instead — joined in with a LEFT JOIN on
+`enquiries`, because most rows are ordinary purchases with nothing to join to.
+Before this the customer saw "pending" beside a quote agreed a week ago.
+
+### Guest tracking: reference AND contact
+
+`/track`. Most orders here are placed as a guest, so "sign in to see your
+order" is a door most customers have no key to.
+
+- **Both factors, always.** A reference alone reads a name, an address and
+  totals, and `RSM-2026-000123` is sequential enough to walk. The second factor
+  is the email or phone already on the order — a guest has no account to match
+  against.
+- **One message** for "no such reference" and "that is not the contact on it".
+  Distinguishing them confirms a reference exists, which is what someone
+  walking the range wants to learn.
+- Throttled to 20 attempts per IP per hour. Being rate limited IS reported,
+  unlike a miss — that is not information about anybody's order.
+- The result lives at the order's UUID, and the UUID has to be in
+  `session('tracked_orders')` to open. The contact details never reach a URL,
+  browser history or a Referer header, and the session check is what grants
+  access — an unguessable UUID is a property of the generator, not of this code.
+- Phone matching is the last ten digits, email is case-insensitive, both with
+  `hash_equals`. A customer re-entering their own details must not fail on a
+  space.
+
+### `needed_by` cannot be in the past
+
+`App\Validation\RasmeinRules::rs_not_past`, registered in
+`Config\Validation::$ruleSets` — a rule is only usable by name once its class
+is listed there.
+
+The input carries `min`/`max` so the picker behaves, but that is a hint to a
+browser; the rule is the check. Compared as `Y-m-d` strings, so it is a
+calendar-day test with no hours-and-minutes edge at either end, and empty
+passes because `permit_empty` is what decides optionality.
+
+**No `errors` entry for it.** The rule sets `$error` by reference and CI4
+prefers that, so a configured message would never be seen — and a message that
+cannot fire is worse than none, because the next person edits it and nothing
+happens. Verified: posting a date ten days ago creates no enquiry and returns
+to the form with "That date is in the past."
+
+The admin screen flags a `needed_by` that has already passed, in red. A date
+that slid by unnoticed is the most useful thing on that panel.
+
+### Checkout prefills from the profile — as DEFAULTS
+
+A signed-in customer's name, email, phone and default shipping address fill the
+checkout form. `Checkout::prefill()` reads them scoped by
+`session('customer_id')`; a signed-out visitor gets an empty array and the form
+behaves exactly as before.
+
+**Order of precedence: `old()` → profile → fallback.** After a validation
+failure `old()` holds what the person actually typed, and reinstating their
+profile over it would undo a deliberate edit — most often a gift going to
+someone else's address. Every field stays editable, and nothing is copied back
+into the account: an order sent to a friend must not silently become the
+customer's default.
+
+### The account page had a form that 404'd
+
+It carried a Password panel — current, new, confirm — posting to
+`account/password`. **That route does not exist**, and `AccountArea::changePassword()`
+had no route either: dead code behind a broken control, asking for a password a
+passwordless account has never had.
+
+Both are deleted, not wired up — the same reasoning that deleted the password
+sign-in actions. An unreachable password path beside a passwordless one invites
+someone to reconnect it, and that reopens what one-time codes closed.
+
+In its place the page says how signing in actually works, shows saved addresses
+with what they are for, and points guests at `/track`. Enquiries and purchases
+are counted and labelled separately: lumping them into "orders placed" counts
+things nobody bought.
+
+### The admin enquiry screen was missing half the record
+
+Collected and never drawn: the delivery address, the note at the foot of the
+checkout form, the gift message, the GSTIN, the source, the spam score, the
+estimated value and every timestamp. **A field captured and never shown is
+worse than one never captured** — somebody filled it in and nobody can read it.
+
+All of it is on the page now, plus the totals breakdown, the coupon, and a link
+to the order record that holds the payment state and status history.
 
 ### Outstanding security work (tracked, not yet done)
 

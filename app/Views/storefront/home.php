@@ -63,7 +63,7 @@ $rsMarquee = service('design');
                     <span class="rs-marquee__item" <?= $pass === 1 ? 'aria-hidden="true"' : '' ?>>
                         <?php foreach ($phrases as $phrase): ?>
                             <span><?= esc($phrase) ?></span>
-                            <span class="text-brass" aria-hidden="true">&middot;</span>
+                            <span class="rs-gold" aria-hidden="true">&middot;</span>
                         <?php endforeach; ?>
                     </span>
                 <?php endfor; ?>
@@ -302,7 +302,7 @@ $rsMarquee = service('design');
                 </h2>
             </div>
             <?php if ($reviewStats['count'] > 0): ?>
-                <p class="num font-mono text-[0.625rem] tracking-[0.16em] text-ink-muted uppercase">
+                <p class="num font-mono text-xs tracking-[0.16em] text-ink-muted uppercase">
                     <?= esc((string) $reviewStats['average']) ?> / 5 &middot;
                     <?= (int) $reviewStats['count'] ?> review<?= $reviewStats['count'] === 1 ? '' : 's' ?>
                 </p>
@@ -428,8 +428,23 @@ $rsMarquee = service('design');
                     }
                 }
                 ?>
+                <?php
+                /*
+                 * The duration follows the CONTENT, so the speed is constant.
+                 *
+                 * A fixed 48s meant two photographs crawled and seventy raced:
+                 * the track is ~190px per tile, so a 35-tile pass is 6,650px
+                 * and covering it in 48s is 140px/s — far too fast to look at.
+                 * Four seconds per tile keeps it to a steady stroll whatever
+                 * the shop uploads.
+                 *
+                 * In PHP because CSS cannot count children, and the count is
+                 * already known here.
+                 */
+                $driftSeconds = max(24, count($pass) * 4);
+                ?>
                 <div class="rs-drift <?= $index === 1 ? 'rs-drift--back' : '' ?>">
-                    <ul class="rs-drift__track">
+                    <ul class="rs-drift__track" style="--rs-drift-ms: <?= (int) $driftSeconds ?>s">
                         <?php /* Twice: the keyframe's -50% lands exactly on the
                                  start of the second copy. */ ?>
                         <?php for ($copy = 0; $copy < 2; $copy++): ?>

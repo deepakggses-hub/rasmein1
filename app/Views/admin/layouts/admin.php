@@ -85,7 +85,7 @@ foreach ($nav as $group) {
                     Rasme<span class="relative">i<span class="absolute -top-px left-1/2 h-1 w-1 -translate-x-1/2 rounded-full bg-brass"></span></span>n
                 </span>
                 <?php endif; ?>
-                <span class="hidden font-mono text-[0.5625rem] tracking-[0.26em] text-brass uppercase sm:inline">Admin</span>
+                <span class="hidden font-mono text-xs tracking-[0.26em] rs-gold uppercase sm:inline">Admin</span>
             </a>
         </div>
 
@@ -126,7 +126,7 @@ foreach ($nav as $group) {
                     <span class="rs-avatar"><?= esc(mb_strtoupper(mb_substr((string) ($admin['name'] ?? '?'), 0, 1))) ?></span>
                     <span class="hidden text-left sm:block">
                         <span class="block text-xs leading-tight font-medium text-shell"><?= esc($admin['name'] ?? '') ?></span>
-                        <span class="block font-mono text-[0.5625rem] tracking-[0.12em] text-shell/50 uppercase"><?= esc($admin['role_name'] ?? '') ?></span>
+                        <span class="block font-mono text-xs tracking-[0.12em] text-shell/50 uppercase"><?= esc($admin['role_name'] ?? '') ?></span>
                     </span>
                 </button>
 

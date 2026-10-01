@@ -25,6 +25,9 @@ class Validation extends BaseConfig
         FormatRules::class,
         FileRules::class,
         CreditCardRules::class,
+        // Rules particular to this shop — rs_not_past, rs_within_days.
+        // A rule is only usable by name once its class is listed here.
+        \App\Validation\RasmeinRules::class,
     ];
 
     /**

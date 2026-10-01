@@ -237,9 +237,15 @@ class ProductModel extends Model
          * `both` always shows, so an untagged catalogue behaves exactly as it
          * did before the column existed.
          */
-        $audience = service('settings')->journeyMode() === \Config\Rasmein::MODE_ENQUIRE
-            ? 'corporate'
-            : 'retail';
+        /*
+         * The visitor's CORPORATE journey, not the shop's selling mode.
+         *
+         * This read journeyMode(), so putting the shop into enquiry mode —
+         * "we take quotes, not card payments" — silently swapped the whole
+         * catalogue to the corporate audience and hid every retail-only piece
+         * from every visitor. Those are different questions.
+         */
+        $audience = service('settings')->isCorporate() ? 'corporate' : 'retail';
 
         $this->whereIn('products.audience', ['both', $audience]);
 

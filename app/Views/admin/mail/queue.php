@@ -87,7 +87,7 @@ $badge = static fn (string $s): string => match ($s) {
                             <p class="rs-help">
                                 <?= esc($row['recipient']) ?>
                                 <?php if (! empty($row['template_key'])): ?>
-                                    <span class="mx-1 text-brass" aria-hidden="true">&middot;</span>
+                                    <span class="mx-1 rs-gold" aria-hidden="true">&middot;</span>
                                     <span class="font-mono"><?= esc($row['template_key']) ?></span>
                                 <?php endif; ?>
                             </p>
@@ -110,11 +110,11 @@ $badge = static fn (string $s): string => match ($s) {
                         <?php endif; ?>
 
                         <div class="shrink-0 text-right">
-                            <p class="num font-mono text-[0.625rem] text-ink-muted">
+                            <p class="num font-mono text-xs text-ink-muted">
                                 <?= esc(date('j M, H:i', strtotime((string) ($row['sent_at'] ?: $row['created_at'])))) ?>
                             </p>
                             <?php if ((int) $row['attempts'] > 0): ?>
-                                <p class="num font-mono text-[0.625rem] text-ink-muted">
+                                <p class="num font-mono text-xs text-ink-muted">
                                     <?= (int) $row['attempts'] ?> attempt<?= (int) $row['attempts'] === 1 ? '' : 's' ?>
                                 </p>
                             <?php endif; ?>

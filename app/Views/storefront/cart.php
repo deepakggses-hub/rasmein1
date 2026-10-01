@@ -103,7 +103,7 @@ $forcedByItem = $isEnquiry && ! rs_is_enquire_mode();
                                                 <?= esc($line['name']) ?>
                                             <?php endif; ?>
                                         </h2>
-                                        <p class="mt-1 flex flex-wrap items-center gap-2 font-mono text-[0.625rem] tracking-[0.12em] text-ink-muted uppercase">
+                                        <p class="mt-1 flex flex-wrap items-center gap-2 font-mono text-xs tracking-[0.12em] text-ink-muted uppercase">
                                             <?php if ($line['unit_label'] !== null): ?>
                                                 <span><?= esc($line['unit_label']) ?></span>
                                             <?php endif; ?>
@@ -128,7 +128,7 @@ $forcedByItem = $isEnquiry && ! rs_is_enquire_mode();
                                 <!-- gift box contents -->
                                 <?php if ($line['type'] === 'gift_box'): ?>
                                     <div class="mt-3 border-l-2 border-brass/40 pl-4">
-                                        <p class="num font-mono text-[0.625rem] tracking-[0.12em] text-brass uppercase">
+                                        <p class="num font-mono text-xs tracking-[0.12em] rs-gold uppercase">
                                             <?= (int) $line['slots_used'] ?> of <?= (int) $line['capacity'] ?> compartments
                                         </p>
                                         <ul class="mt-2 space-y-1 text-sm text-ink-muted">

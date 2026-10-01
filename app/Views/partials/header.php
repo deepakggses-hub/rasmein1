@@ -126,7 +126,7 @@ $rsNoticeTo = trim((string) service('settings')->get('header_notice_link', ''));
                     <span class="block font-display text-2xl leading-none font-semibold text-shell sm:text-[1.75rem]">
                         Rasme<span class="relative">i<span class="absolute -top-px left-1/2 h-1 w-1 -translate-x-1/2 rounded-full bg-brass"></span></span>n
                     </span>
-                    <span class="mt-0.5 block font-mono text-[0.5rem] tracking-[0.3em] text-brass uppercase">
+                    <span class="mt-0.5 block font-mono text-[0.5rem] tracking-[0.3em] rs-gold uppercase">
                         <?= esc(rs_excerpt($brand->brandTagline, 26)) ?>
                     </span>
                 <?php endif; ?>
@@ -173,7 +173,15 @@ $rsNoticeTo = trim((string) service('settings')->get('header_notice_link', ''));
                  * It carries the current path so switching mid-browse does not
                  * throw the visitor back to the homepage.
                  */
-                $isEnquire = rs_is_enquire_mode();
+                /*
+                 * isCorporate(), not rs_is_enquire_mode().
+                 *
+                 * This switcher chooses retail or corporate. The enquire test
+                 * is also true when the SHOP is in enquiry mode, which would
+                 * have shown "Corporate Gifts" as the active journey to every
+                 * visitor of a shop that simply does not take card payments.
+                 */
+                $isEnquire = service('settings')->isCorporate();
                 ?>
                 <?php
                 /*
@@ -248,7 +256,7 @@ $rsNoticeTo = trim((string) service('settings')->get('header_notice_link', ''));
 <!-- Drawer, rendered once and moved by CSS rather than injected by script. -->
 <div id="rs-drawer" class="rs-drawer" data-drawer hidden>
     <div class="flex items-center justify-between pb-3">
-        <span class="rs-kicker rs-kicker--bare text-brass">Menu</span>
+        <span class="rs-kicker rs-kicker--bare rs-gold">Menu</span>
         <button type="button" class="rs-iconbtn" data-drawer-close aria-label="Close the menu">
             <?= rs_icon('close', 'h-5 w-5') ?>
         </button>
@@ -276,10 +284,14 @@ $rsNoticeTo = trim((string) service('settings')->get('header_notice_link', ''));
                       class="mt-5 border-t border-shell-line/20 pt-5">
                     <?= csrf_field() ?>
                     <input type="hidden" name="return_to" value="<?= esc(uri_string(), 'attr') ?>">
+                    <?php /* The drawer's toggle chooses the same thing the
+                             header switcher does, so it asks the same
+                             question — the corporate journey, not whether the
+                             shop takes payment. */ ?>
                     <input type="hidden" name="mode"
-                           value="<?= rs_is_enquire_mode() ? \Config\Rasmein::MODE_BUY : \Config\Rasmein::MODE_ENQUIRE ?>">
+                           value="<?= service('settings')->isCorporate() ? \Config\Rasmein::MODE_BUY : \Config\Rasmein::MODE_ENQUIRE ?>">
                     <button type="submit" class="rs-modeswitch__btn !flex"
-                            aria-pressed="<?= rs_is_enquire_mode() ? 'true' : 'false' ?>">
+                            aria-pressed="<?= service('settings')->isCorporate() ? 'true' : 'false' ?>">
                         <span class="rs-modeswitch__track" aria-hidden="true">
                             <span class="rs-modeswitch__knob"></span>
                         </span>

@@ -131,7 +131,7 @@ $oldPicks = old('products');
                                                class="accent-mulberry" data-tag <?= $on ? 'checked' : '' ?>>
                                         <span class="min-w-0 flex-1">
                                             <span class="block text-sm"><?= esc($product->name) ?></span>
-                                            <span class="num block font-mono text-[0.625rem] text-ink-muted">
+                                            <span class="num block font-mono text-xs text-ink-muted">
                                                 <?= esc($product->sku) ?>
                                                 <?php if (! empty($product->category_name)): ?>
                                                     · <?= esc($product->category_name) ?>

@@ -34,17 +34,17 @@ $reference = $isEnquiry && $enquiry !== null ? $enquiry['enquiry_ref'] : $order[
 
         <dl class="mt-9 flex flex-wrap gap-x-12 gap-y-4 border-t border-brass/25 pt-6">
             <div>
-                <dt class="font-mono text-[0.625rem] tracking-[0.16em] text-brass-bright uppercase">Reference</dt>
+                <dt class="font-mono text-xs tracking-[0.16em] text-brass-bright uppercase">Reference</dt>
                 <dd class="num mt-1 font-display text-xl font-semibold"><?= esc($reference) ?></dd>
             </div>
             <div>
-                <dt class="font-mono text-[0.625rem] tracking-[0.16em] text-brass-bright uppercase">
+                <dt class="font-mono text-xs tracking-[0.16em] text-brass-bright uppercase">
                     <?= $isEnquiry ? 'Estimated' : 'Total' ?>
                 </dt>
                 <dd class="num mt-1 font-display text-xl font-semibold"><?= rs_money($order['grand_total']) ?></dd>
             </div>
             <div>
-                <dt class="font-mono text-[0.625rem] tracking-[0.16em] text-brass-bright uppercase">Placed</dt>
+                <dt class="font-mono text-xs tracking-[0.16em] text-brass-bright uppercase">Placed</dt>
                 <dd class="mt-1 font-display text-xl font-semibold">
                     <?= esc(date('j M Y', strtotime((string) $order['placed_at']))) ?>
                 </dd>
@@ -68,7 +68,7 @@ $reference = $isEnquiry && $enquiry !== null ? $enquiry['enquiry_ref'] : $order[
                                 <?php if (! empty($item['variant_label'])): ?>
                                     <p class="rs-help"><?= esc($item['variant_label']) ?></p>
                                 <?php endif; ?>
-                                <p class="mt-1 font-mono text-[0.625rem] tracking-[0.12em] text-ink-muted uppercase">
+                                <p class="mt-1 font-mono text-xs tracking-[0.12em] text-ink-muted uppercase">
                                     <?php if ($item['sku_snapshot'] !== null): ?>
                                         <?= esc($item['sku_snapshot']) ?> &middot;
                                     <?php endif; ?>
@@ -150,7 +150,7 @@ $reference = $isEnquiry && $enquiry !== null ? $enquiry['enquiry_ref'] : $order[
                     foreach ($steps as $index => $step):
                     ?>
                         <li class="flex gap-3">
-                            <span class="num shrink-0 font-mono text-[0.6875rem] text-brass">
+                            <span class="num shrink-0 font-mono text-xs rs-gold">
                                 <?= str_pad((string) ($index + 1), 2, '0', STR_PAD_LEFT) ?>
                             </span>
                             <span><?= esc($step) ?></span>

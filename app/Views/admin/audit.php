@@ -30,7 +30,7 @@
         <?php else: ?>
             <table class="w-full min-w-3xl text-sm">
                 <thead class="border-b border-shell-line bg-shell-deep text-left">
-                    <tr class="font-mono text-[0.5625rem] tracking-[0.14em] text-ink-muted uppercase">
+                    <tr class="font-mono text-xs tracking-[0.14em] text-ink-muted uppercase">
                         <th class="px-4 py-2.5">When</th>
                         <th class="px-4 py-2.5">Who</th>
                         <th class="px-4 py-2.5">Action</th>
@@ -53,14 +53,14 @@
                             <td class="px-4 py-2.5">
                                 <?php if (! empty($entry['old_values']) || ! empty($entry['new_values'])): ?>
                                     <details>
-                                        <summary class="cursor-pointer font-mono text-[0.625rem] text-brass">diff</summary>
+                                        <summary class="cursor-pointer font-mono text-xs rs-gold">diff</summary>
                                         <?php if (! empty($entry['old_values'])): ?>
-                                            <p class="mt-1 font-mono text-[0.625rem] break-all text-bad">
+                                            <p class="mt-1 font-mono text-xs break-all text-bad">
                                                 &minus; <?= esc(rs_excerpt($entry['old_values'], 160)) ?>
                                             </p>
                                         <?php endif; ?>
                                         <?php if (! empty($entry['new_values'])): ?>
-                                            <p class="mt-0.5 font-mono text-[0.625rem] break-all text-pista-deep">
+                                            <p class="mt-0.5 font-mono text-xs break-all text-pista-deep">
                                                 + <?= esc(rs_excerpt($entry['new_values'], 160)) ?>
                                             </p>
                                         <?php endif; ?>

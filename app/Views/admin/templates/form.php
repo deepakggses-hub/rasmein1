@@ -68,7 +68,7 @@
             </div>
             <div class="px-5 py-4">
                 <p class="text-sm">
-                    <span class="font-mono text-[0.5625rem] tracking-[0.14em] text-ink-muted uppercase">Subject</span><br>
+                    <span class="font-mono text-xs tracking-[0.14em] text-ink-muted uppercase">Subject</span><br>
                     <span class="font-semibold"><?= esc($preview['subject']) ?></span>
                 </p>
                 <div class="mt-4 overflow-hidden border border-shell-line">
@@ -77,7 +77,7 @@
                             srcdoc="<?= esc($preview['html'], 'attr') ?>"></iframe>
                 </div>
                 <details class="mt-4">
-                    <summary class="cursor-pointer font-mono text-[0.625rem] tracking-widest text-brass uppercase">
+                    <summary class="cursor-pointer font-mono text-xs tracking-widest rs-gold uppercase">
                         Plain-text version
                     </summary>
                     <pre class="mt-2 overflow-x-auto bg-shell-deep p-3 text-xs whitespace-pre-wrap"><?= esc($preview['text']) ?></pre>

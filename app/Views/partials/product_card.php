@@ -17,7 +17,17 @@
  */
 $showQuick = $showQuick ?? true;
 $inStock   = $product->inStock();
-$isEnquire = rs_is_enquire_mode($product->sale_mode ?? 'inherit');
+/*
+ * Two different questions, and they need two different answers.
+ *
+ *  $isEnquire   — will this end in a quote rather than a payment? True when
+ *                 the shop sells that way, OR this product is pinned to it.
+ *                 Drives wording.
+ *  $isCorporate — is this visitor on the corporate journey? Drives whether
+ *                 the basket is replaced by the bulk-quote modal.
+ */
+$isEnquire   = rs_is_enquire_mode($product->sale_mode ?? 'inherit');
+$isCorporate = service('settings')->isCorporate();
 $url       = site_url('product/' . $product->slug);
 
 /*
@@ -108,15 +118,22 @@ if (! $inStock) {
                          something in the basket, then a stepper. The script
                          swaps between them; with no JavaScript the Add button
                          posts normally and the stepper never appears. */ ?>
-                <?php if ($isEnquire): ?>
+                <?php if ($isCorporate): ?>
                     <?php
                     /*
-                     * In corporate mode there is no basket for this piece.
+                     * In CORPORATE mode there is no basket for this piece.
                      *
                      * A business ordering two hundred is not adding to a cart
                      * and paying — they are asking for a quote. Showing "Add to
                      * cart" beside a bulk enquiry is offering a route that ends
                      * in the wrong place.
+                     *
+                     * This tested $isEnquire, which is also true when the SHOP
+                     * takes no online payment. A retail visitor to such a shop
+                     * was shown "Bulk enquiry" on every card — the corporate
+                     * quote modal — when what they want is the ordinary
+                     * enquiry list, which the branch below gives them with the
+                     * labels ctaLabel() already resolves.
                      */
                     ?>
                     <button type="button" class="rs-btn rs-btn--primary rs-btn--sm w-full flex-1"

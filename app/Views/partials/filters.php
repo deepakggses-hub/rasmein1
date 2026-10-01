@@ -56,11 +56,38 @@ $sort = $active['sort'] ?? null;
             }
         }
         ?>
-        <details class="rs-facet" <?= $index === 0 || $hasChosen ? 'open' : '' ?>>
+        <?php
+        /*
+         * A reset link appears only where the controller found this facet's
+         * parameters in the query string. It is an ANCHOR, not a button: the
+         * form is a GET form, so "clear this one" is just another URL — it
+         * works with the script blocked, can be middle-clicked, and needs no
+         * special case in the auto-submit handler.
+         */
+        $resetUrl = $facet['reset_url'] ?? null;
+        ?>
+        <?php /* The key lets the in-place swap find this facet's heading in the
+                 new document and refresh just that, rather than replacing the
+                 sidebar and closing every accordion the reader opened. */ ?>
+        <details class="rs-facet" data-facet-key="<?= esc((string) ($facet['key'] ?? $index), 'attr') ?>"
+                 <?= $index === 0 || $hasChosen ? 'open' : '' ?>>
             <summary class="rs-facet__head">
-                <?= esc($facet['label']) ?>
+                <?php /* The label takes the free space, so the controls after it sit
+                         right without each needing its own `margin-left: auto` —
+                         two autos split the gap between them and drift apart. */ ?>
+                <span class="rs-facet__title"><?= esc($facet['label']) ?></span>
                 <?php if ($hasChosen): ?>
                     <span class="rs-facet__dot" aria-label="filter applied"></span>
+                <?php endif; ?>
+                <?php if ($resetUrl !== null): ?>
+                    <?php /* Built by the controller from current_url(): output raw,
+                             because esc(..., 'attr') encodes / ? = & and makes the
+                             link unreadable (CLAUDE.md, the esc-on-URLs note). */ ?>
+                    <a href="<?= $resetUrl ?>" class="rs-facet__reset" data-facet-reset
+                       title="Clear <?= esc(strtolower((string) $facet['label']), 'attr') ?>">
+                        <?= rs_icon('rotate-ccw', 'rs-facet__reseticon') ?>
+                        <span class="sr-only">Clear the <?= esc($facet['label']) ?> filter</span>
+                    </a>
                 <?php endif; ?>
                 <?php /* Size comes from .rs-facet__chev, not a utility class: a Tailwind
                              class with a dot in it does not survive the escaping rs_icon()

@@ -59,7 +59,28 @@ class Products extends StorefrontController
             'product'  => $product,
             'images'   => model(ProductImageModel::class)->forProduct($product->id),
             'category' => $category,
-            'related'  => $model->related($product, 4),
+            /*
+             * Twelve, not four, and shown as a scroller.
+             *
+             * This row is the page's only route to the rest of the catalogue —
+             * it is what a reader follows when the piece in front of them is
+             * not quite right, and what links the catalogue together for a
+             * crawler. Four cards in a static grid was a smaller net than the
+             * section is worth; a rail costs the same vertical space whatever
+             * the count.
+             */
+            'related'  => $related = $model->related($product, 12),
+            /*
+             * Each related card's OWN photographs, batched in one query.
+             *
+             * Without this the partial falls back to `primary_image` — correct
+             * but single — and, far worse, it used to inherit the `$images`
+             * of the product being viewed. See the note in the view.
+             */
+            'relatedImages' => $model->imagesFor(array_map(
+                static fn ($p): int => (int) $p->id,
+                $related
+            )),
             'crumbs'   => $crumbs,
         ], [
             'title'       => ($product->meta_title ?: $product->name) . ' · ' . $this->brand->brandName,

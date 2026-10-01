@@ -71,7 +71,7 @@ $long = ['search_placeholders', 'auth_login_body', 'auth_register_body', 'auth_p
                     <?php if ($configured): ?>
                         <span class="text-good">Connected.</span> The button shows on the sign-in screen.
                     <?php else: ?>
-                        <span class="text-brass">Not connected.</span> The button stays hidden until both
+                        <span class="rs-gold">Not connected.</span> The button stays hidden until both
                         fields below are filled in.
                     <?php endif; ?>
                 </p>
@@ -107,7 +107,7 @@ $long = ['search_placeholders', 'auth_login_body', 'auth_register_body', 'auth_p
                 <div class="mt-5 border-t border-shell-line pt-4">
                     <span class="rs-label">Redirect URI</span>
                     <p class="rs-help">Paste this into the Google Cloud console, exactly:</p>
-                    <code class="mt-2 block break-all bg-shell-deep p-2 font-mono text-[0.6875rem]">
+                    <code class="mt-2 block break-all bg-shell-deep p-2 font-mono text-xs">
                         <?= esc($redirectUri) ?>
                     </code>
                 </div>

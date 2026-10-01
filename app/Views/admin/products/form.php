@@ -186,7 +186,7 @@ $checked = static fn (string $field, bool $fallback): string => (old($field) !==
                                         <span class="rs-badge rs-badge--brass">Main</span>
                                     <?php else: ?>
                                         <button type="submit" form="img-primary-<?= (int) $image['id'] ?>"
-                                                class="rs-link text-[0.625rem] text-ink-muted">Make main</button>
+                                                class="rs-link text-xs text-ink-muted">Make main</button>
                                     <?php endif; ?>
                                     <button type="submit" form="img-del-<?= (int) $image['id'] ?>"
                                             class="text-ink-muted hover:text-bad" aria-label="Remove image">&times;</button>

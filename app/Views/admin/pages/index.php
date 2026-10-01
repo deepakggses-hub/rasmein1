@@ -15,7 +15,7 @@
         <?php else: ?>
             <table class="w-full text-sm">
                 <thead class="border-b border-shell-line bg-shell-deep text-left">
-                    <tr class="font-mono text-[0.5625rem] tracking-[0.14em] text-ink-muted uppercase">
+                    <tr class="font-mono text-xs tracking-[0.14em] text-ink-muted uppercase">
                         <th class="px-4 py-2.5">Title</th>
                         <th class="px-4 py-2.5">URL</th>
                         <th class="px-4 py-2.5">Footer</th>

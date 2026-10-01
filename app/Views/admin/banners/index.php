@@ -33,10 +33,10 @@
 
                     <p class="rs-help mt-2 flex-1"><?= esc($meta['note']) ?></p>
 
-                    <p class="rs-help num mt-3 border-t border-shell-line pt-3 font-mono text-[0.625rem]">
+                    <p class="rs-help num mt-3 border-t border-shell-line pt-3 font-mono text-xs">
                         <?= esc($meta['ratio']) ?>
                         <?php if ($meta['multi']): ?>
-                            <span class="ml-2 text-brass">Bulk upload</span>
+                            <span class="ml-2 rs-gold">Bulk upload</span>
                         <?php endif; ?>
                     </p>
                 </a>

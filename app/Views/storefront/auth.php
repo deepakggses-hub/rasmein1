@@ -98,7 +98,13 @@ $c = static fn (string $k, string $fallback = ''): string => trim($copy[$k] ?? '
                     </p>
                 <?php endif; ?>
 
-                <form method="post" action="<?= site_url('account/register') ?>" class="mt-5 grid gap-4">
+                <?php /* data-checkdupes arms the debounced "you already have an
+                         account" hint. It is an enhancement only: with no
+                         JavaScript the form submits exactly as before, and
+                         registering with a taken address still sends a login
+                         code rather than refusing. */ ?>
+                <form method="post" action="<?= site_url('account/register') ?>" class="mt-5 grid gap-4"
+                      data-checkdupes data-check-url="/account/exists">
                     <?= csrf_field() ?>
 
                     <label>
@@ -110,14 +116,18 @@ $c = static fn (string $k, string $fallback = ''): string => trim($copy[$k] ?? '
                     <label>
                         <span class="rs-label">Email address</span>
                         <input type="email" name="email" class="rs-input" required maxlength="191"
-                               autocomplete="email" value="<?= esc(old('email') ?? '', 'attr') ?>">
+                               autocomplete="email" value="<?= esc(old('email') ?? '', 'attr') ?>"
+                               data-check="email" aria-describedby="rs-check-email">
+                        <span class="rs-checkmsg" id="rs-check-email" role="status" aria-live="polite"></span>
                     </label>
 
                     <label>
                         <span class="rs-label">Phone number</span>
                         <input type="tel" name="phone" class="rs-input num" required maxlength="20"
                                autocomplete="tel" placeholder="98765 43210"
-                               value="<?= esc(old('phone') ?? '', 'attr') ?>">
+                               value="<?= esc(old('phone') ?? '', 'attr') ?>"
+                               data-check="phone" aria-describedby="rs-check-phone">
+                        <span class="rs-checkmsg" id="rs-check-phone" role="status" aria-live="polite"></span>
                         <span class="rs-help">For delivery updates. We will not use it for anything else.</span>
                     </label>
 

@@ -107,7 +107,7 @@ $pages = (int) ceil(max(1, $total) / $perPage);
 
                     <div class="flex flex-1 flex-col gap-3 p-3">
                         <div>
-                            <p class="truncate font-mono text-[0.6875rem] text-ink-muted"
+                            <p class="truncate font-mono text-xs text-ink-muted"
                                title="<?= esc($item['filename'], 'attr') ?>">
                                 <?= esc($item['filename']) ?>
                             </p>

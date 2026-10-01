@@ -60,6 +60,9 @@ class DatabaseSeeder extends Seeder
          */
         $this->call(CandleStandSeeder::class);
 
+        // Same reasoning, and the same requirement: after the truncate.
+        $this->call(DiwaliHamperSeeder::class);
+
         // The landing page at /collection.
         // Occasions first: the collections and corporate pages both list them,
         // so they have to exist before those pages are set up.

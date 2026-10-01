@@ -10,14 +10,14 @@
     <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400;1,500;1,600&family=Karla:ital,wght@0,400;0,500;0,700;1,400&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="<?= rs_asset('assets/css/app.css') ?>">
 </head>
-<body class="bg-mulberry-deep">
+<body class="bg-mulberry-deep rs-on-dark">
     <main class="flex min-h-screen items-center justify-center px-5 py-12">
         <div class="w-full max-w-sm">
             <div class="text-center">
                 <span class="font-display text-3xl font-semibold text-shell">
                     Rasme<span class="relative">i<span class="absolute -top-px left-1/2 h-1 w-1 -translate-x-1/2 rounded-full bg-brass"></span></span>n
                 </span>
-                <p class="mt-1 font-mono text-[0.625rem] tracking-[0.26em] text-brass uppercase">Admin</p>
+                <p class="mt-1 font-mono text-xs tracking-[0.26em] rs-gold uppercase">Admin</p>
             </div>
 
             <form method="post" action="<?= site_url('admin/login') ?>" class="mt-8 bg-shell p-7">

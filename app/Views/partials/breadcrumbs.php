@@ -5,11 +5,11 @@
 $crumbs = $crumbs ?? [];
 if ($crumbs === []) { return; }
 ?>
-<nav class="font-mono text-[0.625rem] tracking-[0.16em] text-ink-muted uppercase" aria-label="Breadcrumb">
+<nav class="font-mono text-xs tracking-[0.16em] text-ink-muted uppercase" aria-label="Breadcrumb">
     <ol class="flex flex-wrap items-center gap-2">
         <li><a href="<?= site_url('/') ?>" class="rs-link">Home</a></li>
         <?php foreach ($crumbs as $crumb): ?>
-            <li aria-hidden="true" class="text-brass">/</li>
+            <li aria-hidden="true" class="rs-gold">/</li>
             <li<?= $crumb['url'] === null ? ' aria-current="page"' : '' ?>>
                 <?php if ($crumb['url'] !== null): ?>
                     <a href="<?= $crumb['url'] ?>" class="rs-link"><?= esc($crumb['label']) ?></a>

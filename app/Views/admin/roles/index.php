@@ -25,7 +25,7 @@
                                 <?= esc($role['name']) ?>
                             </a>
                         </h2>
-                        <p class="font-mono text-[0.5625rem] tracking-[0.14em] text-ink-muted uppercase">
+                        <p class="font-mono text-xs tracking-[0.14em] text-ink-muted uppercase">
                             <?= esc($role['slug']) ?>
                         </p>
                     </div>
@@ -42,7 +42,7 @@
                     <?php if ($isAll): ?>
                         <span class="rs-badge rs-badge--brass">Everything</span>
                     <?php else: ?>
-                        <p class="num font-mono text-[0.625rem] tracking-[0.14em] text-ink-muted uppercase">
+                        <p class="num font-mono text-xs tracking-[0.14em] text-ink-muted uppercase">
                             <?= count($granted) ?> of <?= count(config(\Config\Permissions::class)->all()) ?> permissions
                         </p>
                         <div class="mt-2 flex flex-wrap gap-1">

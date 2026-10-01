@@ -30,7 +30,7 @@ $split = static function (string $text): array {
                  rectangle, so a fresh install still looks finished. */ ?>
         <div class="rs-hero__slide rs-hero__slide--bare is-current">
             <div class="rs-shell rs-hero__inner">
-                <p class="rs-kicker"><?= esc($brand->brandName) ?></p>
+                <p class="rs-kicker rs-kicker--light"><?= esc($brand->brandName) ?></p>
                 <h1 class="rs-display rs-display--xl mt-5 text-shell">Customize your <em>Gift</em></h1>
                 <p class="rs-hero__lede">
                     Luxury wedding gifts, ritual collections and premium hampers inspired by Indian
@@ -88,7 +88,7 @@ $split = static function (string $text): array {
 
                 <div class="rs-shell rs-hero__inner">
                     <?php if (! empty($slide['eyebrow'])): ?>
-                        <p class="rs-kicker"><?= esc($slide['eyebrow']) ?></p>
+                        <p class="rs-kicker rs-kicker--light"><?= esc($slide['eyebrow']) ?></p>
                     <?php endif; ?>
                     <h1 class="rs-display rs-display--xl mt-5 text-shell">
                         <?= esc($head) ?><?php if ($tail !== ''): ?> <em><?= esc($tail) ?></em><?php endif; ?>

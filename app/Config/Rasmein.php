@@ -133,6 +133,47 @@ class Rasmein extends BaseConfig
         'spam'      => 'Spam',
     ];
 
+    /**
+     * The SAME stages, worded for the customer.
+     *
+     * The list above is the sales pipeline — "New", "Won", "Lost", "Spam" are
+     * how a shop talks about a lead among themselves, and none of them are
+     * things to say to the person who sent it. This is what the account page
+     * and the public tracking page show.
+     *
+     * `spam` deliberately reads the same as `lost`: telling someone we marked
+     * their enquiry as spam is worse than useless, and a shop that got it
+     * wrong would have an angry customer holding the evidence.
+     *
+     * One map, read by both customer-facing screens. Two would drift.
+     */
+    public array $enquiryStagesPublic = [
+        'new'       => 'Received',
+        'contacted' => 'In discussion',
+        'quoted'    => 'Quote ready',
+        'won'       => 'Confirmed',
+        'lost'      => 'Closed',
+        'spam'      => 'Closed',
+    ];
+
+    /** A sentence under each stage, so the label is not the whole message. */
+    public array $enquiryStageNotes = [
+        'new'       => 'We have your enquiry and will be in touch shortly.',
+        'contacted' => 'We are working out the details with you.',
+        'quoted'    => 'Your quote is ready — the amount below is what we have proposed.',
+        'won'       => 'Agreed. We are getting it under way.',
+        'lost'      => 'This enquiry is closed. Send us another any time.',
+        'spam'      => 'This enquiry is closed. Send us another any time.',
+    ];
+
+    /**
+     * Which stages a customer can see at all.
+     *
+     * Everything is listed today; the array exists so that hiding a stage
+     * later is a config change rather than a hunt through two views.
+     */
+    public array $enquiryStagesVisible = ['new', 'contacted', 'quoted', 'won', 'lost', 'spam'];
+
     /** Order reference prefix — public-facing, paired with a UUID. */
     public string $orderRefPrefix   = 'RSM';
     public string $enquiryRefPrefix = 'ENQ';

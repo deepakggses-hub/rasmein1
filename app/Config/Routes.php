@@ -46,6 +46,37 @@ $routes->group('', ['namespace' => 'App\Controllers\Storefront'], static functio
     // The enquiry form on a content page. Feeds the same enquiries pipeline.
     $routes->post('enquiry/submit', 'Leads::submit');
 
+    /*
+     * Tracking, without an account.
+     *
+     * Most orders are placed as a guest, so "sign in to see it" is a door most
+     * customers have no key to. The lookup needs the reference AND the contact
+     * given with it, and is throttled — see Storefront\Track.
+     *
+     * The result lives at a UUID so the contact details never reach the URL,
+     * browser history or a Referer header.
+     */
+    $routes->match(['GET', 'HEAD'], 'track', 'Track::form', ['as' => 'track']);
+    $routes->post('track', 'Track::lookup');
+    $routes->match(['GET', 'HEAD'], 'track/(:segment)', 'Track::show/$1');
+
+    /*
+     * ---- Brochures ----
+     *
+     * The files live under WRITEPATH, so these routes are the ONLY way to one.
+     * A brochure that is also fetchable at its own URL is not gated: the lead
+     * form becomes decoration as soon as somebody shares the direct link.
+     *
+     * Declared here, well before the root catch-all that resolves categories
+     * and occasions — that block matches almost anything and must stay last.
+     */
+    $routes->match(['GET', 'HEAD'], 'brochure/(:num)', 'Brochure::form/$1', ['as' => 'brochure']);
+    $routes->post('brochure/(:num)', 'Brochure::submit/$1');
+    // The modal posts here. Same rules, same rate limit — it returns WHERE to
+    // download rather than the file, because a fetch cannot hand over a file.
+    $routes->post('brochure/(:num)/submit.json', 'Brochure::submitJson/$1');
+    $routes->match(['GET', 'HEAD'], 'brochure/(:num)/download', 'Brochure::download/$1');
+
     // ---- Catalogue (Phase 2) ----
     $routes->match(['GET', 'HEAD'], 'shop', 'Shop::index', ['as' => 'shop']);
     $routes->match(['GET', 'HEAD'], 'search', 'Shop::search', ['as' => 'search']);
@@ -113,6 +144,14 @@ $routes->group('', ['namespace' => 'App\Controllers\Storefront'], static functio
     $routes->post('account/code/verify', 'Auth::verifyCode');
     $routes->post('account/code/resend', 'Auth::resend');
     $routes->post('account/register', 'Auth::register');
+    /*
+     * The registration form's "you already have an account" hint.
+     *
+     * POST, not GET: it needs the CSRF filter and a session, which is most of
+     * what stops it being scraped. It is still an enumeration oracle — see the
+     * note on Auth::exists() for what that buys and what it costs.
+     */
+    $routes->post('account/exists', 'Auth::exists');
     $routes->match(['GET', 'HEAD'], 'account/register', 'Auth::index', ['as' => 'register']);
     $routes->match(['GET', 'HEAD'], 'account/google', 'Auth::google');
     $routes->match(['GET', 'HEAD'], 'account/google/callback', 'Auth::googleCallback');
@@ -316,6 +355,17 @@ $routes->group('admin', [
     $routes->match(['GET', 'HEAD'], 'occasions/(:num)/edit', 'Occasions::edit/$1', ['filter' => 'adminAuth:content.manage']);
     $routes->post('occasions/(:num)', 'Occasions::update/$1', ['filter' => 'adminAuth:content.manage']);
     $routes->post('occasions/(:num)/delete', 'Occasions::delete/$1', ['filter' => 'adminAuth:content.manage']);
+
+    // ---- Brochures ----
+    $routes->match(['GET', 'HEAD'], 'brochures', 'Brochures::index', ['filter' => 'adminAuth:brochures.manage']);
+    $routes->post('brochures', 'Brochures::save', ['filter' => 'adminAuth:brochures.manage']);
+    $routes->post('brochures/(:num)', 'Brochures::save/$1', ['filter' => 'adminAuth:brochures.manage']);
+    $routes->post('brochures/(:num)/default', 'Brochures::makeDefault/$1', ['filter' => 'adminAuth:brochures.manage']);
+    $routes->post('brochures/(:num)/delete', 'Brochures::delete/$1', ['filter' => 'adminAuth:brochures.manage']);
+    $routes->post('brochures/assign', 'Brochures::assign', ['filter' => 'adminAuth:brochures.manage']);
+    // Slug routes AFTER the numeric ones, or "leads" is read as an id.
+    $routes->match(['GET', 'HEAD'], 'brochures/leads', 'Brochures::leads', ['filter' => 'adminAuth:brochures.manage']);
+    $routes->match(['GET', 'HEAD'], 'brochures/leads/export', 'Brochures::exportLeads', ['filter' => 'adminAuth:brochures.manage']);
 
     // ---- Image alt text ----
     $routes->match(['GET', 'HEAD'], 'media', 'Media::index', ['filter' => 'adminAuth:content.manage']);

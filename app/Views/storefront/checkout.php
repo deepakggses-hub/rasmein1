@@ -12,7 +12,23 @@
  * @var string $idempotencyKey
  * @var bool   $paymentLive
  */
-$old = static fn (string $field, string $fallback = ''): string => (string) (old($field) ?? $fallback);
+/*
+ * old() first, then the signed-in customer's own details, then the fallback.
+ *
+ * That ORDER matters. After a validation failure old() holds what the person
+ * actually typed, and reinstating their profile over it would undo an edit
+ * they made on purpose — the commonest case being a gift going to someone
+ * else's address.
+ *
+ * old() returns null when nothing was flashed, which is what lets the profile
+ * show through on a first visit.
+ *
+ * @var array<string, string> $prefill
+ */
+$prefill = $prefill ?? [];
+
+$old = static fn (string $field, string $fallback = ''): string
+    => (string) (old($field) ?? ($prefill[$field] ?? '') ?: $fallback);
 ?>
 
 <header class="border-b border-shell-line bg-shell-deep">
@@ -95,7 +111,17 @@ $old = static fn (string $field, string $fallback = ''): string => (string) (old
                         </label>
                         <label>
                             <span class="rs-label">Needed by <span class="text-ink-muted">(optional)</span></span>
-                            <input type="date" name="needed_by" class="rs-input" value="<?= esc($old('needed_by'), 'attr') ?>">
+                            <?php /* min stops the picker offering a past date and
+                                     blocks submission in every current browser.
+                                     It is a convenience, NOT the check — the
+                                     controller refuses a past date regardless,
+                                     because an attribute is a suggestion to
+                                     whatever is posting. */ ?>
+                            <input type="date" name="needed_by" class="rs-input"
+                                   min="<?= date('Y-m-d') ?>"
+                                   max="<?= date('Y-m-d', strtotime('+3 years')) ?>"
+                                   value="<?= esc($old('needed_by'), 'attr') ?>">
+                            <span class="rs-help">Today or later. We will tell you what is achievable.</span>
                         </label>
                         <label class="sm:col-span-2">
                             <span class="rs-label">Anything else we should know?</span>

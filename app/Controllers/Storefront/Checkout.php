@@ -48,6 +48,7 @@ class Checkout extends StorefrontController
             'snapshot'       => $snapshot,
             'isEnquiry'      => $isEnquiry,
             'idempotencyKey' => $key,
+            'prefill'        => $this->prefill(),
             'paymentLive'    => (bool) $this->settings->get('payment_enabled', false),
             'crumbs'         => [
                 ['label' => rs_cta_label(null, 'cart'), 'url' => site_url('cart')],
@@ -190,6 +191,76 @@ class Checkout extends StorefrontController
         return in_array($order['uuid'], session('viewable_orders') ?? [], true);
     }
 
+    /**
+     * What a signed-in customer should not have to type again.
+     *
+     * Read from the account and the default shipping address, both of which
+     * are already scoped by `session('customer_id')` — nothing here trusts an
+     * id from the request, so a signed-out visitor simply gets an empty array
+     * and the form behaves exactly as it always did.
+     *
+     * These are DEFAULTS, not locks. The view prefers `old()` over them, so a
+     * validation failure returns what the person actually typed rather than
+     * quietly reinstating their profile; and every field stays editable,
+     * because the address a gift goes to is very often not the buyer's own.
+     *
+     * Nothing is copied into the account in the other direction — an order
+     * placed to a friend's address must not silently become the customer's
+     * default. That is what Account → Addresses is for.
+     *
+     * @return array<string, string>
+     */
+    private function prefill(): array
+    {
+        $customerId = session('customer_id');
+
+        if ($customerId === null) {
+            return [];
+        }
+
+        $customer = model(\App\Models\CustomerModel::class)->find((int) $customerId);
+
+        if ($customer === null) {
+            return [];
+        }
+
+        $out = [
+            'customer_name'  => (string) ($customer['name'] ?? ''),
+            'customer_email' => (string) ($customer['email'] ?? ''),
+            'customer_phone' => (string) ($customer['phone'] ?? ''),
+        ];
+
+        $addresses = model(\App\Models\CustomerAddressModel::class)->forCustomer((int) $customerId);
+
+        if ($addresses === []) {
+            return $out;
+        }
+
+        // The one marked default, else the first — forCustomer() already sorts
+        // defaults first, so this is a fallback rather than a second opinion.
+        $ship = null;
+
+        foreach ($addresses as $address) {
+            if ((int) ($address['is_default_shipping'] ?? 0) === 1) { $ship = $address; break; }
+        }
+
+        $ship ??= $addresses[0];
+
+        $out += [
+            'ship_name'        => (string) ($ship['recipient_name'] ?? $customer['name'] ?? ''),
+            'ship_phone'       => (string) ($ship['phone'] ?? $customer['phone'] ?? ''),
+            'ship_line1'       => (string) ($ship['line1'] ?? ''),
+            'ship_line2'       => (string) ($ship['line2'] ?? ''),
+            'ship_landmark'    => (string) ($ship['landmark'] ?? ''),
+            'ship_city'        => (string) ($ship['city'] ?? ''),
+            'ship_state'       => (string) ($ship['state'] ?? ''),
+            'ship_postal_code' => (string) ($ship['postal_code'] ?? ''),
+            'ship_country'     => (string) ($ship['country'] ?? ''),
+        ];
+
+        return $out;
+    }
+
     /** @return array<string, array<string, string>> */
     private function rules(bool $isEnquiry): array
     {
@@ -215,6 +286,38 @@ class Checkout extends StorefrontController
                 'rules' => 'permit_empty|max_length[1000]',
             ],
         ];
+
+        if ($isEnquiry) {
+            $rules += [
+                'company'           => ['label' => 'Company', 'rules' => 'permit_empty|max_length[120]'],
+                'preferred_contact' => ['label' => 'Best way to reach you', 'rules' => 'permit_empty|in_list[email,phone,whatsapp]'],
+                'expected_quantity' => ['label' => 'How many boxes', 'rules' => 'permit_empty|is_natural_no_zero|less_than_equal_to[100000]'],
+                'requirement_note'  => ['label' => 'Your requirement', 'rules' => 'permit_empty|max_length[2000]'],
+                /*
+                 * `needed_by` must be today or later.
+                 *
+                 * The input carries min/max so the picker behaves, but that is
+                 * a hint to a browser — this is the check. A date in the past
+                 * is either a typo or a bot, and either way it would sit in
+                 * the pipeline reading as already overdue.
+                 *
+                 * `valid_date` first, or a string like "soon" reaches the
+                 * comparison and strtotime() turns it into today.
+                 */
+                'needed_by' => [
+                    'label' => 'Needed by',
+                    'rules' => 'permit_empty|valid_date[Y-m-d]|rs_not_past',
+                    /*
+                     * No message for rs_not_past here: the rule sets $error by
+                     * reference and CI4 prefers that, so anything configured
+                     * would never be seen. A message that cannot fire is worse
+                     * than none — the next person changes it and nothing
+                     * happens.
+                     */
+                    'errors' => ['valid_date' => 'That does not look like a date.'],
+                ],
+            ];
+        }
 
         // An enquiry does not need a delivery address yet — that is settled when
         // the quote is agreed. Asking for it up front loses leads.

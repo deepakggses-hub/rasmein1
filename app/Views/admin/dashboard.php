@@ -294,7 +294,7 @@ $firstName = esc(explode(' ', (string) ($admin['name'] ?? 'there'))[0]);
                 <?php else: ?>
                     <table class="w-full text-sm">
                         <thead class="border-b border-shell-line bg-shell-deep text-left">
-                            <tr class="font-mono text-[0.5625rem] tracking-[0.14em] text-ink-muted uppercase">
+                            <tr class="font-mono text-xs tracking-[0.14em] text-ink-muted uppercase">
                                 <th class="px-4 py-2.5">Reference</th>
                                 <th class="px-4 py-2.5">Customer</th>
                                 <th class="px-4 py-2.5">Status</th>
@@ -362,7 +362,7 @@ $firstName = esc(explode(' ', (string) ($admin['name'] ?? 'there'))[0]);
                                 <span class="text-ink-muted">— <?= esc(rs_excerpt($entry['summary'], 60)) ?></span>
                             <?php endif; ?>
                         </span>
-                        <span class="num font-mono text-[0.625rem] text-ink-muted">
+                        <span class="num font-mono text-xs text-ink-muted">
                             <?= esc(date('j M, H:i', strtotime((string) $entry['created_at']))) ?>
                         </span>
                     </li>

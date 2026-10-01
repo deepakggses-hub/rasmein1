@@ -150,7 +150,7 @@ $socialIcons = [
                 &copy; <?= date('Y') ?> <?= esc($brand->identity['legal_name'] ?: $brand->brandName) ?>.
                 Traditions crafted beautifully. Made with care in India.
             </p>
-            <p class="font-mono tracking-[0.2em] text-white/40 uppercase">Est. Twenty Twenty-Four</p>
+            <!-- <p class="font-mono tracking-[0.2em] text-white/40 uppercase">Est. Twenty Twenty-Four</p> -->
         </div>
     </div>
 </footer>

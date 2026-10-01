@@ -179,11 +179,11 @@ $roman = static function (int $n): string {
             </blockquote>
 
             <?php if ($g('founder', 'name') !== ''): ?>
-                <p class="mt-7 font-display text-lg italic text-brass">&mdash; <?= esc($g('founder', 'name')) ?></p>
+                <p class="mt-7 font-display text-lg italic rs-gold">&mdash; <?= esc($g('founder', 'name')) ?></p>
             <?php endif; ?>
 
             <?php if ($g('founder', 'role') !== ''): ?>
-                <p class="mt-2 font-mono text-[0.625rem] tracking-[0.22em] text-shell/60 uppercase">
+                <p class="mt-2 font-mono text-xs tracking-[0.22em] text-shell/60 uppercase">
                     <?= esc($g('founder', 'role')) ?>
                 </p>
             <?php endif; ?>

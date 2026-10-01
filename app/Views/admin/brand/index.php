@@ -62,7 +62,7 @@ $hints = [
                             <img src="<?= rs_url($current) ?>" alt="<?= esc($label, 'attr') ?>"
                                  class="rs-logo rs-logo--preview">
                         <?php else: ?>
-                            <span class="font-mono text-[0.625rem] tracking-widest text-ink-muted uppercase">Not set</span>
+                            <span class="font-mono text-xs tracking-widest text-ink-muted uppercase">Not set</span>
                         <?php endif; ?>
                     </div>
 

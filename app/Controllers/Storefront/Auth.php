@@ -73,6 +73,8 @@ class Auth extends StorefrontController
             if (! $result['ok']) {
                 return redirect()->back()->withInput()->with('error', $result['error']);
             }
+
+            $this->rememberDevCode($result['code'] ?? null);
         }
 
         // The address shown back is the one we WOULD have sent to. When there is
@@ -176,10 +178,29 @@ class Auth extends StorefrontController
 
         $result = service('otp')->issue($email, $stage === 'register' ? 'verify_email' : 'login', $payload);
 
+        $this->rememberDevCode($result['code'] ?? null);
+
         return redirect()->back()->with(
             $result['ok'] ? 'success' : 'error',
             $result['ok'] ? 'A new code is on its way.' : $result['error']
         );
+    }
+
+    /**
+     * Carry a freshly issued code to the next screen — DEVELOPMENT ONLY.
+     *
+     * OtpService returns the plaintext only outside production, so this is
+     * already null on a live site; the ENVIRONMENT test here is the second of
+     * three independent gates (the third is in the view). Flashed rather than
+     * stored, so it survives exactly one redirect and then disappears.
+     */
+    private function rememberDevCode(?string $code): void
+    {
+        if ($code === null || $code === '' || ENVIRONMENT === 'production') {
+            return;
+        }
+
+        session()->setFlashdata('dev_otp', $code);
     }
 
     // ======================================================= create account
@@ -219,14 +240,16 @@ class Auth extends StorefrontController
         $existing = $model->where('email', $email)->first();
 
         if ($existing !== null) {
-            service('otp')->issue($email, 'login', ['name' => $existing['name']]);
-            $stage = 'login';
+            $result = service('otp')->issue($email, 'login', ['name' => $existing['name']]);
+            $stage  = 'login';
         } else {
             $payload = ['name' => $name, 'phone' => $phone, 'marketing' => $this->request->getPost('marketing') !== null ? 1 : 0];
-            service('otp')->issue($email, 'verify_email', $payload);
+            $result  = service('otp')->issue($email, 'verify_email', $payload);
             session()->set('otp_payload', $payload);
             $stage = 'register';
         }
+
+        $this->rememberDevCode($result['code'] ?? null);
 
         session()->set([
             'otp_email' => $email,
@@ -347,6 +370,85 @@ class Auth extends StorefrontController
     // -----------------------------------------------------------------
 
     /** @return array<string, mixed>|null */
+    /**
+     * Does an account already use this email address or phone number?
+     *
+     * THIS REVERSES A RULE THIS PROJECT SET DELIBERATELY. Everything else in
+     * the auth flow refuses to confirm whether an address is registered —
+     * sign-in, registration and reset all behave identically either way — and
+     * CLAUDE.md said never to add exactly this. It is here because it was
+     * asked for: a registration form that lets someone fill in three fields
+     * before discovering they already have an account is a worse experience,
+     * and the shop has judged that trade.
+     *
+     * What it costs, stated plainly: an unauthenticated endpoint that answers
+     * "is this person a customer" is an account-enumeration oracle. The
+     * mitigations below raise the cost of abusing it; they do not remove it.
+     *
+     *  - POST with the CSRF filter, so it needs a session and a live token
+     *    rather than being scrapeable with a bare URL.
+     *  - Throttled per IP. A person signing up types two values; anything
+     *    doing hundreds is not signing up.
+     *  - It answers only for a WELL-FORMED value, so it cannot be walked
+     *    through malformed variants to probe matching behaviour.
+     *  - It says only yes or no for the exact value asked about. It never
+     *    returns a name, a masked address, or anything that identifies whose
+     *    account it is.
+     *
+     * The rest of the flow is unchanged: submitting the form with a taken
+     * address still sends a LOGIN code and signs the real owner in, so this is
+     * a hint on the way in, not a new gate.
+     */
+    public function exists()
+    {
+        $field = (string) $this->request->getPost('field');
+        $value = trim((string) $this->request->getPost('value'));
+
+        // A fresh token on every reply: security.regenerate rotates it on each
+        // validated POST, and a debounced check fires many times. Without this
+        // the register form is holding a spent token by the time it submits.
+        $reply = static fn (array $data) => $data + ['csrf' => csrf_hash()];
+
+        if (! in_array($field, ['email', 'phone'], true) || $value === '') {
+            return $this->response->setJSON($reply(['status' => 'ignored']));
+        }
+
+        /*
+         * Sixty checks a minute per address is far more than typing two fields
+         * needs and far less than enumeration wants. On the limit it returns
+         * "ignored", not an error: the form must never block someone from
+         * registering because a hint could not be fetched.
+         */
+        if (! service('throttler')->check(md5('exists' . $this->request->getIPAddress()), 60, MINUTE)) {
+            return $this->response->setJSON($reply(['status' => 'ignored']));
+        }
+
+        $model = model(CustomerModel::class);
+
+        if ($field === 'email') {
+            if (filter_var($value, FILTER_VALIDATE_EMAIL) === false) {
+                return $this->response->setJSON($reply(['status' => 'ignored']));
+            }
+
+            $found = $model->where('email', strtolower($value))->first() !== null;
+        } else {
+            $phone = $this->normalisePhone($value);
+
+            if ($phone === null) {
+                return $this->response->setJSON($reply(['status' => 'ignored']));
+            }
+
+            // Last ten digits, matching findByIdentifier() — people type their
+            // number with and without a country code.
+            $found = $model->like('phone', substr($phone, -10), 'before')->first() !== null;
+        }
+
+        return $this->response->setJSON($reply([
+            'status' => 'ok',
+            'exists' => $found,
+        ]));
+    }
+
     private function findByIdentifier(string $identifier): ?array
     {
         $model = model(CustomerModel::class);

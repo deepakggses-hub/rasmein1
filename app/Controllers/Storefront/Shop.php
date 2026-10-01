@@ -248,10 +248,32 @@ class Shop extends StorefrontController
 
         $productIds = array_map(static fn ($product): int => (int) $product->id, $rows);
 
+        /*
+         * The brochure this page offers.
+         *
+         * Read from the SAME context keys the product query uses, not a second
+         * pair — `lockedCollection` versus `facetOccasion` already produced one
+         * page counting the whole catalogue because two names meant one thing.
+         * Nothing set means the plain shop, which falls through to the default.
+         */
+        $brochureType = null;
+        $brochureId   = null;
+
+        if (($context['facetCategory'] ?? null) !== null) {
+            $brochureType = 'category';
+            $brochureId   = (int) $context['facetCategory'];
+        } elseif (($context['lockedCollection'] ?? null) !== null) {
+            $brochureType = 'collection';
+            $brochureId   = (int) $context['lockedCollection'];
+        }
+
         return $this->page('storefront/shop', [
+            'brochure'         => service('brochures')->forPage($brochureType, $brochureId),
+            'brochureSource'   => $brochureType,
+            'brochureSourceId' => $brochureId,
             // Computed from the current context, so the sidebar never offers a
             // filter that leads nowhere — see FacetService.
-            'facets'      => service('facets')->build($filters, [
+            'facets'      => $this->withResetLinks(service('facets')->build($filters, [
                 'category' => $context['facetCategory'] ?? null,
                 /*
                  * The collection this page is locked to.
@@ -262,7 +284,7 @@ class Shop extends StorefrontController
                  * six products. One key, one meaning.
                  */
                 'occasion' => $context['lockedCollection'] ?? ($context['facetOccasion'] ?? null),
-            ]),
+            ])),
             'active'      => ['q' => $filters['q'] ?? null, 'sort' => $sort],
             'chips'       => $this->activeChips($filters),
             // One query for every card's photographs, rather than one per card.
@@ -401,46 +423,104 @@ class Shop extends StorefrontController
      *
      * @return array<int, array{label: string, url: string}>
      */
-    private function activeChips(array $filters): array
+    /**
+     * This page's URL with filter parameters removed.
+     *
+     * One value is dropped from one key when $value is given; whole keys go
+     * when it is null. Both the removal chips and the per-facet reset controls
+     * build their links from here — two copies of this would drift, and the
+     * re-indexing below is exactly the sort of detail one copy would lose.
+     *
+     * @param list<string> $keys
+     */
+    private function withoutFilter(array $keys, ?string $value = null): string
     {
-        $get   = $this->request->getGet();
-        $chips = [];
+        $next = $this->request->getGet();
 
-        $drop = static function (string $key, ?string $value) use ($get): string {
-            $next = $get;
-
+        foreach ($keys as $key) {
             if ($value === null) {
                 unset($next[$key]);
             } elseif (isset($next[$key]) && is_array($next[$key])) {
                 $next[$key] = array_values(array_filter(
                     $next[$key],
-                    static fn ($v): bool => (string) $v !== $value
+                    static fn ($v): bool => (string) $v !== $value,
                 ));
 
                 if ($next[$key] === []) {
                     unset($next[$key]);
                 }
             }
+        }
 
-            unset($next['page']);
+        // Page 3 of the old result set is not page 3 of the new one.
+        unset($next['page']);
 
-            /*
-             * Re-index every array before building the query.
-             *
-             * http_build_query writes the PHP key, so a list that still carries
-             * its original offsets comes out as band[2]=4 rather than band[]=4.
-             * PHP reads that back, but the offsets then accumulate as filters are
-             * added and removed, and the URL stops being something a person can
-             * read or edit.
-             */
-            foreach ($next as $key => $value) {
-                if (is_array($value)) {
-                    $next[$key] = array_values($value);
+        /*
+         * Re-index every array before building the query.
+         *
+         * http_build_query writes the PHP key, so a list that still carries
+         * its original offsets comes out as band[2]=4 rather than band[]=4.
+         * PHP reads that back, but the offsets then accumulate as filters are
+         * added and removed, and the URL stops being something a person can
+         * read or edit.
+         */
+        foreach ($next as $key => $item) {
+            if (is_array($item)) {
+                $next[$key] = array_values($item);
+            }
+        }
+
+        return current_url() . ($next === [] ? '' : '?' . http_build_query($next));
+    }
+
+    /**
+     * Give every facet that is currently filtering a link that clears it.
+     *
+     * Only facets whose selection lives in the QUERY STRING get one. A link
+     * facet is selected because of the page you are on — its "reset" would be
+     * navigating somewhere else, which is the breadcrumb's job, and an icon
+     * that silently moves you to another page is worse than no icon.
+     *
+     * @param array<int, array<string, mixed>> $facets
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    private function withResetLinks(array $facets): array
+    {
+        $get = $this->request->getGet();
+
+        foreach ($facets as $i => $facet) {
+            $key = (string) ($facet['key'] ?? '');
+
+            // Price is two parameters answering to one control.
+            $keys = ($facet['type'] ?? '') === 'range'
+                ? ['min_price', 'max_price']
+                : [$key];
+
+            $present = false;
+
+            foreach ($keys as $k) {
+                if (isset($get[$k]) && $get[$k] !== '' && $get[$k] !== []) {
+                    $present = true;
+
+                    break;
                 }
             }
 
-            return current_url() . ($next === [] ? '' : '?' . http_build_query($next));
-        };
+            if ($present) {
+                $facets[$i]['reset_url'] = $this->withoutFilter($keys);
+            }
+        }
+
+        return $facets;
+    }
+
+    private function activeChips(array $filters): array
+    {
+        $get   = $this->request->getGet();
+        $chips = [];
+
+        $drop = fn (string $key, ?string $value): string => $this->withoutFilter([$key], $value);
 
         foreach ((array) ($get['cat'] ?? []) as $categoryId) {
             $row = model(\App\Models\CategoryModel::class)->find((int) $categoryId);

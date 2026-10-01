@@ -26,6 +26,12 @@ $term = $filters['q'] ?? null;
     <div class="lg:grid lg:grid-cols-[16rem_1fr] lg:gap-12">
 
         <!-- Filters. Collapsed into a disclosure on small screens. -->
+        <?php /* The scrim behind the mobile sheet. A real element rather than a
+                 pseudo-element, because it has to be clickable to close — and it
+                 sits before the panel so the panel stacks above it without
+                 either needing a z-index fight. Inert on desktop. */ ?>
+        <div class="rs-filterscrim" data-sidebar-scrim hidden></div>
+
         <aside class="rs-filtercol lg:sticky lg:top-28 lg:self-start" data-sidebar>
             <div class="mb-4 flex items-center justify-between lg:hidden">
                 <span class="rs-facet__head">Filter</span>
@@ -78,11 +84,11 @@ $term = $filters['q'] ?? null;
                             <?php endif; ?>
                         </p>
                     <?php endif; ?>
-                    <p class="mt-3 font-mono text-[0.625rem] tracking-[0.18em] text-ink-muted uppercase" data-result-count>
+                    <p class="mt-3 font-mono text-xs tracking-[0.18em] text-ink-muted uppercase" data-result-count>
                         <span class="num"><?= (int) $total ?></span>
                         <?= $total === 1 ? 'piece' : 'pieces' ?>
                         <?php if (! empty($context['intro'])): ?>
-                            <span class="mx-2 text-brass" aria-hidden="true">&middot;</span>
+                            <span class="mx-2 rs-gold" aria-hidden="true">&middot;</span>
                             <?= esc(rs_excerpt($context['intro'], 52)) ?>
                         <?php endif; ?>
                     </p>
@@ -157,6 +163,19 @@ $term = $filters['q'] ?? null;
              * which is exactly what made it confusing.
              */
             ?>
+            <?php /* The page's brochure, above the grid where it reads as part of
+                     the category rather than a footnote under fifty products.
+                     Every key is named explicitly — see partials/brochure_cta. */ ?>
+            <?php if (($brochure ?? null) !== null): ?>
+                <div class="mb-8">
+                    <?= view('partials/brochure_cta', [
+                        'brochure'   => $brochure,
+                        'sourceType' => $brochureSource ?? null,
+                        'sourceId'   => $brochureSourceId ?? null,
+                    ]) ?>
+                </div>
+            <?php endif; ?>
+
             <div data-results>
             <?php if ($products === []): ?>
                 <!-- Empty state: an invitation, not an apology. -->

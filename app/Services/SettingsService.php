@@ -117,8 +117,36 @@ class SettingsService
      */
     private ?string $modeOverride = null;
 
+    /**
+     * Can this visitor buy, or may they only enquire?
+     *
+     * TWO SEPARATE DECISIONS, AND THE STORE'S ONE OUTRANKS THE VISITOR'S.
+     *
+     *  - `settings.journey_mode` is the SHOP's selling mode. Enquire there
+     *    means the shop is not taking money online at all — no card, no
+     *    checkout, every "Buy now" reads "Enquire now" for everybody.
+     *  - the `rs_mode` cookie is the VISITOR's journey, retail or corporate. A
+     *    corporate buyer wants a quote rather than a basket.
+     *
+     * So a visitor choice may only ESCALATE buy → enquire. It can never pull
+     * someone out of a shop-wide enquiry mode, because that is not the
+     * visitor's decision to make.
+     *
+     * THE BUG THIS FIXES. The cookie was consulted first, unconditionally —
+     * and `Home::index()` stamps `rs_mode=buy_now` on every homepage visit. So
+     * every visitor picked up a buy_now cookie on their way in, that cookie
+     * outranked the setting, and the administrator's master switch did
+     * nothing at all. Setting the shop to Enquire changed no page for anyone.
+     */
     public function journeyMode(): string
     {
+        $stored = $this->storedJourneyMode();
+
+        // The shop's own decision. Not negotiable by a cookie or by a page.
+        if ($stored === Rasmein::MODE_ENQUIRE) {
+            return Rasmein::MODE_ENQUIRE;
+        }
+
         if ($this->modeOverride !== null) {
             return $this->modeOverride;
         }
@@ -129,7 +157,30 @@ class SettingsService
             return $chosen;
         }
 
-        return $this->storedJourneyMode();
+        return $stored;
+    }
+
+    /**
+     * Is this visitor on the CORPORATE journey?
+     *
+     * Deliberately independent of the shop's selling mode. "We do not take
+     * payment online" and "this person is buying two hundred hampers for their
+     * staff" are different facts, and reading one from the other is what made
+     * the master switch swap the whole catalogue to corporate audience and
+     * light up the Corporate tab for every visitor.
+     *
+     * Used for the header switcher and for `products.audience` filtering —
+     * anything answering "which catalogue and which journey", never "may this
+     * person pay".
+     */
+    public function isCorporate(): bool
+    {
+        if ($this->modeOverride !== null) {
+            return $this->modeOverride === Rasmein::MODE_ENQUIRE;
+        }
+
+        return (string) (service('request')->getCookie(Rasmein::MODE_COOKIE) ?? '')
+            === Rasmein::MODE_ENQUIRE;
     }
 
     /**
@@ -201,7 +252,31 @@ class SettingsService
             return;
         }
 
-        if ($this->journeyMode() === $mode) {
+        /*
+         * Compare against the VISITOR'S OWN CHOICE, never journeyMode().
+         *
+         * This method records which journey the visitor is on — it is the
+         * corporate switch, not the shop's selling mode. journeyMode() folds
+         * the shop's setting in, and once a shop is in enquiry mode that makes
+         * the resolved journey permanently 'enquire_now' for everyone. The
+         * guard then matched on arrival at /corporate, returned early, and no
+         * cookie was ever written: the page did not turn corporate mode on,
+         * the header still read "Personalised", and there was nothing to carry
+         * to the next page.
+         *
+         * Reported from the field on a shop whose master switch was set to
+         * Enquire — which is exactly the configuration that triggers it, and
+         * the reason it did not show up on a default install.
+         *
+         * null means the visitor has expressed no preference yet, which is
+         * never equal to a mode, so the first page to state one always writes.
+         */
+        $chosen = (string) (service('request')->getCookie(Rasmein::MODE_COOKIE) ?? '');
+
+        $current = $this->modeOverride
+            ?? (in_array($chosen, [Rasmein::MODE_BUY, Rasmein::MODE_ENQUIRE], true) ? $chosen : null);
+
+        if ($current === $mode) {
             return;
         }
 

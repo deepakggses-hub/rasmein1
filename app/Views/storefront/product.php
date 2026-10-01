@@ -153,7 +153,7 @@ $gallery = $images !== [] ? $images : [['path' => null, 'alt_text' => $product->
             ]));
             ?>
             <?php if ($eyebrowParts !== []): ?>
-                <p class="font-mono text-[0.625rem] tracking-[0.2em] text-brass uppercase">
+                <p class="font-mono text-xs tracking-[0.2em] rs-gold uppercase">
                     <?php if ($category !== null): ?>
                         <a href="<?= $category->url() ?>" class="hover:text-mulberry"><?= esc($category->name) ?></a>
                     <?php endif; ?>
@@ -185,7 +185,7 @@ $gallery = $images !== [] ? $images : [['path' => null, 'alt_text' => $product->
                 <?php if ($product->unit_label !== null && $product->unit_label !== ''): ?>
                     <span class="rs-badge rs-badge--soft"><?= esc($product->unit_label) ?></span>
                 <?php endif; ?>
-                <span class="num font-mono text-[0.625rem] tracking-[0.14em] text-ink-muted uppercase">
+                <span class="num font-mono text-xs tracking-[0.14em] text-ink-muted uppercase">
                     SKU <span data-variant-sku><?= esc($chosen['sku'] ?? $product->sku) ?></span>
                 </span>
             </div>
@@ -204,7 +204,7 @@ $gallery = $images !== [] ? $images : [['path' => null, 'alt_text' => $product->
             <?php if ($product->rating_average !== null): ?>
                 <?php $stars = (int) round((float) $product->rating_average); ?>
                 <p class="mt-3 flex items-center gap-2.5 text-sm">
-                    <span class="flex gap-0.5 text-brass" aria-hidden="true">
+                    <span class="flex gap-0.5 rs-gold" aria-hidden="true">
                         <?php for ($i = 1; $i <= 5; $i++): ?>
                             <span class="<?= $i <= $stars ? '' : 'opacity-30' ?>"><?= rs_icon('star', 'rs-star') ?></span>
                         <?php endfor; ?>
@@ -340,8 +340,11 @@ $gallery = $images !== [] ? $images : [['path' => null, 'alt_text' => $product->
 
                     <?php /* data-cart makes this an in-place add, like the cards. Without
                              JavaScript it still posts normally. */ ?>
-                    <?php if (rs_is_enquire_mode($product->sale_mode ?? 'inherit')): ?>
-                        <?php /* Corporate mode: quote, not checkout. */ ?>
+                    <?php if (service('settings')->isCorporate()): ?>
+                        <?php /* CORPORATE journey: a quote, not a checkout.
+                                 Not the same test as "the shop takes no online
+                                 payment" — a retail visitor to such a shop wants
+                                 the ordinary enquiry list below, not this modal. */ ?>
                         <button type="button" class="rs-btn rs-btn--primary w-full"
                                 data-cta-anchor
                                 data-bulk-enquiry
@@ -359,7 +362,7 @@ $gallery = $images !== [] ? $images : [['path' => null, 'alt_text' => $product->
                         <input type="hidden" name="return_to" value="cart">
 
                         <div class="flex flex-wrap items-center gap-4">
-                            <span class="font-mono text-[0.625rem] tracking-[0.16em] text-ink-muted uppercase">Quantity</span>
+                            <span class="font-mono text-xs tracking-[0.16em] text-ink-muted uppercase">Quantity</span>
                             <span class="rs-stepper" data-stepper>
                                 <button type="button" data-step="-1" aria-label="One fewer">
                                     <?= rs_icon('close', 'h-3 w-3') ?>
@@ -372,13 +375,20 @@ $gallery = $images !== [] ? $images : [['path' => null, 'alt_text' => $product->
                             </span>
                         </div>
 
-                        <div class="grid gap-3 sm:grid-cols-2" data-cta-anchor>
+                        <?php /* "Buy now" skips the basket and goes to
+                                 checkout, so it must not appear when this piece
+                                 cannot be bought — either because the shop is
+                                 in enquiry mode or because the product itself
+                                 is pinned to it. One button then, full width. */ ?>
+                        <div class="grid gap-3<?= $isEnquireItem ? '' : ' sm:grid-cols-2' ?>" data-cta-anchor>
                             <button type="submit" class="rs-btn rs-btn--primary w-full">
                                 <?= esc($product->ctaLabel('add')) ?>
                             </button>
-                            <button type="submit" name="checkout" value="1" class="rs-btn rs-btn--gold w-full">
-                                Buy now
-                            </button>
+                            <?php if (! $isEnquireItem): ?>
+                                <button type="submit" name="checkout" value="1" class="rs-btn rs-btn--gold w-full">
+                                    Buy now
+                                </button>
+                            <?php endif; ?>
                         </div>
                     </form>
                     <?php endif; ?>
@@ -428,7 +438,7 @@ $gallery = $images !== [] ? $images : [['path' => null, 'alt_text' => $product->
                     ['orders',  'Ships within 3 days'],
                 ] as [$icon, $label]): ?>
                     <li class="flex flex-col items-center gap-2">
-                        <span class="text-brass"><?= rs_icon($icon, 'h-5 w-5') ?></span>
+                        <span class="rs-gold"><?= rs_icon($icon, 'h-5 w-5') ?></span>
                         <span class="text-xs leading-snug text-ink-soft"><?= esc($label) ?></span>
                     </li>
                 <?php endforeach; ?>
@@ -573,7 +583,7 @@ $gallery = $images !== [] ? $images : [['path' => null, 'alt_text' => $product->
         <div class="rs-stickycta__actions">
             <?php if (! $product->inStock()): ?>
                 <span class="rs-btn rs-btn--outline" aria-disabled="true">Sold out</span>
-            <?php elseif (rs_is_enquire_mode($product->sale_mode ?? 'inherit')): ?>
+            <?php elseif (service('settings')->isCorporate()): ?>
                 <button type="button" class="rs-btn rs-btn--primary"
                         data-bulk-enquiry
                         data-product-id="<?= (int) $product->id ?>"
@@ -584,10 +594,15 @@ $gallery = $images !== [] ? $images : [['path' => null, 'alt_text' => $product->
                 <button type="submit" form="rs-add" class="rs-btn rs-btn--primary">
                     <?= esc($product->ctaLabel('add')) ?>
                 </button>
-                <button type="submit" form="rs-add" name="checkout" value="1"
-                        class="rs-btn rs-btn--gold rs-stickycta__buy">
-                    Buy now
-                </button>
+                <?php /* Mirrors the column exactly: no "Buy now" for something
+                         that cannot be bought. The bar must never offer an
+                         action the page itself does not. */ ?>
+                <?php if (! $isEnquireItem): ?>
+                    <button type="submit" form="rs-add" name="checkout" value="1"
+                            class="rs-btn rs-btn--gold rs-stickycta__buy">
+                        Buy now
+                    </button>
+                <?php endif; ?>
             <?php endif; ?>
         </div>
     </div>
@@ -596,12 +611,51 @@ $gallery = $images !== [] ? $images : [['path' => null, 'alt_text' => $product->
 <?php if ($related !== []): ?>
     <section class="border-t border-shell-line bg-shell-deep py-14 lg:py-18">
         <div class="rs-shell">
-            <p class="rs-eyebrow">Goes well with</p>
-            <h2 class="mt-4 text-2xl sm:text-3xl">Others often sent alongside this.</h2>
+            <div class="flex flex-wrap items-end justify-between gap-x-8 gap-y-4">
+                <div>
+                    <p class="rs-eyebrow">Goes well with</p>
+                    <h2 class="mt-4 text-2xl sm:text-3xl">Others often sent alongside this.</h2>
+                </div>
 
-            <div class="mt-10 rs-grid">
+                <?php /* Hidden until the script arms them: arrows that do
+                         nothing are worse than no arrows. */ ?>
+                <div class="rs-railnav" data-rail-nav hidden>
+                    <button type="button" class="rs-railnav__btn" data-rail-prev aria-label="Previous products">
+                        <?= rs_icon('arrow-left', 'h-4 w-4') ?>
+                    </button>
+                    <button type="button" class="rs-railnav__btn" data-rail-next aria-label="More products">
+                        <?= rs_icon('arrow-right', 'h-4 w-4') ?>
+                    </button>
+                </div>
+            </div>
+
+            <?php /* A scroller, not a grid: twelve cards cost the same vertical
+                     space as four, and this row is the page's only route to the
+                     rest of the catalogue. Same component as the homepage
+                     best-sellers row, structure copied rather than just the
+                     class name. */ ?>
+            <div class="rs-rail rs-rail--cards mt-10" data-rail>
                 <?php foreach ($related as $item): ?>
-                    <?= view('partials/product_card', ['product' => $item]) ?>
+                    <?php
+                    /*
+                     * PASS `images` EXPLICITLY — even when it is empty.
+                     *
+                     * CodeIgniter's view() merges the PARENT's data into a
+                     * partial, and this page has an `$images` of its own: the
+                     * gallery of the product being viewed. So every related
+                     * card inherited it and drew the current product's
+                     * photographs under someone else's name. Reported from the
+                     * field, and the same shared-data trap that once made 23
+                     * of 25 icons render at the wrong size.
+                     *
+                     * Naming the key here shadows the parent's whatever
+                     * happens, and gives each card its own batched set.
+                     */
+                    ?>
+                    <div><?= view('partials/product_card', [
+                        'product' => $item,
+                        'images'  => ($relatedImages ?? [])[$item->id] ?? [],
+                    ]) ?></div>
                 <?php endforeach; ?>
             </div>
         </div>

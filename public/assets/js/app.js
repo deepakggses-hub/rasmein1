@@ -652,6 +652,28 @@
         if (String(v) !== '') qs.append(k, v);
       });
 
+      /*
+       * A range spanning its whole extent is not a filter, so its parameters
+       * come off the URL entirely rather than being sent as the endpoints.
+       *
+       * Without this, clearing the price left ?min_price=1400&max_price=11400
+       * in the address bar — the results were right, but the chip stayed, the
+       * reset icon stayed, and the link someone copied still looked filtered.
+       * It also matters for a plain drag back to full width, which is the
+       * other way people undo a price filter.
+       */
+      filters.querySelectorAll('[data-range]').forEach(function (range) {
+        var lo = range.querySelector('[data-range-from]');
+        var hi = range.querySelector('[data-range-to]');
+
+        if (!lo || !hi) return;
+
+        if (Number(lo.value) <= Number(lo.min) && Number(hi.value) >= Number(hi.max)) {
+          qs.delete(lo.name);
+          qs.delete(hi.name);
+        }
+      });
+
       var url = window.location.pathname + (qs.toString() ? '?' + qs.toString() : '');
       var grid = document.querySelector('[data-results]');
 
@@ -694,6 +716,22 @@
             if (here) here.textContent = next.textContent;
           });
 
+          /*
+           * Refresh each facet's HEADING only — the label, the applied dot and
+           * the reset link. The sidebar itself is deliberately never swapped,
+           * because that would collapse every accordion; but leaving the
+           * heading alone left a reset icon and a dot on a facet that was no
+           * longer filtering, which is a control that looks armed and does
+           * nothing.
+           */
+          doc.querySelectorAll('.rs-facet[data-facet-key]').forEach(function (nextFacet) {
+            var key = nextFacet.getAttribute('data-facet-key');
+            var here = filters.querySelector('.rs-facet[data-facet-key="' + key + '"] > .rs-facet__head');
+            var next = nextFacet.querySelector('.rs-facet__head');
+
+            if (here && next) here.innerHTML = next.innerHTML;
+          });
+
           window.history.pushState({}, '', url);
         })
         .catch(function (e) {
@@ -712,6 +750,42 @@
       // rather than three — and so a slider drag does not fire per pixel.
       window.clearTimeout(pending);
       pending = window.setTimeout(apply, 350);
+    });
+
+    /*
+     * Clear one facet.
+     *
+     * The link is a real URL and works on its own with the script blocked.
+     * With the script running we clear that facet's controls and go through
+     * apply() instead, so resetting behaves like every other filter change:
+     * in place, keeping the scroll position and the open accordions. A full
+     * navigation here would throw away exactly what apply() exists to keep.
+     *
+     * preventDefault also stops the <summary> toggling, so the facet does not
+     * snap shut under the cursor that just clicked inside it.
+     */
+    filters.addEventListener('click', function (e) {
+      var reset = e.target.closest ? e.target.closest('[data-facet-reset]') : null;
+      if (!reset) return;
+
+      var facet = reset.closest('.rs-facet');
+      if (!facet) return;
+
+      e.preventDefault();
+
+      facet.querySelectorAll('input[type="checkbox"]').forEach(function (box) {
+        box.checked = false;
+      });
+
+      facet.querySelectorAll('input[type="range"]').forEach(function (slider) {
+        // Back to the end it belongs to, so the span reopens to its full width.
+        slider.value = slider.hasAttribute('data-range-from') ? slider.min : slider.max;
+        // The slider's own handler repaints the fill and the readout.
+        slider.dispatchEvent(new Event('input', { bubbles: true }));
+      });
+
+      window.clearTimeout(pending);
+      apply();
     });
 
     // The back button must undo a filter, not leave the page stale.
@@ -757,6 +831,16 @@
       fill.style.width = (b - a) + '%';
       lo.textContent = money(from.value);
       hi.textContent = money(to.value);
+
+      /*
+       * The two inputs overlap, so the one later in the DOM wins every click.
+       * Once the lower handle is dragged to the top end it sits underneath the
+       * upper one and can never be grabbed again — a dead end with no way back
+       * except reloading. Lifting it above once it reaches the last tenth
+       * costs nothing anywhere else, because down there the handles are far
+       * apart and never contend for the same pixels.
+       */
+      from.style.zIndex = a > 90 ? '3' : '';
     }
 
     [from, to].forEach(function (el) { el.addEventListener('input', paint); });
@@ -768,17 +852,69 @@
   var openBtn = document.querySelector('[data-sidebar-open]');
   var closeBtn = document.querySelector('[data-sidebar-close]');
 
+  var scrim = document.querySelector('[data-sidebar-scrim]');
+
   if (sidebar && openBtn) {
     function sheet(open) {
       sidebar.classList.toggle('is-open', open);
       document.body.style.overflow = open ? 'hidden' : '';
       openBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+
+      if (scrim) {
+        if (open) {
+          // Unhide BEFORE the class, or the transition has nothing to run
+          // from and the scrim appears at full opacity in one frame.
+          scrim.hidden = false;
+          window.requestAnimationFrame(function () { scrim.classList.add('is-open'); });
+        } else {
+          scrim.classList.remove('is-open');
+          // Hidden only once it has faded, so it stops intercepting taps
+          // without the page flashing back.
+          window.setTimeout(function () {
+            if (!sidebar.classList.contains('is-open')) scrim.hidden = true;
+          }, 240);
+        }
+      }
+
+      /*
+       * Move focus into the sheet, and give it back on the way out. Without
+       * this the keyboard stays on the Filter button behind an open sheet —
+       * tabbing then walks the page underneath, which is invisible to a
+       * sighted user and completely lost to a screen reader.
+       */
+      if (open) {
+        (closeBtn || sidebar).focus({ preventScroll: true });
+      } else if (document.activeElement && sidebar.contains(document.activeElement)) {
+        openBtn.focus({ preventScroll: true });
+      }
     }
+
+    /*
+     * Arms the sheet. Until this lands the column is an ordinary block in the
+     * flow, so a phone with the script blocked still gets its filters instead
+     * of a panel parked off the left edge that nothing can open.
+     */
+    document.documentElement.classList.add('rs-sheet-ready');
+
+    sidebar.setAttribute('tabindex', '-1');
 
     openBtn.addEventListener('click', function () { sheet(true); });
     if (closeBtn) closeBtn.addEventListener('click', function () { sheet(false); });
+    if (scrim) scrim.addEventListener('click', function () { sheet(false); });
+
     document.addEventListener('keydown', function (e) {
-      if (e.key === 'Escape') sheet(false);
+      // Only when it is actually open: Escape belongs to whatever else is on
+      // screen the rest of the time.
+      if (e.key === 'Escape' && sidebar.classList.contains('is-open')) sheet(false);
+    });
+
+    /*
+     * A sheet left open while the viewport grows past the breakpoint becomes a
+     * plain column again, but the body scroll lock and the scrim would both
+     * survive — a page that cannot be scrolled with nothing visible holding it.
+     */
+    window.matchMedia('(min-width: 1024px)').addEventListener('change', function (e) {
+      if (e.matches && sidebar.classList.contains('is-open')) sheet(false);
     });
   }
 })();
@@ -919,6 +1055,110 @@
         // stop pretending the button does something.
         if (links) links.hidden = false;
         button.hidden = true;
+      });
+    });
+  });
+
+  /**
+   * "You already have an account" — debounced, on the registration form.
+   *
+   * An ENHANCEMENT, never a gate. The form submits unchanged without it, and
+   * the server still accepts a taken address (it sends a login code and signs
+   * the real owner in), so a failed or throttled check must leave the person
+   * able to register. Every failure path here is therefore silent.
+   *
+   * 500ms after typing stops, not on every keystroke: a check per character
+   * would be a dozen requests for one address and would make the endpoint far
+   * more useful to someone enumerating than to someone signing up.
+   */
+  document.querySelectorAll('[data-checkdupes]').forEach(function (form) {
+    /*
+     * A ROOT-RELATIVE path, never site_url(). An absolute URL built from a
+     * baseURL that does not match the host the browser is on is treated as
+     * cross-origin, credentials are withheld, and the request arrives with no
+     * session and no CSRF token — which surfaces as a bewildering 403.
+     */
+    var url = form.getAttribute('data-check-url') || '/account/exists';
+    var fields = form.querySelectorAll('[data-check]');
+
+    if (!fields.length || typeof window.fetch !== 'function') return;
+
+    function token() {
+      var el = document.querySelector('input[name^="csrf"]');
+      return el ? { name: el.name, value: el.value } : null;
+    }
+
+    // CI4 rotates the token on every validated POST, so a debounced check
+    // spends one each time. Write the fresh one back into EVERY form on the
+    // page, or the next submit anywhere is rejected as a forgery.
+    function refresh(hash) {
+      if (!hash) return;
+      document.querySelectorAll('input[name^="csrf"]').forEach(function (i) { i.value = hash; });
+    }
+
+    fields.forEach(function (input) {
+      var note = document.getElementById(input.getAttribute('aria-describedby'));
+      var timer = null;
+      var controller = null;
+      var last = '';
+
+      function clear() {
+        if (note) { note.textContent = ''; note.classList.remove('is-taken'); }
+        input.removeAttribute('aria-invalid');
+      }
+
+      input.addEventListener('input', function () {
+        window.clearTimeout(timer);
+        clear();
+
+        var value = input.value.trim();
+        if (value === '') return;
+
+        timer = window.setTimeout(function () {
+          if (value === last) return;
+          last = value;
+
+          var t = token();
+          if (!t) return;
+
+          var body = new FormData();
+          body.set('field', input.getAttribute('data-check'));
+          body.set('value', value);
+          body.set(t.name, t.value);
+
+          // Supersede a slower earlier answer, or a stale reply can overwrite
+          // the current one — the same rule the listing filters follow.
+          if (controller) controller.abort();
+          controller = new AbortController();
+
+          fetch(url, {
+            method: 'POST',
+            body: body,
+            credentials: 'same-origin',
+            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+            signal: controller.signal
+          })
+            .then(function (r) { return r.ok ? r.json() : null; })
+            .then(function (data) {
+              if (!data) return;
+              refresh(data.csrf);
+
+              // Anything but a definite yes leaves the field silent: an
+              // unreachable or throttled check must not look like an answer.
+              if (data.status !== 'ok' || !data.exists) { clear(); return; }
+              if (input.value.trim() !== value) return;
+
+              if (note) {
+                note.textContent = input.getAttribute('data-check') === 'email'
+                  ? 'An account already uses this email. Sign in instead — we will send a code.'
+                  : 'An account already uses this number. Sign in instead — we will send a code.';
+                note.classList.add('is-taken');
+              }
+
+              input.setAttribute('aria-invalid', 'true');
+            })
+            .catch(function () { /* aborted or offline: say nothing. */ });
+        }, 500);
       });
     });
   });
@@ -2355,5 +2595,163 @@
       chips.forEach(function (c) { c.classList.toggle('is-on', c === chip); });
       apply();
     });
+  });
+})();
+
+/**
+ * The brochure lead form, as a modal.
+ *
+ * PROGRESSIVE, LIKE EVERYTHING ELSE HERE. The CTA is a real link to
+ * /brochure/{id}, which serves the same form as a full page. This only
+ * intercepts it when the script is running AND the server said a form is
+ * needed — a signed-in customer's link carries no data-brochure at all and is
+ * left alone, so their click goes straight to the download.
+ *
+ * The submit does NOT fetch the file. A fetch cannot hand somebody a
+ * download; it posts the details, gets back WHERE the file is, and navigates
+ * there. A response marked `attachment` downloads without leaving the page,
+ * so the modal can close on a thank-you and the reader stays put.
+ */
+(function () {
+  'use strict';
+
+  var modal = document.querySelector('[data-brochure-modal]');
+  if (!modal) return;
+
+  var form = modal.querySelector('[data-brochure-form]');
+  var title = modal.querySelector('[data-brochure-modal-title]');
+  var summary = modal.querySelector('[data-brochure-error]');
+  var submit = modal.querySelector('[data-brochure-submit]');
+  var lastFocus = null;
+  var busy = false;
+
+  function clearErrors() {
+    modal.querySelectorAll('[data-err]').forEach(function (el) {
+      el.textContent = '';
+      el.hidden = true;
+    });
+    summary.textContent = '';
+    summary.hidden = true;
+  }
+
+  function open(link) {
+    lastFocus = link;
+    clearErrors();
+    form.reset();
+
+    var id = link.getAttribute('data-brochure');
+    form.setAttribute('action', '/brochure/' + id + '/submit.json');
+    title.textContent = link.getAttribute('data-brochure-title') || 'Download the brochure';
+
+    form.querySelector('[data-brochure-source]').value = link.getAttribute('data-brochure-source') || '';
+    form.querySelector('[data-brochure-source-id]').value = link.getAttribute('data-brochure-source-id') || '0';
+    form.querySelector('[data-brochure-source-url]').value = window.location.href;
+
+    modal.hidden = false;
+    document.body.style.overflow = 'hidden';
+
+    var first = form.querySelector('input[name="name"]');
+    if (first) first.focus();
+  }
+
+  function close() {
+    if (modal.hidden) return;
+    modal.hidden = true;
+    document.body.style.overflow = '';
+    if (lastFocus) lastFocus.focus();
+  }
+
+  // Only links the SERVER marked as needing a form are intercepted.
+  document.addEventListener('click', function (e) {
+    var link = e.target.closest ? e.target.closest('a[data-brochure]') : null;
+    if (!link) return;
+
+    e.preventDefault();
+    open(link);
+  });
+
+  modal.addEventListener('click', function (e) {
+    // The backdrop closes it; the card does not.
+    if (e.target === modal || (e.target.closest && e.target.closest('[data-modal-close]'))) close();
+  });
+
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && !modal.hidden) close();
+  });
+
+  form.addEventListener('submit', function (e) {
+    e.preventDefault();
+    if (busy) return;
+
+    clearErrors();
+    busy = true;
+    submit.disabled = true;
+    var wording = submit.textContent;
+    submit.textContent = 'One moment…';
+
+    fetch(form.getAttribute('action'), {
+      method: 'POST',
+      body: new FormData(form),
+      headers: { 'X-Requested-With': 'XMLHttpRequest' },
+      credentials: 'same-origin'
+    })
+      .then(function (r) { return r.json().then(function (d) { return { status: r.status, data: d }; }); })
+      .then(function (res) {
+        var data = res.data || {};
+
+        /*
+         * Write the rotated token back into EVERY csrf input on the page.
+         * security.regenerate spends one per validated POST, so a second
+         * attempt in this modal — or any other form still open behind it —
+         * would otherwise be rejected as a forgery.
+         */
+        if (data.csrf) {
+          document.querySelectorAll('input[name^="csrf"]').forEach(function (input) {
+            input.value = data.csrf;
+          });
+        }
+
+        if (data.ok && data.download) {
+          close();
+          // An `attachment` response downloads without navigating away.
+          window.location.href = data.download;
+
+          return;
+        }
+
+        if (data.errors) {
+          Object.keys(data.errors).forEach(function (field) {
+            var slot = modal.querySelector('[data-err="' + field + '"]');
+            if (!slot) return;
+            slot.textContent = data.errors[field];
+            slot.hidden = false;
+          });
+
+          var firstBad = form.querySelector('[data-err]:not([hidden])');
+          if (firstBad) {
+            var input = firstBad.parentElement.querySelector('input, textarea');
+            if (input) input.focus();
+          }
+
+          return;
+        }
+
+        summary.textContent = data.message || 'That did not go through. Please try again.';
+        summary.hidden = false;
+      })
+      .catch(function () {
+        /*
+         * The network failed, or the reply was not JSON. Fall back to the real
+         * page rather than leaving somebody stuck in a dialogue that will not
+         * submit — the same escape the wishlist heart takes.
+         */
+        var id = (form.getAttribute('action') || '').split('/')[2];
+        window.location.href = '/brochure/' + id;
+      })
+      .finally(function () {
+        busy = false;
+        submit.disabled = false;
+        submit.textContent = wording;
+      });
   });
 })();

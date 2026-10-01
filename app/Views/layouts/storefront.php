@@ -107,6 +107,11 @@
 
 <?= $this->include('partials/auth_modal') ?>
 
+<?php /* One brochure dialogue per page, whatever the page is offering. It is
+         inert until a CTA is clicked, and `include()` is correct here because
+         the partial reads nothing from the parent. */ ?>
+<?= $this->include('partials/brochure_modal') ?>
+
 <?php /* Before app.js, and BOTH deferred — deferred scripts run in document
          order, so Swal is defined by the time the flash block looks for it. */ ?>
 <script src="<?= rs_asset('assets/vendor/sweetalert2/sweetalert2.min.js') ?>" defer></script>

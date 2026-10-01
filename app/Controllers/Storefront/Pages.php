@@ -44,6 +44,10 @@ class Pages extends StorefrontController
         return $this->page($template['view'], [
             'page' => $page,
             'data' => is_array($decoded) ? $decoded : [],
+            // This page's brochure, or the shop's default.
+            'brochure'         => service('brochures')->forPage('page', (int) $page['id']),
+            'brochureSource'   => 'page',
+            'brochureSourceId' => (int) $page['id'],
         ], [
             'title'       => ($page['meta_title'] ?: $page['title']) . ' · ' . $this->brand->brandName,
             'description' => $page['meta_description'] ?: rs_excerpt($page['content'], 155),
@@ -133,8 +137,12 @@ class Pages extends StorefrontController
             'imageMap'    => model(\App\Models\ProductModel::class)->imagesFor($ids),
             // For the tile fallback when none are configured.
             'tiles'       => $tiles,
+            /*
+             * No 'Home' crumb here: partials/breadcrumbs renders one itself,
+             * always, and every other caller relies on that. Passing a second
+             * produced "Home / Home / Collections".
+             */
             'crumbs'      => [
-                ['label' => 'Home', 'url' => site_url()],
                 ['label' => $page['title'], 'url' => null],
             ],
         ], [

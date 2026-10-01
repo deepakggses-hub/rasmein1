@@ -38,6 +38,14 @@ $split = static function (string $text): array {
 $safe = static fn (string $p): ?string => str_starts_with($p, '/') ? site_url(ltrim($p, '/')) : null;
 ?>
 
+<?php /* Breadcrumbs first, and inside the container.
+         They were BELOW the hero and outside .rs-shell, so they sat
+         mid-page flush to the viewport edge, aligned with nothing. Every
+         other page opens with them: `<div class="rs-shell pt-8">`. */ ?>
+<div class="rs-shell pt-8">
+    <?= view('partials/breadcrumbs', ['crumbs' => $crumbs ?? []]) ?>
+</div>
+
 <!-- ==================================================================== HERO -->
 <?php [$hHead, $hAccent, $hTail] = $split($g('hero', 'title', 'Our collections.')); ?>
 <section class="rs-collhero">
@@ -78,8 +86,6 @@ $safe = static fn (string $p): ?string => str_starts_with($p, '/') ? site_url(lt
         </div>
     </div>
 </section>
-
-<?= view('partials/breadcrumbs', ['crumbs' => $crumbs ?? []]) ?>
 
 <!-- =================================================================== ETHOS -->
 <?php $paras = $rows('ethos', 'paragraphs'); ?>

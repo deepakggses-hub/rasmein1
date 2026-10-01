@@ -40,7 +40,7 @@ foreach ($state['components'] as $component) {
         <?= view('partials/breadcrumbs', ['crumbs' => $crumbs]) ?>
 
         <!-- Numbered because these four steps genuinely are a sequence. -->
-        <ol class="mt-6 flex flex-wrap gap-x-6 gap-y-2 font-mono text-[0.625rem] tracking-[0.16em] uppercase">
+        <ol class="mt-6 flex flex-wrap gap-x-6 gap-y-2 font-mono text-xs tracking-[0.16em] uppercase">
             <?php
             $steps = ['Choose a box', 'Fill it', 'Personalise', 'Review'];
             $currentStep = $used === 0 ? 2 : ($state['is_complete'] ? 4 : 2);
@@ -49,7 +49,7 @@ foreach ($state['components'] as $component) {
                 $done   = $number < $currentStep || ($number === 1);
                 $active = $number === $currentStep;
             ?>
-                <li class="flex items-center gap-2 <?= $active ? 'text-mulberry' : ($done ? 'text-brass' : 'text-ink-muted') ?>">
+                <li class="flex items-center gap-2 <?= $active ? 'text-mulberry' : ($done ? 'rs-gold' : 'text-ink-muted') ?>">
                     <span class="num"><?= str_pad((string) $number, 2, '0', STR_PAD_LEFT) ?></span>
                     <span><?= esc($label) ?></span>
                 </li>
@@ -158,7 +158,7 @@ foreach ($state['components'] as $component) {
                                     <p class="num mt-1 text-sm text-mulberry font-semibold">
                                         <?= esc($product->formattedPrice()) ?>
                                     </p>
-                                    <p class="num mt-0.5 font-mono text-[0.5625rem] tracking-[0.12em] text-ink-muted uppercase">
+                                    <p class="num mt-0.5 font-mono text-xs tracking-[0.12em] text-ink-muted uppercase">
                                         <?= $slotCost ?> slot<?= $slotCost === 1 ? '' : 's' ?>
                                         <?php if (! $product->inStock()): ?>
                                             &middot; <span class="text-bad">sold out</span>
@@ -215,7 +215,7 @@ foreach ($state['components'] as $component) {
             <div class="border border-shell-line bg-white p-5">
                 <div class="flex items-baseline justify-between gap-3">
                     <h2 class="rs-eyebrow rs-eyebrow--plain">Your box</h2>
-                    <p class="num font-mono text-[0.6875rem] tracking-[0.14em] <?= $used > 0 ? 'text-brass' : 'text-ink-muted' ?>">
+                    <p class="num font-mono text-xs tracking-[0.14em] <?= $used > 0 ? 'rs-gold' : 'text-ink-muted' ?>">
                         <?= $used ?> / <?= $capacity ?>
                     </p>
                 </div>

@@ -31,10 +31,21 @@ class AccountArea extends StorefrontController
     {
         $id = $this->customerId();
 
+        /*
+         * The enquiry's pipeline stage travels with the row.
+         *
+         * An enquiry IS an order row, and its `status` sits at "pending" for
+         * the whole conversation — so the list would show "Pending" beside a
+         * quote that was agreed a week ago. A LEFT JOIN, because most rows are
+         * ordinary purchases with no enquiry to join to.
+         */
         $orders = model(OrderModel::class)
-            ->select('id, uuid, order_ref, journey_mode, status, payment_status, grand_total, placed_at')
-            ->where('customer_id', $id)
-            ->orderBy('id', 'DESC')
+            ->select('orders.id, orders.uuid, orders.order_ref, orders.journey_mode, orders.status,
+                      orders.payment_status, orders.grand_total, orders.placed_at,
+                      e.lead_status, e.quoted_value')
+            ->join('enquiries e', 'e.order_id = orders.id AND e.deleted_at IS NULL', 'left')
+            ->where('orders.customer_id', $id)
+            ->orderBy('orders.id', 'DESC')
             ->findAll(5);
 
         $spend = (float) (db_connect()->table('orders')
@@ -59,9 +70,13 @@ class AccountArea extends StorefrontController
 
     public function orders(): string
     {
+        // Same join as the dashboard: an enquiry's stage, not its order status.
         $model = model(OrderModel::class);
-        $rows  = $model->where('customer_id', $this->customerId())
-            ->orderBy('id', 'DESC')
+        $rows  = $model
+            ->select('orders.*, e.lead_status, e.quoted_value')
+            ->join('enquiries e', 'e.order_id = orders.id AND e.deleted_at IS NULL', 'left')
+            ->where('orders.customer_id', $this->customerId())
+            ->orderBy('orders.id', 'DESC')
             ->paginate(10);
 
         return $this->page('storefront/account/orders', [
@@ -86,19 +101,14 @@ class AccountArea extends StorefrontController
             throw PageNotFoundException::forPageNotFound();
         }
 
-        $items   = model(OrderItemModel::class)->forOrder((int) $order['id']);
-        $itemIds = array_map(static fn (array $i): int => (int) $i['id'], $items);
-        $grouped = [];
+        /*
+         * One presenter, shared with the public tracking page, so both screens
+         * agree on the stage wording and on WHICH total to show — the quote
+         * once an administrator has set one, the indicative basket until then.
+         */
+        $view = service('orderView')->forCustomer($order);
 
-        foreach (model(\App\Models\OrderItemComponentModel::class)->forItems($itemIds) as $component) {
-            $grouped[(int) $component['order_item_id']][] = $component;
-        }
-
-        return $this->page('storefront/account/order', [
-            'order'      => $order,
-            'items'      => $items,
-            'components' => $grouped,
-            'shipment'   => model(\App\Models\ShipmentModel::class)->latestForOrder((int) $order['id']),
+        return $this->page('storefront/account/order', $view + [
             'crumbs'     => [
                 ['label' => 'Your account', 'url' => site_url('account')],
                 ['label' => 'Orders', 'url' => site_url('account/orders')],
@@ -242,30 +252,16 @@ class AccountArea extends StorefrontController
         return redirect()->to(site_url('account'))->with('success', 'Details updated.');
     }
 
-    public function changePassword()
-    {
-        $rules = [
-            'current_password' => ['label' => 'Current password', 'rules' => 'required'],
-            'new_password'     => ['label' => 'New password', 'rules' => 'required|min_length[10]|max_length[200]'],
-            'confirm_password' => ['label' => 'Confirmation', 'rules' => 'required|matches[new_password]'],
-        ];
-
-        if (! $this->validate($rules)) {
-            return redirect()->to(site_url('account'))->with('errors', $this->validator->getErrors());
-        }
-
-        $customers = model(CustomerModel::class);
-        $customer  = $customers->find($this->customerId());
-
-        if ($customer === null || $customer['password_hash'] === null
-            || ! password_verify((string) $this->request->getPost('current_password'), $customer['password_hash'])) {
-            return redirect()->to(site_url('account'))->with('error', 'Your current password is not correct.');
-        }
-
-        $customers->update($customer['id'], [
-            'password_hash' => $customers->hashPassword((string) $this->request->getPost('new_password')),
-        ]);
-
-        return redirect()->to(site_url('account'))->with('success', 'Password updated.');
-    }
+    /*
+     * changePassword() USED TO LIVE HERE AND IS DELETED.
+     *
+     * It had no route, so nothing could reach it — and the account page
+     * carried a form posting to `account/password`, which 404'd. It asked for
+     * a "current password" that a passwordless account has never had.
+     *
+     * Deleted rather than routed, for the same reason the password sign-in
+     * actions were: an unreachable password path sitting beside a passwordless
+     * one invites someone to wire it back up, and that reopens exactly what
+     * one-time codes closed. See "Sign-in: one-time codes, and Google".
+     */
 }

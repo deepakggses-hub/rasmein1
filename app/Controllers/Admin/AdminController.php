@@ -160,6 +160,7 @@ abstract class AdminController extends BaseController
                     ['label' => 'Homepage', 'url' => 'admin/homepage', 'match' => 'admin/homepage', 'icon' => 'store', 'permission' => 'homepage.manage'],
                     ['label' => 'Banners', 'url' => 'admin/banners', 'match' => 'admin/banners', 'icon' => 'banners', 'permission' => 'content.manage'],
                     ['label' => 'Image alt text', 'url' => 'admin/media', 'match' => 'admin/media', 'icon' => 'pages', 'permission' => 'content.manage'],
+                    ['label' => 'Brochures', 'url' => 'admin/brochures', 'match' => 'admin/brochures', 'icon' => 'pages', 'permission' => 'brochures.manage'],
                 ],
             ],
             [

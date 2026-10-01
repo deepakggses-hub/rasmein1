@@ -15,13 +15,13 @@
 
         <?php if (! empty($enquiry['requirement_note'])): ?>
             <section class="border border-shell-line bg-white p-4">
-                <h2 class="font-mono text-[0.625rem] tracking-[0.16em] text-ink-muted uppercase">What they asked for</h2>
+                <h2 class="font-mono text-xs tracking-[0.16em] text-ink-muted uppercase">What they asked for</h2>
                 <p class="mt-2 text-sm leading-relaxed"><?= nl2br(esc($enquiry['requirement_note'])) ?></p>
             </section>
         <?php endif; ?>
 
         <section class="border border-shell-line bg-white">
-            <h2 class="border-b border-shell-line px-4 py-3 font-mono text-[0.625rem] tracking-[0.16em] text-ink-muted uppercase">
+            <h2 class="border-b border-shell-line px-4 py-3 font-mono text-xs tracking-[0.16em] text-ink-muted uppercase">
                 Basket
             </h2>
             <ul class="divide-y divide-shell-line">
@@ -47,15 +47,78 @@
                     </li>
                 <?php endforeach; ?>
             </ul>
-            <p class="num border-t border-shell-line px-4 py-3 text-right text-sm">
-                <span class="text-ink-muted">Indicative</span>
-                <span class="ml-2 font-semibold"><?= rs_money($order['grand_total']) ?></span>
-            </p>
+            <dl class="num ml-auto max-w-xs space-y-1 border-t border-shell-line px-4 py-3 text-sm">
+                <div class="flex justify-between gap-4"><dt class="text-ink-muted">Subtotal</dt><dd><?= rs_money($order['subtotal']) ?></dd></div>
+                <?php if ((float) $order['discount_total'] > 0): ?>
+                    <div class="flex justify-between gap-4 text-pista-deep">
+                        <dt>Discount<?= ! empty($order['coupon_code']) ? ' (' . esc($order['coupon_code']) . ')' : '' ?></dt>
+                        <dd>&minus;<?= rs_money($order['discount_total']) ?></dd>
+                    </div>
+                <?php endif; ?>
+                <?php if ((float) $order['shipping_total'] > 0): ?>
+                    <div class="flex justify-between gap-4"><dt class="text-ink-muted">Delivery</dt><dd><?= rs_money($order['shipping_total']) ?></dd></div>
+                <?php endif; ?>
+                <div class="flex justify-between gap-4 border-t border-shell-line pt-1 font-semibold">
+                    <dt>Indicative</dt><dd><?= rs_money($order['grand_total']) ?></dd>
+                </div>
+                <?php /* What the customer is actually shown once it is set. The
+                         two numbers side by side is the point: it is the only
+                         place a staff member can see the gap. */ ?>
+                <?php if ($enquiry['quoted_value'] !== null && $enquiry['quoted_value'] !== ''): ?>
+                    <div class="flex justify-between gap-4 border-t border-shell-line pt-1 font-semibold text-mulberry">
+                        <dt>Quoted</dt><dd><?= rs_money($enquiry['quoted_value']) ?></dd>
+                    </div>
+                    <p class="pt-1 text-right text-xs text-ink-muted">The customer sees this figure.</p>
+                <?php endif; ?>
+            </dl>
         </section>
+
+        <?php /* ------------------------------------------- everything else --
+                 These were all collected and none of them were drawn: the
+                 address, the note at the bottom of the checkout form, the gift
+                 message, and where the enquiry came from. A field captured and
+                 never shown is worse than one never captured — someone filled
+                 it in and nobody can read it. */ ?>
+        <?php
+        $hasAddress = ! empty($order['ship_line1']);
+        $extras     = array_filter([
+            'Note from the customer' => $order['customer_note'] ?? null,
+            'Gift message'           => $order['gift_message'] ?? null,
+            'Billing GSTIN'          => $order['bill_gstin'] ?? null,
+        ], static fn ($v): bool => $v !== null && trim((string) $v) !== '');
+        ?>
+
+        <?php if ($hasAddress || $extras !== []): ?>
+            <section class="grid gap-4 border border-shell-line bg-white p-4 sm:grid-cols-2">
+                <?php if ($hasAddress): ?>
+                    <div>
+                        <h2 class="font-mono text-xs tracking-[0.16em] text-ink-muted uppercase">Address given</h2>
+                        <address class="mt-2 text-sm leading-relaxed not-italic">
+                            <span class="font-medium"><?= esc($order['ship_name']) ?></span><br>
+                            <?php if (! empty($order['ship_phone'])): ?>
+                                <span class="num text-ink-muted"><?= esc($order['ship_phone']) ?></span><br>
+                            <?php endif; ?>
+                            <?= esc($order['ship_line1']) ?><br>
+                            <?php if (! empty($order['ship_line2'])): ?><?= esc($order['ship_line2']) ?><br><?php endif; ?>
+                            <?php if (! empty($order['ship_landmark'])): ?><?= esc($order['ship_landmark']) ?><br><?php endif; ?>
+                            <?= esc($order['ship_city']) ?>, <?= esc($order['ship_state']) ?>
+                            <span class="num"><?= esc($order['ship_postal_code']) ?></span>
+                        </address>
+                    </div>
+                <?php endif; ?>
+
+                <?php foreach ($extras as $label => $value): ?>
+                    <div>
+                        <h2 class="font-mono text-xs tracking-[0.16em] text-ink-muted uppercase"><?= esc($label) ?></h2>
+                        <p class="mt-2 text-sm leading-relaxed"><?= nl2br(esc((string) $value)) ?></p>
+                    </div>
+                <?php endforeach; ?>
+            </section>
+        <?php endif; ?>
 
         <!-- Follow-up log -->
         <section class="border border-shell-line bg-white">
-            <h2 class="border-b border-shell-line px-4 py-3 font-mono text-[0.625rem] tracking-[0.16em] text-ink-muted uppercase">
+            <h2 class="border-b border-shell-line px-4 py-3 font-mono text-xs tracking-[0.16em] text-ink-muted uppercase">
                 Follow-ups
             </h2>
 
@@ -93,7 +156,7 @@
                                     <span class="rs-badge rs-badge--soft"><?= esc($note['note_type']) ?></span>
                                     <span class="ml-2"><?= esc($note['note']) ?></span>
                                 </span>
-                                <span class="num font-mono text-[0.625rem] text-ink-muted">
+                                <span class="num font-mono text-xs text-ink-muted">
                                     <?= esc($note['author'] ?? 'System') ?> ·
                                     <?= esc(date('j M, H:i', strtotime((string) $note['created_at']))) ?>
                                 </span>
@@ -108,7 +171,7 @@
     <aside class="space-y-5">
         <?php if ($canManage): ?>
             <section class="border border-shell-line bg-white p-4">
-                <h2 class="font-mono text-[0.625rem] tracking-[0.16em] text-ink-muted uppercase">Pipeline</h2>
+                <h2 class="font-mono text-xs tracking-[0.16em] text-ink-muted uppercase">Pipeline</h2>
                 <form method="post" action="<?= site_url('admin/enquiries/' . $enquiry['id']) ?>" class="mt-3">
                     <?= csrf_field() ?>
                     <label class="block">
@@ -154,7 +217,7 @@
         <?php endif; ?>
 
         <section class="border border-shell-line bg-white p-4">
-            <h2 class="font-mono text-[0.625rem] tracking-[0.16em] text-ink-muted uppercase">Contact</h2>
+            <h2 class="font-mono text-xs tracking-[0.16em] text-ink-muted uppercase">Contact</h2>
             <dl class="mt-3 space-y-1.5 text-sm">
                 <div><dt class="sr-only">Name</dt><dd class="font-medium"><?= esc($order['customer_name']) ?></dd></div>
                 <?php if (! empty($enquiry['company'])): ?>
@@ -163,22 +226,74 @@
                 <div><dd><a href="mailto:<?= esc($order['customer_email'], 'attr') ?>" class="rs-link"><?= esc($order['customer_email']) ?></a></dd></div>
                 <div><dd class="num"><?= esc($order['customer_phone']) ?></dd></div>
                 <div class="pt-2">
-                    <dt class="font-mono text-[0.5625rem] tracking-[0.14em] text-ink-muted uppercase">Prefers</dt>
+                    <dt class="font-mono text-xs tracking-[0.14em] text-ink-muted uppercase">Prefers</dt>
                     <dd><?= esc($enquiry['preferred_contact']) ?></dd>
                 </div>
                 <?php if (! empty($enquiry['expected_quantity'])): ?>
                     <div class="pt-2">
-                        <dt class="font-mono text-[0.5625rem] tracking-[0.14em] text-ink-muted uppercase">Quantity wanted</dt>
+                        <dt class="font-mono text-xs tracking-[0.14em] text-ink-muted uppercase">Quantity wanted</dt>
                         <dd class="num font-semibold"><?= (int) $enquiry['expected_quantity'] ?> boxes</dd>
                     </div>
                 <?php endif; ?>
                 <?php if (! empty($enquiry['needed_by'])): ?>
+                    <?php
+                    // Flagged when it has already passed: a date that slid by
+                    // unnoticed is the single most useful thing on this panel.
+                    $due  = strtotime((string) $enquiry['needed_by']);
+                    $past = date('Y-m-d', $due) < date('Y-m-d');
+                    ?>
                     <div class="pt-2">
-                        <dt class="font-mono text-[0.5625rem] tracking-[0.14em] text-ink-muted uppercase">Needed by</dt>
-                        <dd class="num"><?= esc(date('j M Y', strtotime((string) $enquiry['needed_by']))) ?></dd>
+                        <dt class="font-mono text-xs tracking-[0.14em] text-ink-muted uppercase">Needed by</dt>
+                        <dd class="num <?= $past ? 'font-semibold text-bad' : '' ?>">
+                            <?= esc(date('j M Y', $due)) ?><?= $past ? ' — passed' : '' ?>
+                        </dd>
                     </div>
                 <?php endif; ?>
             </dl>
+        </section>
+
+        <?php /* The record itself. Nothing here is editable — it is the part of
+                 an enquiry that simply is what it is, and it was previously
+                 invisible: where the lead came from, what the spam check
+                 thought, and when anything happened. */ ?>
+        <section class="border border-shell-line bg-white p-4">
+            <h2 class="font-mono text-xs tracking-[0.16em] text-ink-muted uppercase">Record</h2>
+            <dl class="mt-3 space-y-2 text-sm">
+                <?php
+                $stamp = static fn (?string $v): string => $v === null || $v === ''
+                    ? '—'
+                    : date('j M Y, H:i', strtotime($v));
+
+                $rows = [
+                    'Reference'  => $enquiry['enquiry_ref'],
+                    'Order ref'  => $order['order_ref'],
+                    'Source'     => $enquiry['source'] ?: 'checkout',
+                    'Received'   => $stamp($order['placed_at'] ?? null),
+                    'Updated'    => $stamp($enquiry['updated_at'] ?? null),
+                    'Closed'     => $stamp($enquiry['closed_at'] ?? null),
+                ];
+
+                if ($enquiry['estimated_value'] !== null && $enquiry['estimated_value'] !== '') {
+                    $rows['Estimated'] = rs_money($enquiry['estimated_value']);
+                }
+
+                // Only worth the line when it actually flagged something.
+                if ((int) ($enquiry['spam_score'] ?? 0) > 0) {
+                    $rows['Spam score'] = (int) $enquiry['spam_score'];
+                }
+                ?>
+                <?php foreach ($rows as $label => $value): ?>
+                    <div class="flex justify-between gap-3">
+                        <dt class="text-ink-muted"><?= esc($label) ?></dt>
+                        <dd class="num text-right"><?= esc((string) $value) ?></dd>
+                    </div>
+                <?php endforeach; ?>
+            </dl>
+
+            <?php /* The order row behind this enquiry — the address, the
+                     payment state and the status history live there. */ ?>
+            <a href="<?= site_url('admin/orders/' . (int) $order['id']) ?>"
+               class="rs-btn rs-btn--outline rs-btn--sm mt-4 w-full">Open the order record</a>
         </section>
     </aside>
 </div>

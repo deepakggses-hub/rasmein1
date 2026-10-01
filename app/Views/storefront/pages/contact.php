@@ -157,7 +157,7 @@ $split = static function (string $text): array {
                     <?= esc($g('band', 'caption')) ?>
                 </p>
                 <?php if ($g('band', 'note') !== ''): ?>
-                    <p class="mt-2 font-mono text-[0.625rem] tracking-[0.22em] text-shell/70 uppercase">
+                    <p class="mt-2 font-mono text-xs tracking-[0.22em] text-shell/70 uppercase">
                         <?= esc($g('band', 'note')) ?>
                     </p>
                 <?php endif; ?>

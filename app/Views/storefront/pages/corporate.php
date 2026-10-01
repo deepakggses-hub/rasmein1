@@ -43,7 +43,7 @@ $marquee = array_values(array_filter(array_map(
                 <span class="rs-marquee__item" <?= $pass === 1 ? 'aria-hidden="true"' : '' ?>>
                     <?php foreach ($marquee as $i => $phrase): ?>
                         <?php if ($i > 0): ?>
-                            <span class="text-brass" aria-hidden="true">&middot;</span>
+                            <span class="rs-gold" aria-hidden="true">&middot;</span>
                         <?php endif; ?>
                         <span><?= esc($phrase) ?></span>
                     <?php endforeach; ?>
